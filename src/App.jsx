@@ -7,6 +7,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { supabase } from "./supabaseClient";
 
 /* ------------------------------------------------------------------ */
 /*  DESIGN TOKENS                                                      */
@@ -169,6 +170,45 @@ const fmtTime = (s) => {
   const pad = (n) => String(n).padStart(2, "0");
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 };
+
+const DEFAULT_USER = {
+  prenom: "Alex", nom: "Martin", age: 29, taille: 178,
+  poidsDepart: 84, poidsActuel: 78.4, poidsObjectif: 74,
+  objectifPrincipal: "Perte de graisse", objectifSecondaire: "Gain de force",
+};
+
+const EMPTY_MEALS = { petitDej: [], dejeuner: [], collation: [], diner: [] };
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const formatDateDisplay = (dateStr) => {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+};
+
+const profilToUser = (p) => ({
+  prenom: p.prenom,
+  nom: p.nom,
+  age: p.age,
+  taille: p.taille,
+  poidsDepart: p.poids_depart,
+  poidsActuel: p.poids_actuel,
+  poidsObjectif: p.poids_objectif,
+  objectifPrincipal: p.objectif_principal,
+  objectifSecondaire: p.objectif_secondaire,
+});
+
+const userToProfilUpdate = (user) => ({
+  prenom: user.prenom,
+  nom: user.nom,
+  age: Number(user.age),
+  taille: Number(user.taille),
+  poids_actuel: Number(user.poidsActuel),
+  poids_objectif: Number(user.poidsObjectif),
+  objectif_principal: user.objectifPrincipal,
+  objectif_secondaire: user.objectifSecondaire,
+});
 
 /* ------------------------------------------------------------------ */
 /*  DATA (démo)                                                        */
@@ -648,7 +688,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   );
 }
 
-function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast }) {
+function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete }) {
   const [running, setRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [logs, setLogs] = useState(() =>
@@ -765,7 +805,11 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       </div>
 
       <button
-        onClick={() => { setRunning(false); setFinished(true); }}
+        onClick={() => {
+          setRunning(false);
+          setFinished(true);
+          onSessionComplete?.({ programme, logs, seconds });
+        }}
         disabled={totalSets === 0}
         style={{
           background: totalSets === 0 ? C.surface : C.text,
@@ -876,7 +920,7 @@ function MealCard({ meal, items, onAdd, onRemove }) {
   );
 }
 
-function Nutrition({ meals, setMeals, objectifs }) {
+function Nutrition({ meals, onAdd, onRemove, objectifs }) {
   const totals = useMemo(() => {
     const all = Object.values(meals).flat();
     return all.reduce(
@@ -884,9 +928,6 @@ function Nutrition({ meals, setMeals, objectifs }) {
       { kcal: 0, prot: 0, gluc: 0, lip: 0 }
     );
   }, [meals]);
-
-  const addFood = (mealKey, item) => setMeals((prev) => ({ ...prev, [mealKey]: [...prev[mealKey], item] }));
-  const removeFood = (mealKey, id) => setMeals((prev) => ({ ...prev, [mealKey]: prev[mealKey].filter((i) => i.id !== id) }));
 
   const macro = (label, val, obj, color) => (
     <div style={{ flex: 1 }}>
@@ -927,7 +968,7 @@ function Nutrition({ meals, setMeals, objectifs }) {
         <SectionLabel icon={Apple}>Repas</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {MEAL_DEFS.map((m) => (
-            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={addFood} onRemove={removeFood} />
+            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} />
           ))}
         </div>
       </div>
@@ -1094,7 +1135,7 @@ const inputStyle = {
   borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14,
 };
 
-function Profil({ user, setUser, fireToast }) {
+function Profil({ user, setUser, fireToast, onSave }) {
   const set = (k) => (e) => setUser({ ...user, [k]: e.target.value });
 
   return (
@@ -1143,7 +1184,7 @@ function Profil({ user, setUser, fireToast }) {
         </div>
       </Card>
 
-      <button onClick={() => fireToast("Profil mis à jour", "green")} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14 }}>
+      <button onClick={onSave} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14 }}>
         Enregistrer les modifications
       </button>
     </div>
@@ -1156,43 +1197,337 @@ function Profil({ user, setUser, fireToast }) {
 export default function App() {
   const [tab, setTab] = useState("entrainement");
   const [toastNode, fireToast] = useToast();
+  const [profilId, setProfilId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState({
-    prenom: "Alex", nom: "Martin", age: 29, taille: 178,
-    poidsDepart: 84, poidsActuel: 78.4, poidsObjectif: 74,
-    objectifPrincipal: "Perte de graisse", objectifSecondaire: "Gain de force",
-  });
-
-  const [stats] = useState({ seancesRealisees: 11, pasJour: 6420, pasMoyenneSemaine: 8150 });
-
+  const [user, setUser] = useState(DEFAULT_USER);
+  const [stats, setStats] = useState({ seancesRealisees: 0, pasJour: 6420, pasMoyenneSemaine: 8150 });
   const [activeProgramme, setActiveProgramme] = useState(null);
-  const [exerciseHistory, setExerciseHistory] = useState({
-    "Développé couché barre": { poids: 62.5, reps: 8, date: "24/06" },
-    "Squat barre basse": { poids: 90, reps: 6, date: "22/06" },
-    "Tractions lestées": { poids: 15, reps: 7, date: "20/06" },
-  });
-
-  const [meals, setMeals] = useState({
-    petitDej: [{ id: 1, nom: "Flocons d'avoine", grams: 80, kcal: 311, prot: 13.5, gluc: 53, lip: 5.5 }],
-    dejeuner: [], collation: [], diner: [],
-  });
+  const [exerciseHistory, setExerciseHistory] = useState({});
+  const [meals, setMeals] = useState(EMPTY_MEALS);
   const objectifsNutrition = { kcal: 2400, prot: 180, gluc: 250, lip: 70 };
-
-  const [weightHistory, setWeightHistory] = useState([
-    { date: "03/06", poids: 80.5 },
-    { date: "10/06", poids: 79.8 },
-    { date: "17/06", poids: 79.1 },
-    { date: "24/06", poids: 78.4 },
-  ]);
-  const addWeightEntry = (w) => {
-    setWeightHistory((h) => [...h, { date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }), poids: w }]);
-    setUser((u) => ({ ...u, poidsActuel: w }));
-    fireToast("Poids enregistré", "green");
-  };
-
+  const [weightHistory, setWeightHistory] = useState([]);
   const [photos, setPhotos] = useState({ face: null, profil: null, dos: null, bicepsAvant: null, bicepsArriere: null });
   const [checkins, setCheckins] = useState([]);
-  const addCheckin = (c) => { setCheckins((prev) => [...prev, c]); fireToast("Bilan de semaine envoyé", "green"); };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      try {
+        let { data: profils, error: profilErr } = await supabase
+          .from("profils")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .limit(1);
+
+        if (profilErr) throw profilErr;
+
+        let profil = profils?.[0];
+        if (!profil) {
+          const { data: created, error: createErr } = await supabase
+            .from("profils")
+            .insert({
+              prenom: DEFAULT_USER.prenom,
+              nom: DEFAULT_USER.nom,
+              age: DEFAULT_USER.age,
+              taille: DEFAULT_USER.taille,
+              poids_depart: DEFAULT_USER.poidsDepart,
+              poids_actuel: DEFAULT_USER.poidsActuel,
+              poids_objectif: DEFAULT_USER.poidsObjectif,
+              objectif_principal: DEFAULT_USER.objectifPrincipal,
+              objectif_secondaire: DEFAULT_USER.objectifSecondaire,
+            })
+            .select("*")
+            .single();
+          if (createErr) throw createErr;
+          profil = created;
+        }
+
+        if (cancelled) return;
+
+        const pid = profil.id;
+        setProfilId(pid);
+        setUser(profilToUser(profil));
+
+        const today = todayIso();
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        const monthStartIso = monthStart.toISOString().slice(0, 10);
+
+        const [poidsRes, seancesRes, repasRes, checkinsRes] = await Promise.all([
+          supabase.from("poids_historique").select("*").eq("profil_id", pid).order("date", { ascending: true }),
+          supabase.from("seances").select("*").eq("profil_id", pid).order("date", { ascending: false }),
+          supabase.from("repas").select("*").eq("profil_id", pid).eq("date", today),
+          supabase.from("bilans_semaine").select("*").eq("profil_id", pid).order("date", { ascending: true }),
+        ]);
+
+        if (cancelled) return;
+
+        if (poidsRes.data) {
+          setWeightHistory(
+            poidsRes.data.map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) }))
+          );
+        }
+
+        if (checkinsRes.data) {
+          setCheckins(
+            checkinsRes.data.map((r) => ({
+              date: r.date,
+              fatigue: r.fatigue,
+              sommeil: r.sommeil,
+              nutrition: r.nutrition,
+              motivation: r.motivation,
+              douleurs: r.douleurs || "",
+              commentaire: r.commentaire || "",
+            }))
+          );
+        }
+
+        if (repasRes.data) {
+          const grouped = { petitDej: [], dejeuner: [], collation: [], diner: [] };
+          for (const r of repasRes.data) {
+            if (grouped[r.type_repas]) {
+              grouped[r.type_repas].push({
+                id: r.id,
+                nom: r.aliment,
+                grams: Number(r.grammes),
+                kcal: Number(r.kcal),
+                prot: Number(r.prot),
+                gluc: Number(r.gluc),
+                lip: Number(r.lip),
+              });
+            }
+          }
+          setMeals(grouped);
+        }
+
+        const seances = seancesRes.data || [];
+        setStats((s) => ({
+          ...s,
+          seancesRealisees: seances.filter((sc) => sc.date >= monthStartIso).length,
+        }));
+
+        if (seances.length > 0) {
+          const seanceIds = seances.map((s) => s.id);
+          const dateBySeance = Object.fromEntries(seances.map((s) => [s.id, s.date]));
+          const { data: seriesData } = await supabase.from("series").select("*").in("seance_id", seanceIds);
+
+          if (cancelled) return;
+
+          if (seriesData) {
+            const history = {};
+            for (const row of seriesData) {
+              const exNom = row.exercice_nom;
+              const seanceDate = dateBySeance[row.seance_id];
+              const existing = history[exNom];
+              if (!existing || seanceDate > existing._seanceDate) {
+                history[exNom] = {
+                  poids: Number(row.poids),
+                  reps: Number(row.reps),
+                  date: formatDateDisplay(seanceDate),
+                  _seanceDate: seanceDate,
+                };
+              }
+            }
+            const clean = {};
+            for (const [k, v] of Object.entries(history)) {
+              clean[k] = { poids: v.poids, reps: v.reps, date: v.date };
+            }
+            setExerciseHistory(clean);
+          }
+        }
+      } catch (err) {
+        console.error("Erreur chargement Supabase:", err);
+        fireToast("Erreur de chargement des données");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadData();
+    return () => { cancelled = true; };
+  }, []);
+
+  const addWeightEntry = async (w) => {
+    if (!profilId) return;
+    const today = todayIso();
+    const displayDate = formatDateDisplay(today);
+    try {
+      const { error: weightErr } = await supabase.from("poids_historique").insert({
+        profil_id: profilId,
+        poids: w,
+        date: today,
+      });
+      if (weightErr) throw weightErr;
+
+      const { error: profilErr } = await supabase
+        .from("profils")
+        .update({ poids_actuel: w })
+        .eq("id", profilId);
+      if (profilErr) throw profilErr;
+
+      setWeightHistory((h) => [...h, { date: displayDate, poids: w }]);
+      setUser((u) => ({ ...u, poidsActuel: w }));
+      fireToast("Poids enregistré", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement poids");
+    }
+  };
+
+  const addCheckin = async (c) => {
+    if (!profilId) return;
+    try {
+      const { error } = await supabase.from("bilans_semaine").insert({
+        profil_id: profilId,
+        fatigue: c.fatigue,
+        sommeil: c.sommeil,
+        nutrition: c.nutrition,
+        motivation: c.motivation,
+        douleurs: c.douleurs,
+        commentaire: c.commentaire,
+        date: c.date,
+      });
+      if (error) throw error;
+      setCheckins((prev) => [...prev, c]);
+      fireToast("Bilan de semaine envoyé", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi bilan");
+    }
+  };
+
+  const addFood = async (mealKey, item) => {
+    if (!profilId) return;
+    try {
+      const { data, error } = await supabase
+        .from("repas")
+        .insert({
+          profil_id: profilId,
+          type_repas: mealKey,
+          aliment: item.nom,
+          grammes: item.grams,
+          kcal: item.kcal,
+          prot: item.prot,
+          gluc: item.gluc,
+          lip: item.lip,
+          date: todayIso(),
+        })
+        .select("*")
+        .single();
+      if (error) throw error;
+      setMeals((prev) => ({
+        ...prev,
+        [mealKey]: [...prev[mealKey], { ...item, id: data.id }],
+      }));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur ajout aliment");
+    }
+  };
+
+  const removeFood = async (mealKey, id) => {
+    try {
+      const { error } = await supabase.from("repas").delete().eq("id", id);
+      if (error) throw error;
+      setMeals((prev) => ({
+        ...prev,
+        [mealKey]: prev[mealKey].filter((i) => i.id !== id),
+      }));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression aliment");
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!profilId) return;
+    try {
+      const { error } = await supabase
+        .from("profils")
+        .update(userToProfilUpdate(user))
+        .eq("id", profilId);
+      if (error) throw error;
+      fireToast("Profil mis à jour", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement profil");
+    }
+  };
+
+  const saveSession = async ({ programme, logs, seconds }) => {
+    if (!profilId) return;
+    try {
+      const { data: seance, error: seanceErr } = await supabase
+        .from("seances")
+        .insert({
+          profil_id: profilId,
+          nom_programme: programme.nom,
+          duree_secondes: seconds,
+          date: todayIso(),
+        })
+        .select("*")
+        .single();
+      if (seanceErr) throw seanceErr;
+
+      const rows = [];
+      for (const ex of programme.exercices) {
+        const log = logs[ex.id];
+        if (!log) continue;
+        for (const set of log.sets) {
+          rows.push({
+            seance_id: seance.id,
+            exercice_nom: ex.nom,
+            poids: set.poids,
+            reps: set.reps,
+            rpe: String(set.rpe),
+            tempo: set.tempo || "",
+            video_url: log.video || null,
+          });
+        }
+      }
+      if (rows.length) {
+        const { error: seriesErr } = await supabase.from("series").insert(rows);
+        if (seriesErr) throw seriesErr;
+      }
+
+      setStats((s) => ({ ...s, seancesRealisees: s.seancesRealisees + 1 }));
+      const displayDate = formatDateDisplay(todayIso());
+      setExerciseHistory((prev) => {
+        const next = { ...prev };
+        for (const ex of programme.exercices) {
+          const log = logs[ex.id];
+          if (log?.sets.length) {
+            const last = log.sets[log.sets.length - 1];
+            next[ex.nom] = { poids: last.poids, reps: last.reps, date: displayDate };
+          }
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi séance");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: C.bg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: C.textMuted,
+          fontFamily: FONT_BODY,
+        }}
+      >
+        Chargement...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1219,9 +1554,10 @@ export default function App() {
             onFinish={() => { setActiveProgramme(null); fireToast("Séance envoyée au coach ✅", "green"); }}
             onCancel={() => setActiveProgramme(null)}
             fireToast={fireToast}
+            onSessionComplete={saveSession}
           />
         )}
-        {tab === "nutrition" && <Nutrition meals={meals} setMeals={setMeals} objectifs={objectifsNutrition} />}
+        {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} />}
         {tab === "bilans" && (
           <Bilans
             weightHistory={weightHistory}
@@ -1232,7 +1568,7 @@ export default function App() {
             addCheckin={addCheckin}
           />
         )}
-        {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} />}
+        {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} onSave={saveProfile} />}
       </div>
 
       {!activeProgramme && <BottomNav active={tab} setActive={setTab} />}
