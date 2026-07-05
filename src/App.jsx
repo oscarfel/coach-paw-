@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dumbbell, Apple, TrendingUp, User, Play, Square, Timer, Video, Upload,
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
-  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2,
+  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -209,6 +209,32 @@ const userToProfilUpdate = (user) => ({
   objectif_principal: user.objectifPrincipal,
   objectif_secondaire: user.objectifSecondaire,
 });
+
+async function fetchProfilByAuthUserId(authUserId) {
+  const { data, error } = await supabase
+    .from("profils")
+    .select("*")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function loadProfilData(pid) {
+  const today = todayIso();
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  const monthStartIso = monthStart.toISOString().slice(0, 10);
+
+  const [poidsRes, seancesRes, repasRes, checkinsRes] = await Promise.all([
+    supabase.from("poids_historique").select("*").eq("profil_id", pid).order("date", { ascending: true }),
+    supabase.from("seances").select("*").eq("profil_id", pid).order("date", { ascending: false }),
+    supabase.from("repas").select("*").eq("profil_id", pid).eq("date", today),
+    supabase.from("bilans_semaine").select("*").eq("profil_id", pid).order("date", { ascending: true }),
+  ]);
+
+  return { poidsRes, seancesRes, repasRes, checkinsRes, monthStartIso };
+}
 
 /* ------------------------------------------------------------------ */
 /*  DATA (démo)                                                        */
@@ -1192,15 +1218,437 @@ function Profil({ user, setUser, fireToast, onSave }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  APP ROOT                                                           */
+/*  AUTH & COACH                                                       */
 /* ------------------------------------------------------------------ */
-export default function App() {
+const appShellStyle = {
+  minHeight: "100vh",
+  width: "100%",
+  background: `radial-gradient(circle at 15% 0%, ${C.bgGradA}, ${C.bg} 55%), ${C.bg}`,
+  fontFamily: FONT_BODY,
+  color: C.text,
+  display: "flex",
+  justifyContent: "center",
+};
+
+const loadingScreenStyle = {
+  minHeight: "100vh",
+  background: C.bg,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: C.textMuted,
+  fontFamily: FONT_BODY,
+};
+
+function LogoutButton({ onLogout }) {
+  return (
+    <button
+      onClick={onLogout}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        background: C.surface,
+        border: `1px solid ${C.cardBorderLight}`,
+        color: C.textMuted,
+        borderRadius: 999,
+        padding: "8px 14px",
+        fontSize: 12,
+        fontWeight: 600,
+      }}
+    >
+      <LogOut size={15} /> Déconnexion
+    </button>
+  );
+}
+
+function LoginScreen({ fireToast }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setSubmitting(false);
+    if (error) fireToast(error.message);
+  };
+
+  return (
+    <div style={appShellStyle}>
+      <FontImports />
+      <div style={{ width: "100%", maxWidth: 440, padding: "48px 16px" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 42, color: C.text, letterSpacing: 0.5, marginBottom: 8 }}>
+          COACH APP
+        </div>
+        <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 28 }}>Connecte-toi pour continuer</div>
+        <Card>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Email</div>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14 }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Mot de passe</div>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14 }}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, opacity: submitting ? 0.6 : 1 }}
+            >
+              {submitting ? "Connexion..." : "Se connecter"}
+            </button>
+          </form>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
+  const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+      });
+      if (signUpErr) throw signUpErr;
+      const authUserId = signUpData.user?.id;
+      if (!authUserId) throw new Error("Compte non créé");
+
+      const { error: profilErr } = await supabase.from("profils").insert({
+        prenom: form.prenom,
+        nom: form.nom,
+        email: form.email,
+        auth_user_id: authUserId,
+        role: "client",
+        coach_id: coachProfilId,
+        age: 25,
+        taille: 170,
+        poids_depart: 80,
+        poids_actuel: 80,
+        poids_objectif: 75,
+        objectif_principal: "Remise en forme",
+        objectif_secondaire: "Santé générale",
+      });
+      if (profilErr) throw profilErr;
+
+      fireToast("Client ajouté avec succès", "green");
+      onCreated();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      fireToast(err.message || "Erreur création client");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <SectionLabel icon={Plus}>Nouveau client</SectionLabel>
+        <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Field label="Prénom"><input style={inputStyle} required value={form.prenom} onChange={set("prenom")} /></Field>
+          <Field label="Nom"><input style={inputStyle} required value={form.nom} onChange={set("nom")} /></Field>
+        </div>
+        <Field label="Email"><input type="email" style={inputStyle} required value={form.email} onChange={set("email")} /></Field>
+        <Field label="Mot de passe"><input type="password" style={inputStyle} required minLength={6} value={form.password} onChange={set("password")} /></Field>
+        <button type="submit" disabled={submitting} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: submitting ? 0.6 : 1 }}>
+          {submitting ? "Création..." : "Créer le client"}
+        </button>
+      </form>
+    </Card>
+  );
+}
+
+function ClientDetailView({ client, onBack, onLogout }) {
+  const [tab, setTab] = useState("programme");
+  const [loading, setLoading] = useState(true);
+  const [seances, setSeances] = useState([]);
+  const [seriesBySeance, setSeriesBySeance] = useState({});
+  const [weightHistory, setWeightHistory] = useState([]);
+  const [checkins, setCheckins] = useState([]);
+  const [repas, setRepas] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      try {
+        const [seancesRes, poidsRes, checkinsRes, repasRes] = await Promise.all([
+          supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(10),
+          supabase.from("poids_historique").select("*").eq("profil_id", client.id).order("date", { ascending: true }),
+          supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
+          supabase.from("repas").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
+        ]);
+        if (!active) return;
+
+        const seancesData = seancesRes.data || [];
+        setSeances(seancesData);
+        setWeightHistory((poidsRes.data || []).map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) })));
+        setCheckins(checkinsRes.data || []);
+        setRepas(repasRes.data || []);
+
+        if (seancesData.length > 0) {
+          const ids = seancesData.map((s) => s.id);
+          const { data: seriesData } = await supabase.from("series").select("*").in("seance_id", ids);
+          if (!active) return;
+          const grouped = {};
+          for (const row of seriesData || []) {
+            if (!grouped[row.seance_id]) grouped[row.seance_id] = [];
+            grouped[row.seance_id].push(row);
+          }
+          setSeriesBySeance(grouped);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, [client.id]);
+
+  const detailTabs = [
+    { key: "programme", label: "Programme", icon: Dumbbell },
+    { key: "bilans", label: "Bilans", icon: TrendingUp },
+    { key: "nutrition", label: "Nutrition", icon: Apple },
+  ];
+
+  return (
+    <div style={appShellStyle}>
+      <FontImports />
+      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <button onClick={onBack} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+            <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+          </button>
+          <LogoutButton onLogout={onLogout} />
+        </div>
+
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 32, color: C.text, letterSpacing: 0.5, marginBottom: 4 }}>
+          {client.prenom} {client.nom}
+        </div>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>{client.objectif_principal}</div>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          {detailTabs.map((t) => {
+            const Icon = t.icon;
+            return (
+              <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Icon size={14} /> {t.label}
+              </PillButton>
+            );
+          })}
+        </div>
+
+        {loading ? (
+          <div style={{ color: C.textMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
+        ) : tab === "programme" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {seances.length === 0 ? (
+              <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucune séance enregistrée</div></Card>
+            ) : seances.map((s) => (
+              <Card key={s.id}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: C.text }}>{s.nom_programme}</div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
+                  {formatDateDisplay(s.date)} · {fmtTime(s.duree_secondes || 0)}
+                </div>
+                {(seriesBySeance[s.id] || []).map((sr, i) => (
+                  <div key={i} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px", marginTop: 4, fontFamily: FONT_MONO }}>
+                    {sr.exercice_nom} — {sr.poids}kg × {sr.reps} <span style={{ color: C.amber }}>RPE{sr.rpe}</span>
+                  </div>
+                ))}
+              </Card>
+            ))}
+          </div>
+        ) : tab === "bilans" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Card>
+              <SectionLabel icon={TrendingUp}>Évolution du poids</SectionLabel>
+              {weightHistory.length > 0 ? (
+                <div style={{ height: 140 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={weightHistory} margin={{ top: 6, right: 6, left: -24, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="coachWgrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={C.blue} stopOpacity={0.5} />
+                          <stop offset="100%" stopColor={C.blue} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke={C.cardBorder} vertical={false} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#5C6577" }} axisLine={false} tickLine={false} />
+                      <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 10, fill: "#5C6577" }} axisLine={false} tickLine={false} width={30} />
+                      <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, fontSize: 12 }} />
+                      <Area type="monotone" dataKey="poids" stroke={C.blue} strokeWidth={2.5} fill="url(#coachWgrad)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune donnée de poids</div>
+              )}
+            </Card>
+            <Card>
+              <SectionLabel icon={ClipboardList}>Bilans de semaine</SectionLabel>
+              {checkins.length === 0 ? (
+                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucun bilan envoyé</div>
+              ) : checkins.map((c, i) => (
+                <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
+                  <span style={{ color: C.text, fontWeight: 700 }}>{c.date}</span> — fatigue {c.fatigue}/5, sommeil {c.sommeil}/5, nutrition {c.nutrition}/5
+                  {c.commentaire && <div style={{ marginTop: 4, color: C.textDim }}>{c.commentaire}</div>}
+                </div>
+              ))}
+            </Card>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {repas.length === 0 ? (
+              <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucun repas enregistré</div></Card>
+            ) : repas.map((r) => (
+              <Card key={r.id} style={{ padding: 12 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.aliment}</div>
+                <div style={{ fontSize: 12, color: C.textMuted }}>
+                  {r.type_repas} · {formatDateDisplay(r.date)} · {r.grammes}g · {r.kcal} kcal
+                </div>
+                <div style={{ fontSize: 11, color: C.textDim, fontFamily: FONT_MONO, marginTop: 4 }}>
+                  P{r.prot} G{r.gluc} L{r.lip}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CoachDashboard({ coachProfil, onLogout, fireToast }) {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
+
+  const loadClients = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("profils")
+        .select("*")
+        .eq("coach_id", coachProfil.id)
+        .eq("role", "client")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setClients(data || []);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur chargement clients");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadClients();
+  }, [coachProfil.id]);
+
+  if (selectedClient) {
+    return (
+      <ClientDetailView
+        client={selectedClient}
+        onBack={() => setSelectedClient(null)}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  return (
+    <div style={appShellStyle}>
+      <FontImports />
+      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Espace coach</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 34, color: C.text, letterSpacing: 0.5 }}>MES CLIENTS</div>
+          </div>
+          <LogoutButton onLogout={onLogout} />
+        </div>
+
+        <button
+          onClick={() => setShowAddForm(true)}
+          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}
+        >
+          <Plus size={18} /> Ajouter un client
+        </button>
+
+        {showAddForm && (
+          <AddClientForm
+            coachProfilId={coachProfil.id}
+            onClose={() => setShowAddForm(false)}
+            onCreated={loadClients}
+            fireToast={fireToast}
+          />
+        )}
+
+        {loading ? (
+          <div style={{ color: C.textMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
+        ) : clients.length === 0 ? (
+          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client pour le moment</div></Card>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {clients.map((c) => (
+              <Card
+                key={c.id}
+                onClick={() => setSelectedClient(c)}
+                style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
+                <div>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSpacing: 0.5 }}>{c.prenom} {c.nom}</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{c.objectif_principal}</div>
+                </div>
+                <ChevronRight size={18} color={C.textMuted} />
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  CLIENT APP                                                         */
+/* ------------------------------------------------------------------ */
+function ClientApp({ profilRow, onLogout, fireToast }) {
   const [tab, setTab] = useState("entrainement");
-  const [toastNode, fireToast] = useToast();
-  const [profilId, setProfilId] = useState(null);
+  const [profilId, setProfilId] = useState(profilRow.id);
   const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState(DEFAULT_USER);
+  const [user, setUser] = useState(() => profilToUser(profilRow));
   const [stats, setStats] = useState({ seancesRealisees: 0, pasJour: 6420, pasMoyenneSemaine: 8150 });
   const [activeProgramme, setActiveProgramme] = useState(null);
   const [exerciseHistory, setExerciseHistory] = useState({});
@@ -1209,60 +1657,23 @@ export default function App() {
   const [weightHistory, setWeightHistory] = useState([]);
   const [photos, setPhotos] = useState({ face: null, profil: null, dos: null, bicepsAvant: null, bicepsArriere: null });
   const [checkins, setCheckins] = useState([]);
+  const profilIdRef = useRef(profilRow.id);
 
   useEffect(() => {
-    let cancelled = false;
+    profilIdRef.current = profilId;
+  }, [profilId]);
+
+  useEffect(() => {
+    let active = true;
 
     async function loadData() {
       try {
-        let { data: profils, error: profilErr } = await supabase
-          .from("profils")
-          .select("*")
-          .order("created_at", { ascending: true })
-          .limit(1);
-
-        if (profilErr) throw profilErr;
-
-        let profil = profils?.[0];
-        if (!profil) {
-          const { data: created, error: createErr } = await supabase
-            .from("profils")
-            .insert({
-              prenom: DEFAULT_USER.prenom,
-              nom: DEFAULT_USER.nom,
-              age: DEFAULT_USER.age,
-              taille: DEFAULT_USER.taille,
-              poids_depart: DEFAULT_USER.poidsDepart,
-              poids_actuel: DEFAULT_USER.poidsActuel,
-              poids_objectif: DEFAULT_USER.poidsObjectif,
-              objectif_principal: DEFAULT_USER.objectifPrincipal,
-              objectif_secondaire: DEFAULT_USER.objectifSecondaire,
-            })
-            .select("*")
-            .single();
-          if (createErr) throw createErr;
-          profil = created;
-        }
-
-        if (cancelled) return;
-
-        const pid = profil.id;
+        const pid = profilRow.id;
         setProfilId(pid);
-        setUser(profilToUser(profil));
+        setUser(profilToUser(profilRow));
 
-        const today = todayIso();
-        const monthStart = new Date();
-        monthStart.setDate(1);
-        const monthStartIso = monthStart.toISOString().slice(0, 10);
-
-        const [poidsRes, seancesRes, repasRes, checkinsRes] = await Promise.all([
-          supabase.from("poids_historique").select("*").eq("profil_id", pid).order("date", { ascending: true }),
-          supabase.from("seances").select("*").eq("profil_id", pid).order("date", { ascending: false }),
-          supabase.from("repas").select("*").eq("profil_id", pid).eq("date", today),
-          supabase.from("bilans_semaine").select("*").eq("profil_id", pid).order("date", { ascending: true }),
-        ]);
-
-        if (cancelled) return;
+        const { poidsRes, seancesRes, repasRes, checkinsRes, monthStartIso } = await loadProfilData(pid);
+        if (!active) return;
 
         if (poidsRes.data) {
           setWeightHistory(
@@ -1313,7 +1724,7 @@ export default function App() {
           const dateBySeance = Object.fromEntries(seances.map((s) => [s.id, s.date]));
           const { data: seriesData } = await supabase.from("series").select("*").in("seance_id", seanceIds);
 
-          if (cancelled) return;
+          if (!active) return;
 
           if (seriesData) {
             const history = {};
@@ -1341,21 +1752,26 @@ export default function App() {
         console.error("Erreur chargement Supabase:", err);
         fireToast("Erreur de chargement des données");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     loadData();
-    return () => { cancelled = true; };
-  }, []);
+    return () => { active = false; };
+  }, [profilRow.id]);
 
   const addWeightEntry = async (w) => {
-    if (!profilId) return;
+    const id = profilId ?? profilIdRef.current;
+    if (!id) {
+      console.warn("addWeightEntry bloqué : profilId non défini");
+      fireToast("Profil non chargé, réessayez");
+      return;
+    }
     const today = todayIso();
     const displayDate = formatDateDisplay(today);
     try {
       const { error: weightErr } = await supabase.from("poids_historique").insert({
-        profil_id: profilId,
+        profil_id: id,
         poids: w,
         date: today,
       });
@@ -1364,7 +1780,7 @@ export default function App() {
       const { error: profilErr } = await supabase
         .from("profils")
         .update({ poids_actuel: w })
-        .eq("id", profilId);
+        .eq("id", id);
       if (profilErr) throw profilErr;
 
       setWeightHistory((h) => [...h, { date: displayDate, poids: w }]);
@@ -1530,19 +1946,12 @@ export default function App() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        background: `radial-gradient(circle at 15% 0%, ${C.bgGradA}, ${C.bg} 55%), ${C.bg}`,
-        fontFamily: FONT_BODY,
-        color: C.text,
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
+    <div style={appShellStyle}>
       <FontImports />
       <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 110px", position: "relative" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <LogoutButton onLogout={onLogout} />
+        </div>
         {tab === "entrainement" && !activeProgramme && (
           <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} />
         )}
@@ -1572,7 +1981,123 @@ export default function App() {
       </div>
 
       {!activeProgramme && <BottomNav active={tab} setActive={setTab} />}
-      {toastNode}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  APP ROOT                                                           */
+/* ------------------------------------------------------------------ */
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [myProfil, setMyProfil] = useState(null);
+  const [profilLoading, setProfilLoading] = useState(false);
+  const [toastNode, fireToast] = useToast();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthChecked(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setAuthChecked(true);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked) return;
+
+    if (!session?.user?.id) {
+      setMyProfil(null);
+      setProfilLoading(false);
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      setProfilLoading(true);
+      try {
+        const profil = await fetchProfilByAuthUserId(session.user.id);
+        if (active) setMyProfil(profil);
+      } catch (err) {
+        console.error(err);
+        fireToast("Erreur chargement profil");
+      } finally {
+        if (active) setProfilLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [authChecked, session?.user?.id]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setMyProfil(null);
+    setSession(null);
+  };
+
+  if (!authChecked) {
+    return (
+      <div style={loadingScreenStyle}>
+        <FontImports />
+        Chargement...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <>
+        <LoginScreen fireToast={fireToast} />
+        {toastNode}
+      </>
+    );
+  }
+
+  if (profilLoading) {
+    return (
+      <div style={loadingScreenStyle}>
+        <FontImports />
+        Chargement...
+      </div>
+    );
+  }
+
+  if (!myProfil) {
+    return (
+      <div style={appShellStyle}>
+        <FontImports />
+        <div style={{ width: "100%", maxWidth: 440, padding: "48px 16px", textAlign: "center" }}>
+          <Card>
+            <div style={{ color: C.text, fontWeight: 700, marginBottom: 8 }}>Profil introuvable</div>
+            <div style={{ color: C.textMuted, fontSize: 13, marginBottom: 16 }}>
+              Aucun profil lié à ce compte. Contacte ton coach ou l'administrateur.
+            </div>
+            <LogoutButton onLogout={handleLogout} />
+          </Card>
+        </div>
+        {toastNode}
+      </div>
+    );
+  }
+
+  if (myProfil.role === "coach") {
+    return (
+      <>
+        <CoachDashboard coachProfil={myProfil} onLogout={handleLogout} fireToast={fireToast} />
+        {toastNode}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <ClientApp profilRow={myProfil} onLogout={handleLogout} fireToast={fireToast} />
+      {toastNode}
+    </>
   );
 }
