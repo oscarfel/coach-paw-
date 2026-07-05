@@ -1262,6 +1262,19 @@ function LogoutButton({ onLogout }) {
   );
 }
 
+function ViewModeToggle({ viewMode, setViewMode }) {
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <PillButton active={viewMode === "coach"} onClick={() => setViewMode("coach")} style={{ flex: 1, textAlign: "center" }}>
+        Vue Coach
+      </PillButton>
+      <PillButton active={viewMode === "client"} onClick={() => setViewMode("client")} style={{ flex: 1, textAlign: "center" }}>
+        Vue Client
+      </PillButton>
+    </div>
+  );
+}
+
 function LoginScreen({ fireToast }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1547,7 +1560,7 @@ function ClientDetailView({ client, onBack, onLogout }) {
   );
 }
 
-function CoachDashboard({ coachProfil, onLogout, fireToast }) {
+function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMode }) {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1598,9 +1611,11 @@ function CoachDashboard({ coachProfil, onLogout, fireToast }) {
           <LogoutButton onLogout={onLogout} />
         </div>
 
+        <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
+
         <button
           onClick={() => setShowAddForm(true)}
-          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}
+          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16, marginTop: 16 }}
         >
           <Plus size={18} /> Ajouter un client
         </button>
@@ -1643,7 +1658,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast }) {
 /* ------------------------------------------------------------------ */
 /*  CLIENT APP                                                         */
 /* ------------------------------------------------------------------ */
-function ClientApp({ profilRow, onLogout, fireToast }) {
+function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const [tab, setTab] = useState("entrainement");
   const [profilId, setProfilId] = useState(profilRow.id);
   const [loading, setLoading] = useState(true);
@@ -1949,8 +1964,11 @@ function ClientApp({ profilRow, onLogout, fireToast }) {
     <div style={appShellStyle}>
       <FontImports />
       <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 110px", position: "relative" }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <LogoutButton onLogout={onLogout} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+          {setViewMode && <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <LogoutButton onLogout={onLogout} />
+          </div>
         </div>
         {tab === "entrainement" && !activeProgramme && (
           <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} />
@@ -1993,6 +2011,7 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [myProfil, setMyProfil] = useState(null);
   const [profilLoading, setProfilLoading] = useState(false);
+  const [viewMode, setViewMode] = useState("coach");
   const [toastNode, fireToast] = useToast();
 
   useEffect(() => {
@@ -2088,7 +2107,23 @@ export default function App() {
   if (myProfil.role === "coach") {
     return (
       <>
-        <CoachDashboard coachProfil={myProfil} onLogout={handleLogout} fireToast={fireToast} />
+        {viewMode === "coach" ? (
+          <CoachDashboard
+            coachProfil={myProfil}
+            onLogout={handleLogout}
+            fireToast={fireToast}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+          />
+        ) : (
+          <ClientApp
+            profilRow={myProfil}
+            onLogout={handleLogout}
+            fireToast={fireToast}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+          />
+        )}
         {toastNode}
       </>
     );
