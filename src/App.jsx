@@ -382,6 +382,7 @@ const BottomNav = ({ active, setActive }) => (
 /* ------------------------------------------------------------------ */
 function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
+  const [editingProgramme, setEditingProgramme] = useState(null);
   const poidsRestant = (user.poidsActuel - user.poidsObjectif).toFixed(1);
   const progressPoids = Math.min(
     100,
@@ -490,6 +491,9 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
               >
                 <Play size={14} fill="#06171F" /> Démarrer
               </button>
+              {isCoach && (
+                <button onClick={() => { setEditingProgramme(p); setShowSeanceForm(true); }} style={{ marginLeft: 8, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+              )}
             </Card>
           ))}
         </div>
@@ -497,7 +501,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
           <SeanceForm
             clientId={profilId}
             coachId={profilId}
-            onClose={() => setShowSeanceForm(false)}
+            editingProgramme={editingProgramme}
+            onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
             onCreated={onSeanceCreated}
             fireToast={fireToast}
           />
@@ -1447,15 +1452,57 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
   );
 }
 
-function SeanceForm({ clientId, coachId, onClose, onCreated, fireToast }) {
-  const [nom, setNom] = useState("");
-  const [muscle, setMuscle] = useState("");
-  const [exercices, setExercices] = useState([]);
+function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, fireToast }) {
+  const [selectedForSuperset, setSelectedForSuperset] = useState([]);
+
+  const toggleSelectForSuperset = (idx) => {
+    setSelectedForSuperset((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+    );
+  };
+
+  const groupSuperset = () => {
+    if (selectedForSuperset.length < 2) {
+      fireToast("Sélectionne au moins 2 exercices");
+      return;
+    }
+    const groupNum = Date.now();
+    setExercices((prev) =>
+      prev.map((ex, i) => (selectedForSuperset.includes(i) ? { ...ex, groupeSuperset: groupNum } : ex))
+    );
+    setSelectedForSuperset([]);
+  };
+  const [nom, setNom] = useState(editingProgramme?.nom || "");
+  const [muscle, setMuscle] = useState(editingProgramme?.muscle || "");
+  const [exercices, setExercices] = useState(() =>
+    (editingProgramme?.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({
+      id: ex.id,
+      nom: ex.nom,
+      videoDemoUrl: ex.video_demo_url,
+      sets: ex.sets,
+      repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [],
+      rest: ex.rest,
+      tempo: ex.tempo,
+      rpe: ex.rpe,
+      note: ex.note,
+      groupeSuperset: ex.groupe_superset,
+      ordre: ex.ordre,
+    }))
+  );
   const [exNom, setExNom] = useState("");
   const [exSets, setExSets] = useState(3);
   const [exRest, setExRest] = useState(90);
   const [saving, setSaving] = useState(false);
-  const [exReps, setExReps] = useState(10);
+  const [exRepsParSerie, setExRepsParSerie] = useState([10, 10, 10]);
+
+  useEffect(() => {
+    setExRepsParSerie((prev) => {
+      const arr = [...prev];
+      while (arr.length < exSets) arr.push(10);
+      while (arr.length > exSets) arr.pop();
+      return arr;
+    });
+  }, [exSets]);
   const [exTempo, setExTempo] = useState("");
   const [exRpe, setExRpe] = useState("");
   const [exNote, setExNote] = useState("");
@@ -1504,10 +1551,10 @@ function SeanceForm({ clientId, coachId, onClose, onCreated, fireToast }) {
     if (!selectedExId) return;
     const ex = bibliotheque.find((b) => b.id === selectedExId);
     if (!ex) return;
-    setExercices((prev) => [...prev, { nom: ex.nom, videoDemoUrl: ex.video_demo_url, sets: exSets, reps: exReps, rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length }]);
+    setExercices((prev) => [...prev, { nom: ex.nom, videoDemoUrl: ex.video_demo_url, sets: exSets, repsParSerie: exRepsParSerie, rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length }]);
     setSelectedExId("");
     setExSets(3);
-    setExReps(10);
+    setExRepsParSerie([10, 10, 10]);
     setExRest(90);
     setExTempo("");
     setExRpe("");
@@ -1523,29 +1570,42 @@ function SeanceForm({ clientId, coachId, onClose, onCreated, fireToast }) {
       fireToast("Ajoute un nom et au moins un exercice");
       return;
     }
-    setSaving(true);
     try {
-      const { data: prog, error: progErr } = await supabase
-        .from("programmes")
-        .insert({ profil_id: clientId, nom, muscle })
-        .select()
-        .single();
-      if (progErr) throw progErr;
+    setSaving(true);
+      let progId;
+      if (editingProgramme) {
+        const { error: updateErr } = await supabase
+          .from("programmes")
+          .update({ nom, muscle })
+          .eq("id", editingProgramme.id);
+        if (updateErr) throw updateErr;
+        progId = editingProgramme.id;
+        await supabase.from("programme_exercices").delete().eq("programme_id", progId);
+      } else {
+        const { data: prog, error: progErr } = await supabase
+          .from("programmes")
+          .insert({ profil_id: clientId, nom, muscle })
+          .select()
+          .single();
+        if (progErr) throw progErr;
+        progId = prog.id;
+      }
       const rows = exercices.map((ex) => ({
-        programme_id: prog.id,
+        programme_id: progId,
         nom: ex.nom,
         sets: ex.sets,
-        reps: ex.reps,
+        reps_par_serie: JSON.stringify(ex.repsParSerie),
         rest: ex.rest,
         tempo: ex.tempo,
         rpe: ex.rpe || null,
         note: ex.note,
         video_demo_url: ex.videoDemoUrl,
         ordre: ex.ordre,
+        groupe_superset: ex.groupeSuperset || null,
       }));
       const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
       if (exErr) throw exErr;
-      fireToast("Séance créée", "green");
+      fireToast(editingProgramme ? "Séance modifiée" : "Séance créée", "green");
       onCreated();
       onClose();
     } catch (err) {
@@ -1564,11 +1624,21 @@ function SeanceForm({ clientId, coachId, onClose, onCreated, fireToast }) {
         <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
         <SectionLabel icon={Plus}>Exercices</SectionLabel>
         {exercices.map((ex, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 10px", marginBottom: 6 }}>
-            <div style={{ fontSize: 13, color: C.text }}>{ex.nom} — {ex.sets} séries · {ex.rest}s</div>
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: ex.groupeSuperset ? C.blueSoft : C.surface, border: ex.groupeSuperset ? `1px solid ${C.blue}` : "none", borderRadius: 10, padding: "8px 10px", marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" checked={selectedForSuperset.includes(i)} onChange={() => toggleSelectForSuperset(i)} />
+              <div style={{ fontSize: 13, color: C.text }}>
+                {ex.groupeSuperset && <span style={{ color: C.blue, fontWeight: 700 }}>[Superset] </span>}
+                {ex.nom} — {ex.sets} séries · {ex.rest}s
+              </div>
+            </div>
             <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
           </div>
         ))}
+        {selectedForSuperset.length >= 2 && (       <button onClick={groupSuperset} style={{ width: "100%", background: C.blueSoft, border: `1px solid ${C.blue}`, color: C.blue, borderRadius: 10, padding: "8px", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+            Grouper en superset ({selectedForSuperset.length} exercices)
+          </button>
+        )}
         {showNewExercice ? (
           <div style={{ background: C.surface, borderRadius: 10, padding: 10, marginBottom: 8 }}>
             <input type="text" placeholder="Nom du nouvel exercice" value={newExNom} onChange={(e) => setNewExNom(e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 6 }} />
@@ -1591,8 +1661,23 @@ function SeanceForm({ clientId, coachId, onClose, onCreated, fireToast }) {
         )}
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-          <input type="number" placeholder="Reps" value={exReps} onChange={(e) => setExReps(parseInt(e.target.value) || 10)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
           <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+        </div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+          {exRepsParSerie.map((r, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span style={{ fontSize: 10, color: C.textMuted }}>Série {i + 1}</span>
+              <input
+                type="number"
+                value={r}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  setExRepsParSerie((prev) => prev.map((x, idx) => (idx === i ? val : x)));
+                }}
+                style={{ width: 50, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
+              />
+            </div>
+          ))}
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           <input type="text" placeholder="Tempo (e: 3-1-1-0)" value={exTempo} onChange={(e) => setExTempo(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
@@ -1618,6 +1703,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [repas, setRepas] = useState([]);
 
   const [showSeanceForm, setShowSeanceForm] = useState(false);
+  const [editingProgramme, setEditingProgramme] = useState(null);
   const [customProgrammes, setCustomProgrammes] = useState([]);
   useEffect(() => {
     let active = true;
@@ -1707,7 +1793,13 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
                 <SectionLabel icon={Dumbbell}>Séances personnalisées</SectionLabel>
                 {customProgrammes.map((p) => (
                   <Card key={p.id}>
-                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: C.text }}>{p.nom}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: C.text }}>{p.nom}</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => { setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+                        <button onClick={async () => { if (!confirm("Supprimer cette séance ?")) return; await supabase.from("programmes").delete().eq("id", p.id); setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+                      </div>
+                    </div>
                     <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>{p.muscle}</div>
                     {(p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => (
                       <div key={ex.id} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px", marginTop: 4 }}>
@@ -1811,7 +1903,8 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           <SeanceForm
             clientId={client.id}
             coachId={client.coach_id}
-            onClose={() => setShowSeanceForm(false)}
+            editingProgramme={editingProgramme}
+            onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
             onCreated={() => {
               supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes(data || []));
             }}
@@ -1949,7 +2042,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               nom: ex.nom,
               sets: ex.sets,
               rest: ex.rest,
-              reps: ex.reps,
+              repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [],
               tempo: ex.tempo,
               rpe: ex.rpe,
               note: ex.note,
@@ -2295,7 +2388,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           </div>
         </div>
         {tab === "entrainement" && !activeProgramme && (
-          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, reps: ex.reps, tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} />
+          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} />
         )}
         {tab === "entrainement" && activeProgramme && (
           <SessionView
