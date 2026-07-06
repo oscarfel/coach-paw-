@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dumbbell, Apple, TrendingUp, User, Play, Square, Timer, Video, Upload,
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
-  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut,
+  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -736,9 +736,26 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   );
 }
 
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.5);
+  } catch (err) {
+    console.error("Erreur son:", err);
+  }
+}
 function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete }) {
-  const [running, setRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const startTimeKey = `session_start_${programme.id || programme.nom}`;
   const [logs, setLogs] = useState(() =>
     Object.fromEntries(programme.exercices.map((e) => [e.id, { sets: [], video: null }]))
   );
@@ -746,14 +763,21 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   const [finished, setFinished] = useState(false);
 
   useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    let start = localStorage.getItem(startTimeKey);
+    if (!start) {
+      start = Date.now().toString();
+      localStorage.setItem(startTimeKey, start);
+    }
+    const startTime = parseInt(start);
+    const id = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
     return () => clearInterval(id);
-  }, [running]);
+  }, []);
 
   useEffect(() => {
     if (!rest) return;
-    if (rest.left <= 0) { setRest(null); return; }
+    if (rest.left <= 0) { playBeep(); setRest(null); return; }
     const id = setInterval(() => setRest((r) => (r ? { ...r, left: r.left - 1 } : r)), 1000);
     return () => clearInterval(id);
   }, [rest]);
@@ -813,30 +837,18 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           background: `radial-gradient(circle at 30% 20%, ${C.blueSoft}, ${C.card} 70%)`,
-          border: `1px solid ${running ? C.blueBorder : C.cardBorder}`,
+          border: `1px solid ${C.blueBorder}`,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Timer size={20} color={C.blue} style={running ? { animation: "pulseGlow 1.6s infinite" } : {}} />
+          <Timer size={20} color={C.blue} style={{ animation: "pulseGlow 1.6s infinite" }} />
           <div style={{ fontFamily: FONT_MONO, fontSize: 34, color: C.text, fontWeight: 700, letterSpacing: 1 }}>
             {fmtTime(seconds)}
           </div>
+        <button onClick={() => { localStorage.removeItem(startTimeKey); onCancel(); }} style={{ background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 999, padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+          <RotateCcw size={13} /> Réinitialiser
+        </button>
         </div>
-        {!running ? (
-          <button
-            onClick={() => setRunning(true)}
-            style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "10px 18px", fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}
-          >
-            <Play size={15} fill="#06171F" /> {seconds === 0 ? "Démarrer" : "Reprendre"}
-          </button>
-        ) : (
-          <button
-            onClick={() => setRunning(false)}
-            style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 999, padding: "10px 18px", fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}
-          >
-            <Square size={14} fill={C.text} /> Pause
-          </button>
-        )}
       </Card>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -851,11 +863,10 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
           />
         ))}
       </div>
-
       <button
         onClick={() => {
-          setRunning(false);
           setFinished(true);
+          localStorage.removeItem(startTimeKey);
           onSessionComplete?.({ programme, logs, seconds });
         }}
         disabled={totalSets === 0}
@@ -1474,21 +1485,44 @@ function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, f
   };
   const [nom, setNom] = useState(editingProgramme?.nom || "");
   const [muscle, setMuscle] = useState(editingProgramme?.muscle || "");
-  const [exercices, setExercices] = useState(() =>
-    (editingProgramme?.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({
+  const [expandedIdx, setExpandedIdx] = useState(null);
+  const [draggedIdx, setDraggedIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+
+  const handleDrop = (targetIdx) => {
+    if (draggedIdx === null || draggedIdx === targetIdx) {
+      setDraggedIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+    setExercices((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(draggedIdx, 1);
+      arr.splice(targetIdx, 0, moved);
+      return arr.map((ex, i) => ({ ...ex, ordre: i }));
+    });
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+  const updateExercice = (idx, field, value) => {
+    setExercices((prev) => prev.map((ex, i) => (i === idx ? { ...ex, [field]: value } : ex)));
+  };
+  const [exercices, setExercices] = useState(() => {
+    const rawList = editingProgramme?.programme_exercices || editingProgramme?.exercices || [];
+    return [...rawList].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)).map((ex) => ({
       id: ex.id,
       nom: ex.nom,
-      videoDemoUrl: ex.video_demo_url,
+      videoDemoUrl: ex.videoDemoUrl || ex.video_demo_url,
       sets: ex.sets,
-      repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [],
+      repsParSerie: ex.repsParSerie || (ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : []),
       rest: ex.rest,
       tempo: ex.tempo,
       rpe: ex.rpe,
       note: ex.note,
-      groupeSuperset: ex.groupe_superset,
+      groupeSuperset: ex.groupeSuperset || ex.groupe_superset,
       ordre: ex.ordre,
-    }))
-  );
+    }));
+  });
   const [exNom, setExNom] = useState("");
   const [exSets, setExSets] = useState(3);
   const [exRest, setExRest] = useState(90);
@@ -1624,15 +1658,57 @@ function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, f
         <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
         <SectionLabel icon={Plus}>Exercices</SectionLabel>
         {exercices.map((ex, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: ex.groupeSuperset ? C.blueSoft : C.surface, border: ex.groupeSuperset ? `1px solid ${C.blue}` : "none", borderRadius: 10, padding: "8px 10px", marginBottom: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={selectedForSuperset.includes(i)} onChange={() => toggleSelectForSuperset(i)} />
-              <div style={{ fontSize: 13, color: C.text }}>
-                {ex.groupeSuperset && <span style={{ color: C.blue, fontWeight: 700 }}>[Superset] </span>}
-                {ex.nom} — {ex.sets} séries · {ex.rest}s
+          <div key={i} draggable onDragStart={() => setDraggedIdx(i)} onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }} onDrop={() => handleDrop(i)} onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }} style={{ background: ex.groupeSuperset ? C.blueSoft : C.surface, border: dragOverIdx === i && draggedIdx !== i ? `2px dashed ${C.blue}` : (ex.groupeSuperset ? `1px solid ${C.blue}` : "none"), borderRadius: 10, padding: "8px 10px", marginBottom: 6, opacity: draggedIdx === i ? 0.4 : 1, cursor: "grab" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, cursor: "pointer" }} onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}>
+                <input type="checkbox" checked={selectedForSuperset.includes(i)} onChange={(e) => { e.stopPropagation(); toggleSelectForSuperset(i); }} onClick={(e) => e.stopPropagation()} />
+                <div style={{ fontSize: 13, color: C.text }}>
+                  {ex.groupeSuperset && <span style={{ color: C.blue, fontWeight: 700 }}>[Superset] </span>}
+                  {ex.nom} — {ex.sets} séries · {ex.rest}s
+                </div>
+              </div>            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <ChevronDown size={16} color={C.textMuted} style={{ transform: expandedIdx === i ? "rotate(180deg)" : "none" }} />
+                <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
               </div>
             </div>
-            <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+            {expandedIdx === i && (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.cardBorderLight}` }}>
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Séries</div>
+                <input type="number" value={ex.sets} onChange={(e) => {
+                  const n = parseInt(e.target.value) || 1;
+                  const arr = [...(ex.repsParSerie || [])];
+                  while (arr.length < n) arr.push(10);
+                  while (arr.length > n) arr.pop();
+                  updateExercice(i, "sets", n);
+                  updateExercice(i, "repsParSerie", arr);
+                }} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Répétitions par série</div>
+                <div style={{ display: "flex", gap: 6, Wrap: "wrap", marginBottom: 8 }}>
+                  {(ex.repsParSerie || []).map((r, si) => (
+                    <input key={si} type="number" value={r} onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      const arr = [...ex.repsParSerie];
+                      arr[si] = val;
+                      updateExercice(i, "repsParSerie", arr);
+                    }} style={{ width: 44, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 12, textAlign: "center" }} />
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Repos (s)</div>
+                    <input type="number" value={ex.rest} onChange={(e) => updateExercice(i, "rest", parseInt(e.target.value) || 0)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13 }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>RPE</div>
+                    <input type="number" value={ex.rpe || ""} onChange={(e) => updateExercice(i, "rpe", e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13 }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Tempo</div>
+                <input type="text" value={ex.tempo || ""} onChange={(e) => updateExercice(i, "tempo", e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Note</div>
+                <textarea value={ex.note || ""} onChange={(e) => updateExercice(i, "note", e.target.value)} rows={2} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, resize: "none" }} />
+              </div>
+            )}
           </div>
         ))}
         {selectedForSuperset.length >= 2 && (       <button onClick={groupSuperset} style={{ width: "100%", background: C.blueSoft, border: `1px solid ${C.blue}`, color: C.blue, borderRadius: 10, padding: "8px", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
@@ -1704,6 +1780,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
 
   const [showSeanceForm, setShowSeanceForm] = useState(false);
   const [editingProgramme, setEditingProgramme] = useState(null);
+  const [selectedProgramme, setSelectedProgramme] = useState(null);
   const [customProgrammes, setCustomProgrammes] = useState([]);
   useEffect(() => {
     let active = true;
@@ -1754,6 +1831,55 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
     { key: "profil", label: "Profil", icon: User },
   ];
 
+  if (selectedProgramme) {
+    const historiqueFiltré = seances.filter((s) => s.programme_id === selectedProgramme.id || s.nom_programme === selectedProgramme.nom);
+    return (
+      <div style={appShellStyle}>
+        <FontImports />
+        <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative" }}>
+          <button onClick={() => { console.log("CLIC RETOUR DETECTE"); setSelectedProgramme(null); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 16 }}>
+            <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+          </button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 28, color: C.text }}>{selectedProgramme.nom}</div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>{selectedProgramme.muscle}</div>
+            </div>
+            <button onClick={() => { setEditingProgramme(selectedProgramme); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "10px 14px", fontWeight: 700, fontSize: 13 }}>Modifier</button>
+          </div>
+          <SectionLabel icon={TrendingUp}>Historique des performances</SectionLabel>
+          {historiqueFiltré.length === 0 ? (
+            <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Le client n'a pas encore réalisé cette séance</div></Card>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {historiqueFiltré.map((s) => (
+                <Card key={s.id}>
+                  <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 8 }}>{formatDateDisplay(s.date)} · {fmtTime(s.duree_secondes || 0)}</div>
+                  {(seriesBySeance[s.id] || []).map((sr, i) => (
+                    <div key={i} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px", marginTop: 4, fontFamily: FONT_MONO }}>
+                      {sr.exercice_nom} — {sr.poids}kg × {sr.reps} <span style={{ color: C.amber }}>RPE{sr.rpe}</span>
+                    </div>
+                  ))}
+                </Card>
+              ))}
+            </div>
+          )}
+          {showSeanceForm && (
+            <SeanceForm
+              clientId={client.id}
+              coachId={client.coach_id}
+              editingProgramme={editingProgramme}
+              onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
+              onCreated={() => {
+                supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes(data || []));
+              }}
+              fireToast={fireToast}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={appShellStyle}>
       <FontImports />
@@ -1792,20 +1918,15 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <SectionLabel icon={Dumbbell}>Séances personnalisées</SectionLabel>
                 {customProgrammes.map((p) => (
-                  <Card key={p.id}>
+                  <Card key={p.id} onClick={() => setSelectedProgramme(p)} style={{ cursor: "pointer" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: C.text }}>{p.nom}</div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => { setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
-                        <button onClick={async () => { if (!confirm("Supprimer cette séance ?")) return; await supabase.from("programmes").delete().eq("id", p.id); setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+                        <button onClick={async (e) => { e.stopPropagation(); if (!confirm("Supprimer cette séance ?")) return; await supabase.from("programmes").delete().eq("id", p.id); setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
                       </div>
                     </div>
                     <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>{p.muscle}</div>
-                    {(p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => (
-                      <div key={ex.id} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px", marginTop: 4 }}>
-                        {ex.nom} — {ex.sets} séries · {ex.rest}s repos
-                      </div>
-                    ))}
                   </Card>
                 ))}
               </div>
@@ -1948,6 +2069,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
     return (
       <ClientDetailView
         client={selectedClient}
+        onBack={() => setSelectedClient(null)}
         onLogout={onLogout}
         fireToast={fireToast}
       />
@@ -2312,6 +2434,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         .insert({
           profil_id: profilId,
           nom_programme: programme.nom,
+          programme_id: programme.id || null,
           duree_secondes: seconds,
           date: todayIso(),
         })
