@@ -380,7 +380,8 @@ const BottomNav = ({ active, setActive }) => (
 /* ------------------------------------------------------------------ */
 /*  ENTRAINEMENT — LISTE                                               */
 /* ------------------------------------------------------------------ */
-function EntrainementHome({ user, stats, onStart, fireToast }) {
+function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated }) {
+  const [showSeanceForm, setShowSeanceForm] = useState(false);
   const poidsRestant = (user.poidsActuel - user.poidsObjectif).toFixed(1);
   const progressPoids = Math.min(
     100,
@@ -455,8 +456,15 @@ function EntrainementHome({ user, stats, onStart, fireToast }) {
       {/* Programmes */}
       <div style={{ marginTop: 4 }}>
         <SectionLabel icon={Dumbbell}>Mes séances</SectionLabel>
+        {isCoach && (
+          <button onClick={() => setShowSeanceForm(true)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 10 }}>
+            <Plus size={16} /> Créer une séance
+          </button>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {PROGRAMMES.map((p) => (
+          {customProgrammes.length === 0 ? (
+            <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach ne t'a pas encore assigné de séance</div></Card>
+          ) : customProgrammes.map((p) => (
             <Card key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
                 <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSpacing: 0.5 }}>{p.nom}</div>
@@ -485,6 +493,15 @@ function EntrainementHome({ user, stats, onStart, fireToast }) {
             </Card>
           ))}
         </div>
+        {showSeanceForm && (
+          <SeanceForm
+            clientId={profilId}
+            coachId={profilId}
+            onClose={() => setShowSeanceForm(false)}
+            onCreated={onSeanceCreated}
+            fireToast={fireToast}
+          />
+        )}
       </div>
     </div>
   );
@@ -1910,6 +1927,38 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
 
   const [user, setUser] = useState(() => profilToUser(profilRow));
   const [stats, setStats] = useState({ seancesRealisees: 0, pasJour: 6420, pasMoyenneSemaine: 8150 });
+  const [customProgrammes, setCustomProgrammes] = useState([]);
+
+  useEffect(() => {
+    if (!profilId) return;
+    supabase
+      .from("programmes")
+      .select("*, programme_exercices(*)")
+      .eq("profil_id", profilId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        const formatted = (data || []).map((p) => ({
+          id: p.id,
+          nom: p.nom,
+          muscle: p.muscle,
+          duree: "",
+          exercices: (p.programme_exercices || [])
+            .sort((a, b) => a.ordre - b.ordre)
+            .map((ex) => ({
+              id: ex.id,
+              nom: ex.nom,
+              sets: ex.sets,
+              rest: ex.rest,
+              reps: ex.reps,
+              tempo: ex.tempo,
+              rpe: ex.rpe,
+              note: ex.note,
+              videoDemoUrl: ex.video_demo_url,
+            })),
+        }));
+        setCustomProgrammes(formatted);
+      });
+  }, [profilId]);
   const [activeProgramme, setActiveProgramme] = useState(null);
   const [exerciseHistory, setExerciseHistory] = useState({});
   const [meals, setMeals] = useState(EMPTY_MEALS);
@@ -2246,7 +2295,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           </div>
         </div>
         {tab === "entrainement" && !activeProgramme && (
-          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} />
+          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, reps: ex.reps, tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} />
         )}
         {tab === "entrainement" && activeProgramme && (
           <SessionView
