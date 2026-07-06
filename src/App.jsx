@@ -946,7 +946,8 @@ function MealCard({ meal, items, onAdd, onRemove }) {
   );
 }
 
-function Nutrition({ meals, onAdd, onRemove, objectifs }) {
+function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, saveObjectifsNutrition }) {
+  const [showGoalEditor, setShowGoalEditor] = useState(false);
   const totals = useMemo(() => {
     const all = Object.values(meals).flat();
     return all.reduce(
@@ -976,7 +977,7 @@ function Nutrition({ meals, onAdd, onRemove, objectifs }) {
         <SectionLabel icon={Flame}>Calories</SectionLabel>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 10 }}>
           <div style={{ fontFamily: FONT_MONO, fontSize: 32, color: C.text, fontWeight: 700 }}>{Math.round(totals.kcal)}</div>
-          <div style={{ fontSize: 14, color: C.textMuted, paddingBottom: 4 }}>/ {objectifs.kcal} kcal</div>
+          <div onClick={() => setShowGoalEditor(true)} style={{ fontSize: 14, color: C.textMuted, paddingBottom: 4, cursor: "pointer", textDecoration: "underline dashed" }}>/ {Math.round(objectifs.kcal)} kcal</div>
         </div>
         <ProgressBar value={totals.kcal} max={objectifs.kcal} color={C.blue} height={9} />
       </Card>
@@ -984,9 +985,9 @@ function Nutrition({ meals, onAdd, onRemove, objectifs }) {
       <Card>
         <SectionLabel icon={ClipboardList}>Macronutriments</SectionLabel>
         <div style={{ display: "flex", gap: 14 }}>
-          {macro("Protéines", totals.prot, objectifs.prot, C.blue)}
-          {macro("Glucides", totals.gluc, objectifs.gluc, C.amber)}
-          {macro("Lipides", totals.lip, objectifs.lip, C.green)}
+          {macro("Protéines", totals.prot, Math.round((objectifs.kcal * objectifs.pctProt / 100) / 4), C.blue)}
+          {macro("Glucides", totals.gluc, Math.round((objectifs.kcal * objectifs.pctGluc / 100) / 4), C.amber)}
+          {macro("Lipides", totals.lip, Math.round((objectifs.kcal * objectifs.pctLip / 100) / 9), C.green)}
         </div>
       </Card>
 
@@ -998,6 +999,37 @@ function Nutrition({ meals, onAdd, onRemove, objectifs }) {
           ))}
         </div>
       </div>
+      {showGoalEditor && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowGoalEditor(false)}>
+          <Card style={{ width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+            <SectionLabel icon={Flame}>Objectif calorique</SectionLabel>
+            <input type="number" defaultValue={objectifs.kcal} id="goalKcalInput" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 16, fontFamily: FONT_MONO, marginBottom: 16 }} />
+            <SectionLabel icon={ClipboardList}>Répartition des macros (%)</SectionLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Potéines (%)</div>
+                <input type="number" defaultValue={objectifs.pctProt} id="goalProtInput" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14 }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Glucides (%)</div>
+                <input type="number" defaultValue={objectifs.pctGluc} id="goalGlucInput" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14 }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Lipides (%)</div>
+                <input type="number" defaultValue={objectifs.pctLip} id="goalLipInput" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px10px", color: C.text, fontSize: 14 }} />
+              </div>
+            </div>
+            <button onClick={() => {
+              const kcal = parseInt(document.getElementById("goalKcalInput").value) || objectifs.kcal;
+              const pctProt = parseInt(document.getElementById("goalProtInput").value) || objectifs.pctProt;
+              const pctGluc = parseInt(document.getElementById("goalGlucInput").value) || objectifs.pctGluc;
+              const pctLip = parseInt(document.getElementById("goalLipInput").value) || objectifs.pctLip;
+              saveObjectifsNutrition({ kcal, pctProt, pctGluc, pctLip });
+              setShowGoalEditor(false);
+            }} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
@@ -1668,7 +1700,37 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const [activeProgramme, setActiveProgramme] = useState(null);
   const [exerciseHistory, setExerciseHistory] = useState({});
   const [meals, setMeals] = useState(EMPTY_MEALS);
-  const objectifsNutrition = { kcal: 2400, prot: 180, gluc: 250, lip: 70 };
+  const [objectifsNutrition, setObjectifsNutrition] = useState(() => ({
+    kcal: profilRow.objectif_calories || 2400,
+    pctProt: profilRow.pct_prot || 30,
+    pctGluc: profilRow.pct_gluc || 45,
+    pctLip: profilRow.pct_lip || 25,
+    get prot() { return Math.round((this.kcal * this.pctProt / 100) / 4); },
+    get gluc() { return Math.round((this.kcal * this.pctGluc / 100) / 4); },
+    get lip() { return Math.round((this.kcal * this.pctLip / 100) / 9); },
+  }));
+
+  const saveObjectifsNutrition = async (updates) => {
+    if (!profilId) return;
+    const merged = { ...objectifsNutrition, ...updates };
+    setObjectifsNutrition((prev) => ({ ...prev, ...updates }));
+    try {
+      const { error } = await supabase
+        .from("profils")
+        .update({
+          objectif_calories: merged.kcal,
+          pct_prot: merged.pctProt,
+          pct_gluc: merged.pctGluc,
+          pct_lip: merged.pctLip,
+        })
+        .eq("id", profilId);
+      if (error) throw error;
+      fireToast("Objectifs nutritionnels mis à jour", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur mise à jour objectifs");
+    }
+  };
   const [weightHistory, setWeightHistory] = useState([]);
   const [photos, setPhotos] = useState({ face: null, profil: null, dos: null, bicepsAvant: null, bicepsArriere: null });
   const [checkins, setCheckins] = useState([]);
@@ -1984,7 +2046,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             onSessionComplete={saveSession}
           />
         )}
-        {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} />}
+        {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} />}
         {tab === "bilans" && (
           <Bilans
             weightHistory={weightHistory}
