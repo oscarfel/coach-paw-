@@ -1430,7 +1430,168 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
   );
 }
 
-function ClientDetailView({ client, onBack, onLogout }) {
+function SeanceForm({ clientId, coachId, onClose, onCreated, fireToast }) {
+  const [nom, setNom] = useState("");
+  const [muscle, setMuscle] = useState("");
+  const [exercices, setExercices] = useState([]);
+  const [exNom, setExNom] = useState("");
+  const [exSets, setExSets] = useState(3);
+  const [exRest, setExRest] = useState(90);
+  const [saving, setSaving] = useState(false);
+  const [exReps, setExReps] = useState(10);
+  const [exTempo, setExTempo] = useState("");
+  const [exRpe, setExRpe] = useState("");
+  const [exNote, setExNote] = useState("");
+  const [exVideo, setExVideo] = useState(null);
+  const [bibliotheque, setBibliotheque] = useState([]);
+  const [showNewExercice, setShowNewExercice] = useState(false);
+  const [newExNom, setNewExNom] = useState("");
+  const [newExVideoFile, setNewExVideoFile] = useState(null);
+  const [selectedExId, setSelectedExId] = useState("");
+
+  useEffect(() => {
+    if (!coachId) return;
+    supabase.from("exercices_bibliotheque").select("*").eq("coach_id", coachId).order("nom").then(({ data }) => setBibliotheque(data || []));
+  }, [coachId]);
+
+  const createExercice = async () => {
+    if (!newExNom.trim()) return;
+    try {
+      let videoUrl = null;
+      if (newExVideoFile) {
+        const fileName = `${Date.now()}_${newExVideoFile.name}`;
+        const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, newExVideoFile);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
+        videoUrl = urlData.publicUrl;
+      }
+      const { data, error } = await supabase
+        .from("exercices_bibliotheque")
+        .insert({ coach_id: coachId, nom: newExNom, video_demo_url: videoUrl })
+        .select()
+        .single();
+      if (error) throw error;
+      setBibliotheque((prev) => [...prev, data]);
+      setSelectedExId(data.id);
+      setNewExNom("");
+      setNewExVideoFile(null);
+      setShowNewExercice(false);
+      fireToast("Exercice ajouté à la bibliothèque", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur création exercice");
+    }
+  };
+
+  const addExercice = () => {
+    if (!selectedExId) return;
+    const ex = bibliotheque.find((b) => b.id === selectedExId);
+    if (!ex) return;
+    setExercices((prev) => [...prev, { nom: ex.nom, videoDemoUrl: ex.video_demo_url, sets: exSets, reps: exReps, rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length }]);
+    setSelectedExId("");
+    setExSets(3);
+    setExReps(10);
+    setExRest(90);
+    setExTempo("");
+    setExRpe("");
+    setExNote("");
+  };
+
+  const removeExercice = (idx) => {
+    setExercices((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const submit = async () => {
+    if (!nom.trim() || exercices.length === 0) {
+      fireToast("Ajoute un nom et au moins un exercice");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: prog, error: progErr } = await supabase
+        .from("programmes")
+        .insert({ profil_id: clientId, nom, muscle })
+        .select()
+        .single();
+      if (progErr) throw progErr;
+      const rows = exercices.map((ex) => ({
+        programme_id: prog.id,
+        nom: ex.nom,
+        sets: ex.sets,
+        reps: ex.reps,
+        rest: ex.rest,
+        tempo: ex.tempo,
+        rpe: ex.rpe || null,
+        note: ex.note,
+        video_demo_url: ex.videoDemoUrl,
+        ordre: ex.ordre,
+      }));
+      const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
+      if (exErr) throw exErr;
+      fireToast("Séance créée", "green");
+      onCreated();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur création séance");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20, overflowY: "auto" }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <SectionLabel icon={Dumbbell}>Nouvelle séance</SectionLabel>
+        <input type="text" placeholder="Nom (ex: Push)" value={nom} onChange={(e) => setNom(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 8 }} />
+        <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
+        <SectionLabel icon={Plus}>Exercices</SectionLabel>
+        {exercices.map((ex, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 10px", marginBottom: 6 }}>
+            <div style={{ fontSize: 13, color: C.text }}>{ex.nom} — {ex.sets} séries · {ex.rest}s</div>
+            <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+          </div>
+        ))}
+        {showNewExercice ? (
+          <div style={{ background: C.surface, borderRadius: 10, padding: 10, marginBottom: 8 }}>
+            <input type="text" placeholder="Nom du nouvel exercice" value={newExNom} onChange={(e) => setNewExNom(e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 6 }} />
+            <input type="file" accept="video/*" onChange={(e) => setNewExVideoFile(e.target.files[0])} style={{ width: "100%", marginBottom: 8, fontSize: 12, color: C.textMuted }} />
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => setShowNewExercice(false)} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 8, padding: "8px", fontSize: 12 }}>Annuler</button>
+              <button onClick={createExercice} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "8px", fontSize: 12, fontWeight: 700 }}>Ajouter</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <select value={selectedExId} onChange={(e) => setSelectedExId(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }}>
+              <option value="">Choisir un exercice...</option>
+              {bibliotheque.map((ex) => (
+                <option key={ex.id} value={ex.id}>{ex.nom}</option>
+              ))}
+            </select>
+            <button onClick={() => setShowNewExercice(true)} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}><Plus size={14} /></button>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+          <input type="number" placeholder="Reps" value={exReps} onChange={(e) => setExReps(parseInt(e.target.value) || 10)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+          <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <input type="text" placeholder="Tempo (e: 3-1-1-0)" value={exTempo} onChange={(e) => setExTempo(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+          <input type="number" placeholder="RPE" value={exRpe} onChange={(e) => setExRpe(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+        </div>
+        <textarea placeholder="Note spéciale (optionnel)" value={exNote} onChange={(e) => setExNote(e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
+        <button onClick={addExercice} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 10, padding: "10px", fontSize:13, fontWeight: 700, marginBottom: 16 }}>+ Ajouter exercice</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14 }}>Annuler</button>
+          <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : "Créer"}</button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [tab, setTab] = useState("programme");
   const [loading, setLoading] = useState(true);
   const [seances, setSeances] = useState([]);
@@ -1439,16 +1600,19 @@ function ClientDetailView({ client, onBack, onLogout }) {
   const [checkins, setCheckins] = useState([]);
   const [repas, setRepas] = useState([]);
 
+  const [showSeanceForm, setShowSeanceForm] = useState(false);
+  const [customProgrammes, setCustomProgrammes] = useState([]);
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       try {
-        const [seancesRes, poidsRes, checkinsRes, repasRes] = await Promise.all([
+        const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes] = await Promise.all([
           supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(10),
           supabase.from("poids_historique").select("*").eq("profil_id", client.id).order("date", { ascending: true }),
           supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
           supabase.from("repas").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
+          supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }),
         ]);
         if (!active) return;
 
@@ -1457,6 +1621,7 @@ function ClientDetailView({ client, onBack, onLogout }) {
         setWeightHistory((poidsRes.data || []).map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) })));
         setCheckins(checkinsRes.data || []);
         setRepas(repasRes.data || []);
+        setCustomProgrammes(programmesRes.data || []);
 
         if (seancesData.length > 0) {
           const ids = seancesData.map((s) => s.id);
@@ -1483,6 +1648,7 @@ function ClientDetailView({ client, onBack, onLogout }) {
     { key: "programme", label: "Programme", icon: Dumbbell },
     { key: "bilans", label: "Bilans", icon: TrendingUp },
     { key: "nutrition", label: "Nutrition", icon: Apple },
+    { key: "profil", label: "Profil", icon: User },
   ];
 
   return (
@@ -1516,6 +1682,25 @@ function ClientDetailView({ client, onBack, onLogout }) {
           <div style={{ color: C.textMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
         ) : tab === "programme" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button onClick={() => { console.log("CLIC DETECTE, showSeanceForm avant:", showSeanceForm); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Plus size={16} /> Créer une séance
+            </button>
+            {customProgrammes.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <SectionLabel icon={Dumbbell}>Séances personnalisées</SectionLabel>
+                {customProgrammes.map((p) => (
+                  <Card key={p.id}>
+                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: C.text }}>{p.nom}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>{p.muscle}</div>
+                    {(p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => (
+                      <div key={ex.id} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px", marginTop: 4 }}>
+                        {ex.nom} — {ex.sets} séries · {ex.rest}s repos
+                      </div>
+                    ))}
+                  </Card>
+                ))}
+              </div>
+            )}
             {seances.length === 0 ? (
               <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucune séance enregistrée</div></Card>
             ) : seances.map((s) => (
@@ -1587,7 +1772,35 @@ function ClientDetailView({ client, onBack, onLogout }) {
             ))}
           </div>
         )}
+        {tab === "profil" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Card>
+              <SectionLabel icon={User}>Informations personnelles</SectionLabel>
+              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Prénom: {client.prenom}</div>
+              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Nom: {client.nom}</div>
+              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Âge: {client.age || "-"} ans</div>
+              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Taille: {client.taille || "-"} cm</div>
+              <div style={{ fontSize: 14, color: C.text }}>Poids actuel: {client.poids_actuel || "-"} kg</div>
+            </Card>
+            <Card>
+              <SectionLabel icon={Target}>Objectifs</SectionLabel>
+              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Objectif principal: {client.objectif_principal || "-"}</div>
+              <div style={{ fontSize: 14, color: C.text }}>Objectif secondaire: {client.objectif_secondaire || "-"}</div>
+            </Card>
+          </div>
+        )}
       </div>
+        {showSeanceForm && (
+          <SeanceForm
+            clientId={client.id}
+            coachId={client.coach_id}
+            onClose={() => setShowSeanceForm(false)}
+            onCreated={() => {
+              supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes(data || []));
+            }}
+            fireToast={fireToast}
+          />
+        )}
     </div>
   );
 }
@@ -1625,8 +1838,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
     return (
       <ClientDetailView
         client={selectedClient}
-        onBack={() => setSelectedClient(null)}
         onLogout={onLogout}
+        fireToast={fireToast}
       />
     );
   }
