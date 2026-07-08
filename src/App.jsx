@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
-  Dumbbell, Apple, TrendingUp, User, Play, Square, Timer, Video, Upload,
+  Dumbbell, Apple, Home, TrendingUp, User, Play, Square, Timer, Video, Upload,
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw,
 } from "lucide-react";
@@ -312,10 +312,11 @@ const PHOTO_CATS = [
 /*  BOTTOM NAV (transparente, icônes bleu clair)                       */
 /* ------------------------------------------------------------------ */
 const NAV_ITEMS = [
-  { key: "entrainement", label: "Entraînement", icon: Dumbbell, n: 1 },
-  { key: "nutrition", label: "Nutrition", icon: Apple, n: 2 },
-  { key: "bilans", label: "Bilans", icon: TrendingUp, n: 3 },
-  { key: "profil", label: "Profil", icon: User, n: 4 },
+  { key: "accueil", label: "Accueil", icon: Home, n: 1 },
+  { key: "seances", label: "Entraînement", icon: Dumbbell, n: 2 },
+  { key: "nutrition", label: "Nutrition", icon: Apple, n: 3 },
+  { key: "bilans", label: "Bilans", icon: TrendingUp, n: 4 },
+  { key: "profil", label: "Profil", icon: User, n: 5 },
 ];
 
 const BottomNav = ({ active, setActive }) => (
@@ -380,9 +381,104 @@ const BottomNav = ({ active, setActive }) => (
 /* ------------------------------------------------------------------ */
 /*  ENTRAINEMENT — LISTE                                               */
 /* ------------------------------------------------------------------ */
-function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated }) {
+function CalendrierSeances({ recentSeances }) {
+  const now = new Date();
+  const annee = now.getFullYear();
+  const mois = now.getMonth();
+  const premierJour = new Date(annee, mois, 1);
+  const nbJours = new Date(annee, mois + 1, 0).getDate();
+  const decalage = (premierJour.getDay() + 6) % 7;
+  const joursAvecSeance = new Set((recentSeances || []).map((s) => new Date(s.date).getDate()));
+  const cases = [];
+  for (let i = 0; i < decalage; i++) cases.push(null);
+  for (let j = 1; j <= nbJours; j++) cases.push(j);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+      {["L", "M", "M", "J", "V", "S", "D"].map((l, i) => (
+        <div key={i} style={{ fontSize: 10, color: C.textMuted, textAlign: "center", fontWeight: 700 }}>{l}</div>
+      ))}
+      {cases.map((j, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 32 }}>
+          {j && (
+            <div style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontFamily: FONT_MONO,
+              background: joursAvecSeance.has(j) ? C.blue : "transparent",
+              color: joursAvecSeance.has(j) ? "#06171F" : C.textMuted,
+              fontWeight: joursAvecSeance.has(j) ? 700 : 400,
+            }}>
+              {j}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil" }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
+  const poidsEvol7j = useMemo(() => {
+    if (!weightHistory || weightHistory.length < 2) return null;
+    const last = weightHistory[weightHistory.length - 1].poids;
+    const weekAgo = weightHistory.length >= 2 ? weightHistory[Math.max(0, weightHistory.length - 2)].poids : last;
+    return +(last - weekAgo).toFixed(1);
+  }, [weightHistory]);
+
+  const tempsMoyenSeance = useMemo(() => {
+    if (!recentSeances || recentSeances.length === 0) return null;
+    const total = recentSeances.reduce((sum, s) => sum + (s.duree_secondes || 0), 0);
+    return Math.round(total / recentSeances.length / 60);
+  }, [recentSeances]);
+
+  const EMOJIS_PROGRES = ["🎉", "💪", "🔥", "🚀", "👏"];
+  const seancesCetteSemaine = useMemo(() => {
+    if (!recentSeances) return 0;
+    const now = new Date();
+    const debutSemaine = new Date(now);
+    debutSemaine.setDate(now.getDate() - 7);
+    return recentSeances.filter((s) => new Date(s.date) >= debutSemaine).length;
+  }, [recentSeances]);
+
+  const objectifSeancesSemaine = customProgrammes.length || 0;
+  const tousLesProgres = useMemo(() => {
+    if (!recentSeances || recentSeances.length === 0) return [];
+    const parExercice = {};
+    for (const s of recentSeances) {
+      for (const sr of s.series || []) {
+        if (!parExercice[sr.exercice_nom]) parExercice[sr.exercice_nom] = [];
+        parExercice[sr.exercice_nom].push({ poids: sr.poids, reps: sr.reps, date: s.date });
+      }
+    }
+    const progres = [];
+    for (const [nom, perfs] of Object.entries(parExercice)) {
+      const sorted = [...perfs].sort((a, b) => new Date(b.date) - new Date(a.date));
+      if (sorted.length < 2) continue;
+      const dernier = sorted[0];
+      const avant = sorted[1];
+      const poidsAugmente = dernier.poids > avant.poids;
+      const repsAugmente = dernier.reps > avant.reps && dernier.poids >= avant.poids;
+      if (poidsAugmente || repsAugmente) {
+        progres.push({ nom, dernier, avant, poidsAugmente, repsAugmente });
+      }
+    }
+    return progres;
+  }, [recentSeances]);
+
+  const exerciceProgres = useMemo(() => {
+    if (tousLesProgres.length === 0) return null;
+    const choisi = tousLesProgres[Math.floor(Math.random() * tousLesProgres.length)];
+    const emoji = EMOJIS_PROGRES[Math.floor(Math.random() * EMOJIS_PROGRES.length)];
+    return { ...choisi, emoji };
+  }, [tousLesProgres]);
   const [editingProgramme, setEditingProgramme] = useState(null);
+  const [showProgresDetail, setShowProgresDetail] = useState(false);
+  const [showCalendrier, setShowCalendrier] = useState(false);
   const poidsRestant = (user.poidsActuel - user.poidsObjectif).toFixed(1);
   const progressPoids = Math.min(
     100,
@@ -394,120 +490,178 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Bienvenue */}
-      <div>
-        <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>
-          Bienvenue,
-        </div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 40, color: C.text, lineHeight: 1, letterSpacing: 0.5 }}>
-          {user.prenom.toUpperCase()}
-        </div>
-      </div>
-
-      {/* Objectif de poids */}
-      <Card>
-        <SectionLabel icon={Target}>Objectif de poids</SectionLabel>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 10 }}>
+      {mode === "accueil" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 30, color: C.text, fontWeight: 700 }}>
-              {user.poidsActuel} <span style={{ fontSize: 15, color: C.textMuted }}>kg</span>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>
+              Bienvenue,
             </div>
-            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Poids actuel</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 18, color: C.amber, fontWeight: 700 }}>
-              {user.poidsObjectif} kg
-            </div>
-            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              {poidsRestant > 0 ? `${poidsRestant} kg restants` : "Objectif atteint 🎉"}
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 40, color: C.text, lineHeight: 1, letterSpacing: 0.5 }}>
+              {user.prenom.toUpperCase()}
             </div>
           </div>
-        </div>
-        <ProgressBar value={progressPoids} max={100} color={C.amber} />
-      </Card>
-
-      {/* Stats rapides */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Card style={{ padding: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <Flame size={14} color={C.blue} />
-            <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-              Séances
-            </span>
-          </div>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>
-            {stats.seancesRealisees}
-          </div>
-          <div style={{ fontSize: 11, color: C.textDim }}>réalisées ce mois</div>
-        </Card>
-        <Card style={{ padding: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <Footprints size={14} color={C.blue} />
-            <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-              Pas du jour
-            </span>
-          </div>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>
-            {stats.pasJour.toLocaleString("fr-FR")}
-          </div>
-          <div style={{ fontSize: 11, color: C.textDim }}>moy. semaine {stats.pasMoyenneSemaine.toLocaleString("fr-FR")}</div>
-        </Card>
-      </div>
-
-      {/* Programmes */}
-      <div style={{ marginTop: 4 }}>
-        <SectionLabel icon={Dumbbell}>Mes séances</SectionLabel>
-        {isCoach && (
-          <button onClick={() => setShowSeanceForm(true)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 10 }}>
-            <Plus size={16} /> Créer une séance
-          </button>
-        )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {customProgrammes.length === 0 ? (
-            <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach ne t'a pas encore assigné de séance</div></Card>
-          ) : customProgrammes.map((p) => (
-            <Card key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Card>
+            <SectionLabel icon={Target}>Objectif de poids</SectionLabel>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 10 }}>
               <div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSpacing: 0.5 }}>{p.nom}</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
-                <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                  {p.exercices.length} exercices · {p.duree}
+                <div style={{ fontFamily: FONT_MONO, fontSize: 30, color: C.text, fontWeight: 700 }}>
+                  {user.poidsActuel} <span style={{ fontSize: 15, color: C.textMuted }}>kg</span>
+                </div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Poids actuel</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 18, color: C.amber, fontWeight: 700 }}>
+                  {user.poidsObjectif} kg
+                </div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+                  {poidsRestant > 0 ? `${poidsRestant} kg restants` : "Objectif atteint 🎉"}
                 </div>
               </div>
-              <button
-                onClick={() => onStart(p)}
-                style={{
-                  background: C.blue,
-                  border: "none",
-                  color: "#06171F",
-                  borderRadius: 999,
-                  padding: "10px 16px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontWeight: 800,
-                  fontSize: 13,
-                }}
-              >
-                <Play size={14} fill="#06171F" /> Démarrer
-              </button>
-              {isCoach && (
-                <button onClick={() => { setEditingProgramme(p); setShowSeanceForm(true); }} style={{ marginLeft: 8, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+            </div>
+            <ProgressBar value={progressPoids} max={100} color={C.amber} />
+          </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Flame size={14} color={C.bl} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Séances</span>
+              </div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{stats.seancesRealisees}</div>
+              <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
+              {objectifSeancesSemaine > 0 && (
+                <div style={{ fontSize: 11, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : C.amber, background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : C.amberSoft, borderRadius: 8, padding: "4px 8px", display: "inline-block" }}>
+                  {seancesCetteSemaine}/{objectifSeancesSemaine} cette semaine
+                </div>
               )}
             </Card>
-          ))}
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("bilans")}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <TrendingUp size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Poids (7j)</span>
+              </div>
+              {poidsEvol7j === null ? (
+                <div style={{ fontFamily: FONT_MONO, fontSize: 20, color: C.textMuted, fontWeight: 700 }}>—</div>
+              ) : (
+                <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: (poidsEvol7j === 0 ? C.text : ((user.poidsObjectif < user.poidsActuel ? poidsEvol7j < 0 : poidsEvol7j > 0) ? C.green : C.red)), fontWeight: 700 }}>
+                  {poidsEvol7j > 0 ? "+" : ""}{poidsEvol7j} kg
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: C.textDim }}>cette semaine</div>
+            </Card>
+          </div>
+          <div style={{ display: "grid", gridTemplateColns: "1fr 1fr", gap: 12 }}>
+            <Card style={{ padding: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Clock size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Temps moyen</span>
+              </div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{tempsMoyenSeance !== null ? `${tempsMoyenSeance} min` : "—"}</div>
+              <div style={{ fontSize: 11, color: C.textDim }}>par séance</div>
+            </Card>
+            <Card style={{ padding: 14, cursor: exerciceProgres ? "pointer" : "default" }} onClick={() => exerciceProgres && setShowProgresDetail(true)}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Dumbbell size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted,ntWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Progrès</span>
+              </div>
+              {exerciceProgres ? (
+                <div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 15, color: C.text, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{exerciceProgres.emoji} {exerciceProgres.nom}</div>
+                  <div style={{ fontSize: 11, color: C.textDim }}>nouveau progrès</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 15, color: C.textMuted, fontWeight: 700 }}>—</div>
+                  <div style={{ fontSize: 11, color: C.textDim }}>continue comme ça</div>
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
-        {showSeanceForm && (
-          <SeanceForm
-            clientId={profilId}
-            coachId={profilId}
-            editingProgramme={editingProgramme}
-            onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
-            onCreated={onSeanceCreated}
-            fireToast={fireToast}
-          />
-        )}
-      </div>
+      )}
+      {mode === "seances" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ marginTop: 4 }}>
+            <SectionLabel icon={Dumbbell}>Mes séances</SectionLabel>
+            {isCoach && (
+              <button onClick={() => setShowSeanceForm(true)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 10 }}>
+                <Plus size={16} /> Créer une séance
+              </button>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {customProgrammes.length === 0 ? (
+                <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach ne t'a pas encore assigné de séance</div></Card>
+              ) : customProgrammes.map((p) => (
+                <Card key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSg: 0.5 }}>{p.nom}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
+                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{p.exercices.length} exercices · {p.duree}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 }}>
+                      <Play size={14} fill="#06171F" /> Démarrer
+                    </button>
+                    {isCoach && (
+                      <button onClick={() => { setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+          {showSeanceForm && (
+            <SeanceForm
+              clientId={profilId}
+              coachId={profilId}
+              editingProgramme={editingProgramme}
+              onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
+              onCreated={onSeanceCreated}
+              fireToast={fireToast}
+            />
+          )}
+        </div>
+      )}
+      {showProgresDetail && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowProgresDetail(false)}>
+          <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <SectionLabel icon={Dumbbell}>Tes progrès récents</SectionLabel>
+            {tousLesProgres.length === 0 ? (
+              <div style={{ color: C.textMut, fontSize: 13, textAlign: "center", padding: 20 }}>Aucun progrès détecté récemment</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {tousLesProgres.map((p, i) => (
+                  <div key={i} style={{ background: C.surface, borderRadius: 10, padding: 12 }}>
+                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: C.text, marginBottom: 4 }}>{p.nom}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
+                      {p.poidsAugmente && p.repsAugmente ? "Progrès en poids et répétitions" : p.poidsAugmente ? "Progrès en poids" : "Progrès en répétitions"}
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <div style={{ flex: 1, background: C.card, borderRadius: 8, padding: 8, textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: C.textMuted, marginBottom: 2 }}>Avant</div>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: 14, color: C.text }}>{p.avant.poids}kg × {p.avant.reps}</div>
+                      </div>
+                      <div style={{ flex: 1, background: C.blueSoft, border: `1px solid ${C.blue}`, borderRadius: 8, padding: 8, textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: C.blue, marginBottom: 2 }}>Maintenant</div>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: 14, color: C.text, fontWeight: 700 }}>{p.dernier.poids}kg × {p.dernier.reps}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowProgresDetail(false)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 16 }}>Fermer</button>
+          </Card>
+        </div>
+      )}
+      {showCalendrier && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowCalendrier(false)}>
+          <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <SectionLabel icon={Flame}>Séances du mois</SectionLabel>
+            <CalendrierSeances recentSeances={recentSeances} />
+            <button onClick={() => setShowCalendrier(false)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 16 }}>Fermer</button>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
@@ -2136,7 +2290,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
 /*  CLIENT APP                                                         */
 /* ------------------------------------------------------------------ */
 function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
-  const [tab, setTab] = useState("entrainement");
+  const [tab, setTab] = useState("accueil");
   const [profilId, setProfilId] = useState(profilRow.id);
   const [loading, setLoading] = useState(true);
 
@@ -2209,6 +2363,18 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     }
   };
   const [weightHistory, setWeightHistory] = useState([]);
+  const [recentSeances, setRecentSeances] = useState([]);
+
+  useEffect(() => {
+    if (!profilId) return;
+    supabase
+      .from("seances")
+      .select("*, series(*)")
+      .eq("profil_id", profilId)
+      .order("date", { ascending: false })
+      .limit(20)
+      .then(({ data }) => setRecentSeances(data || []));
+  }, [profilId]);
   const [photos, setPhotos] = useState({ face: null, profil: null, dos: null, bicepsAvant: null, bicepsArriere: null });
   const [checkins, setCheckins] = useState([]);
   const profilIdRef = useRef(profilRow.id);
@@ -2510,10 +2676,13 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <LogoutButton onLogout={onLogout} />
           </div>
         </div>
-        {tab === "entrainement" && !activeProgramme && (
-          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} />
+        {tab === "accueil" && !activeProgramme && (
+          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} />
         )}
-        {tab === "entrainement" && activeProgramme && (
+        {tab === "seances" && !activeProgramme && (
+          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+        )}
+        {activeProgramme && (
           <SessionView
             programme={activeProgramme}
             history={exerciseHistory}
