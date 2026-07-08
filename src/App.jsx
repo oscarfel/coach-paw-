@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dumbbell, Apple, Home, TrendingUp, User, Play, Square, Timer, Video, Upload,
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
-  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu,
+  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -279,26 +279,12 @@ const PROGRAMMES = [
   },
 ];
 
-const FOOD_DB = [
-  { nom: "Blanc de poulet", kcal: 165, prot: 31, gluc: 0, lip: 3.6 },
-  { nom: "Riz blanc cuit", kcal: 130, prot: 2.7, gluc: 28, lip: 0.3 },
-  { nom: "Flocons d'avoine", kcal: 389, prot: 16.9, gluc: 66, lip: 6.9 },
-  { nom: "Œufs entiers", kcal: 155, prot: 13, gluc: 1.1, lip: 11 },
-  { nom: "Banane", kcal: 89, prot: 1.1, gluc: 23, lip: 0.3 },
-  { nom: "Yaourt grec nature", kcal: 97, prot: 9, gluc: 3.9, lip: 5 },
-  { nom: "Amandes", kcal: 579, prot: 21, gluc: 22, lip: 50 },
-  { nom: "Pain complet", kcal: 247, prot: 13, gluc: 41, lip: 3.4 },
-  { nom: "Huile d'olive", kcal: 884, prot: 0, gluc: 0, lip: 100 },
-  { nom: "Saumon", kcal: 208, prot: 20, gluc: 0, lip: 13 },
-  { nom: "Pâtes cuites", kcal: 158, prot: 5.8, gluc: 31, lip: 0.9 },
-  { nom: "Fromage blanc 0%", kcal: 47, prot: 8, gluc: 4, lip: 0.2 },
-];
 
 const MEAL_DEFS = [
-  { key: "petitDej", nom: "Petit-déjeuner" },
-  { key: "dejeuner", nom: "Déjeuner" },
-  { key: "collation", nom: "Collation" },
-  { key: "diner", nom: "Dîner" },
+  { key: "petitDej", nom: "Petit-déjeuner", emoji: "🌅" },
+  { key: "dejeuner", nom: "Déjeuner", emoji: "🍽️" },
+  { key: "collation", nom: "Collation", emoji: "🍎" },
+  { key: "diner", nom: "Dîner", emoji: "🌙" },
 ];
 
 const PHOTO_CATS = [
@@ -422,7 +408,7 @@ function CalendrierSeances({ recentSeances }) {
     </div>
   );
 }
-function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition }) {
+function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition, streak = 0 }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
   const poidsEvol7j = useMemo(() => {
     if (!weightHistory || weightHistory.length < 2) return null;
@@ -525,9 +511,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
     const emoji = EMOJIS_PROGRES[Math.floor(Math.random() * EMOJIS_PROGRES.length)];
     return { ...choisi, emoji };
   }, [tousLesProgres]);
-  const [editingProgramme, setEditingProgramme] = useState(null);
-  const [showProgresDetail, setShowProgresDetail] = useState(false);
-  const [showCalendrier, setShowCalendrier] = useState(false);
+
   const poidsRestant = (user.poidsActuel - user.poidsObjectif).toFixed(1);
   const progressPoids = Math.min(
     100,
@@ -536,6 +520,30 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       ((user.poidsDepart - user.poidsActuel) / (user.poidsDepart - user.poidsObjectif)) * 100
     )
   );
+
+  // Score du palier mensuel (0-100), réparti en 4 blocs de 25 points
+  const scorePoids = Math.round(Math.pow(Math.min(1, Math.max(0, progressPoids / 100)), 2) * 25);
+  const semainesEcoulees = Math.max(1, Math.ceil(new Date().getDate() / 7));
+  const objectifSeancesMois = objectifSeancesSemaine * semainesEcoulees;
+  const scoreSeances = objectifSeancesMois > 0 ? Math.round(Math.min(1, stats.seancesRealisees / objectifSeancesMois) * 25) : 0;
+  const scoreNutrition = Math.round(Math.min(1, streak / 10) * 25);
+  const scoreCharge = Math.min(25, tousLesProgres.length * 0.5);
+  const badgeScore = scorePoids + scoreSeances + scoreNutrition + scoreCharge;
+  const TIER_INFO = {
+    bronze: { label: "Bronze", emoji: "🥉", color: "#CD7F5A" },
+    argent: { label: "Argent", emoji: "🥈", color: "#B8C0CC" },
+    or: { label: "Or", emoji: "🥇", color: "#F5C451" },
+  };
+  const badgeTierKey = badgeScore >= 75 ? "or" : badgeScore >= 40 ? "argent" : "bronze";
+  const tierInfo = TIER_INFO[badgeTierKey];
+  const badgeRingRadius = 36;
+  const badgeRingCirc = 2 * Math.PI * badgeRingRadius;
+  const badgeRingOffset = badgeRingCirc - (badgeScore / 100) * badgeRingCirc;
+  const [showBadgeDetail, setShowBadgeDetail] = useState(false);
+
+  const [editingProgramme, setEditingProgramme] = useState(null);
+  const [showProgresDetail, setShowProgresDetail] = useState(false);
+  const [showCalendrier, setShowCalendrier] = useState(false);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -553,18 +561,30 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowBadgeDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Flame size={14} color={C.blue} />
-                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Séances</span>
+                <Award size={14} color={tierInfo.color} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Palier du mois</span>
               </div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{stats.seancesRealisees}</div>
-              <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
-              {objectifSeancesSemaine > 0 && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : C.amber, background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : C.amberSoft, borderRadius: 8, padding: "4px 8px", display: "inline-block" }}>
-                  {seancesCetteSemaine}/{objectifSeancesSemaine} cette semaine
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
+                <div style={{ position: "relative", width: 84, height: 84 }}>
+                  <svg width="84" height="84" viewBox="0 0 84 84">
+                    <circle cx="42" cy="42" r={badgeRingRadius} fill="none" stroke={C.cardBorderLight} strokeWidth="7" />
+                    <circle
+                      cx="42" cy="42" r={badgeRingRadius} fill="none" stroke={tierInfo.color} strokeWidth="7"
+                      strokeDasharray={badgeRingCirc} strokeDashoffset={badgeRingOffset}
+                      strokeLinecap="round" transform="rotate(-90 42 42)"
+                      style={{ transition: "stroke-dashoffset .4s ease" }}
+                    />
+                  </svg>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34 }}>
+                    {tierInfo.emoji}
+                  </div>
                 </div>
-              )}
+              </div>
+              <div style={{ textAlign: "center", fontSize: 11, color: tierInfo.color, fontWeight: 700, marginTop: 2 }}>
+                {tierInfo.label} · {Math.round(badgeScore)}%
+              </div>
             </Card>
             <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("nutrition")}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -578,6 +598,14 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 {caloriesObjectif ? `sur ${Math.round(caloriesObjectif)} kcal` : "objectif non défini"}
               </div>
               {caloriesObjectif > 0 && <ProgressBar value={caloriesConsommees} max={caloriesObjectif} color={C.blue} height={6} />}
+              {streak > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8 }}>
+                  <Flame size={13} color={C.amber} fill={C.amber} />
+                  <span style={{ fontSize: 11.5, color: C.amber, fontWeight: 700 }}>
+                    {streak} jour{streak > 1 ? "s" : ""} de suite
+                  </span>
+                </div>
+              )}
             </Card>
           </div>
           <Card>
@@ -601,13 +629,18 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <ProgressBar value={progressPoids} max={100} color={C.amber} />
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14 }}>
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Clock size={14} color={C.blue} />
-                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Temps moyen</span>
+                <Flame size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Séances</span>
               </div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{tempsMoyenSeance !== null ? `${tempsMoyenSeance} min` : "—"}</div>
-              <div style={{ fontSize: 11, color: C.textDim }}>par séance</div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{stats.seancesRealisees}</div>
+              <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
+              {objectifSeancesSemaine > 0 && (
+                <div style={{ fontSize: 11, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : C.amber, background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : C.amberSoft, borderRadius: 8, padding: "4px 8px", display: "inline-block" }}>
+                  {seancesCetteSemaine}/{objectifSeancesSemaine} cette semaine
+                </div>
+              )}
             </Card>
             <Card style={{ padding: 14, cursor: exerciceProgres ? "pointer" : "default" }} onClick={() => exerciceProgres && setShowProgresDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -771,6 +804,56 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
               fireToast={fireToast}
             />
           )}
+        </div>
+      )}
+      {showBadgeDetail && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowBadgeDetail(false)}>
+          <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <SectionLabel icon={Award}>Ton palier du mois</SectionLabel>
+            <div style={{ textAlign: "center", margin: "8px 0 20px" }}>
+              <div style={{ fontSize: 42 }}>{tierInfo.emoji}</div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 30, color: tierInfo.color, fontWeight: 700 }}>{Math.round(badgeScore)}%</div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>
+                Palier {tierInfo.label}
+                {badgeTierKey !== "or" && ` · ${Math.round(badgeTierKey === "bronze" ? 40 - badgeScore : 75 - badgeScore)}% pour passer ${badgeTierKey === "bronze" ? "Argent" : "Or"}`}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                  <span style={{ color: C.text, fontWeight: 700 }}>🎯 Objectif de poids</span>
+                  <span style={{ fontFamily: FONT_MONO, color: C.textMuted }}>{scorePoids}/25</span>
+                </div>
+                <ProgressBar value={scorePoids} max={25} color={C.amber} height={6} />
+                <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Rapproche-toi vraiment de ton objectif de poids — les derniers pourcents comptent le plus.</div>
+              </div>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                  <span style={{ color: C.text, fontWeight: 700 }}>🔥 Séances du mois</span>
+                  <span style={{ fontFamily: FONT_MONO, color: C.textMuted }}>{scoreSeances}/25</span>
+                </div>
+                <ProgressBar value={scoreSeances} max={25} color={C.blue} height={6} />
+                <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Termine toutes tes séances prévues ce mois-ci.</div>
+              </div>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                  <span style={{ color: C.text, fontWeight: 700 }}>🍎 Régularité nutrition</span>
+                  <span style={{ fontFamily: FONT_MONO, color: C.textMuted }}>{scoreNutrition}/25</span>
+                </div>
+                <ProgressBar value={scoreNutrition} max={25} color={C.green} height={6} />
+                <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Renseigne tes repas plusieurs jours de suite (jusqu'à 10 jours pour le max).</div>
+              </div>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                  <span style={{ color: C.text, fontWeight: 700 }}>💪 Progression en charge</span>
+                  <span style={{ fontFamily: FONT_MONO, color: C.textMuted }}>{scoreCharge}/25</span>
+                </div>
+                <ProgressBar value={scoreCharge} max={25} color={C.red} height={6} />
+                <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>+0,5 point à chaque exercice où tu progresses (poids ou répétitions).</div>
+              </div>
+            </div>
+            <button onClick={() => setShowBadgeDetail(false)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>Fermer</button>
+          </Card>
         </div>
       )}
       {showProgresDetail && (
@@ -1225,13 +1308,64 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 /* ------------------------------------------------------------------ */
 function MealCard({ meal, items, onAdd, onRemove }) {
   const [open, setOpen] = useState(false);
-  const [food, setFood] = useState(FOOD_DB[0].nom);
   const [grams, setGrams] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedFood, setSelectedFood] = useState(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualNom, setManualNom] = useState("");
+  const [manualGrams, setManualGrams] = useState("");
+  const [manualKcal, setManualKcal] = useState("");
+  const [manualProt, setManualProt] = useState("");
+  const [manualGluc, setManualGluc] = useState("");
+  const [manualLip, setManualLip] = useState("");
+  const searchTimeoutRef = useRef(null);
 
   const totalKcal = items.reduce((a, i) => a + i.kcal, 0);
 
+  useEffect(() => {
+    if (searchQuery.trim().length < 2 || selectedFood) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=12&lc=fr`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const parsed = (data.products || [])
+          .filter((p) => p.product_name && p.nutriments && p.nutriments["energy-kcal_100g"] != null)
+          .map((p) => ({
+            nom: p.product_name,
+            kcal: p.nutriments["energy-kcal_100g"] || 0,
+            prot: p.nutriments["proteins_100g"] || 0,
+            gluc: p.nutriments["carbohydrates_100g"] || 0,
+            lip: p.nutriments["fat_100g"] || 0,
+            fibres: p.nutriments["fiber_100g"] || 0,
+            sucres: p.nutriments["sugars_100g"] || 0,
+            sodium: p.nutriments["sodium_100g"] || 0,
+            potassium: p.nutriments["potassium_100g"] || 0,
+            calcium: p.nutriments["calcium_100g"] || 0,
+            fer: p.nutriments["iron_100g"] || 0,
+            magnesium: p.nutriments["magnesium_100g"] || 0,
+            vitamineD: p.nutriments["vitamin-d_100g"] || 0,
+          }));
+        setSearchResults(parsed);
+      } catch (err) {
+        console.error("Erreur recherche aliment:", err);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 450);
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
+  }, [searchQuery, selectedFood]);
+
   const add = () => {
-    const f = FOOD_DB.find((x) => x.nom === food);
+    const f = selectedFood;
     const g = parseFloat(grams);
     if (!f || !g) return;
     const ratio = g / 100;
@@ -1243,15 +1377,49 @@ function MealCard({ meal, items, onAdd, onRemove }) {
       prot: +(f.prot * ratio).toFixed(1),
       gluc: +(f.gluc * ratio).toFixed(1),
       lip: +(f.lip * ratio).toFixed(1),
+      fibres: +((f.fibres || 0) * ratio).toFixed(2),
+      sucres: +((f.sucres || 0) * ratio).toFixed(2),
+      sodium: +((f.sodium || 0) * ratio).toFixed(4),
+      potassium: +((f.potassium || 0) * ratio).toFixed(4),
+      calcium: +((f.calcium || 0) * ratio).toFixed(4),
+      fer: +((f.fer || 0) * ratio).toFixed(4),
+      magnesium: +((f.magnesium || 0) * ratio).toFixed(4),
+      vitamineD: +((f.vitamineD || 0) * ratio).toFixed(6),
     });
     setGrams("");
+    setSelectedFood(null);
+    setSearchQuery("");
+  };
+
+  const addManual = () => {
+    const nom = manualNom.trim();
+    const prot = parseFloat(manualProt) || 0;
+    const gluc = parseFloat(manualGluc) || 0;
+    const lip = parseFloat(manualLip) || 0;
+    let kcal = parseFloat(manualKcal) || 0;
+    if (!kcal && (prot || gluc || lip)) {
+      kcal = prot * 4 + gluc * 4 + lip * 9;
+    }
+    if (!nom || (!kcal && !prot && !gluc && !lip)) return;
+    onAdd(meal.key, {
+      id: Date.now(),
+      nom,
+      grams: parseFloat(manualGrams) || 0,
+      kcal: Math.round(kcal),
+      prot: +prot.toFixed(1),
+      gluc: +gluc.toFixed(1),
+      lip: +lip.toFixed(1),
+      fibres: 0, sucres: 0, sodium: 0, potassium: 0, calcium: 0, fer: 0, magnesium: 0, vitamineD: 0,
+    });
+    setManualNom(""); setManualGrams(""); setManualKcal(""); setManualProt(""); setManualGluc(""); setManualLip("");
+    setManualMode(false);
   };
 
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <button onClick={() => setOpen(!open)} style={{ width: "100%", background: "transparent", border: "none", padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ textAlign: "left" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{meal.nom}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{meal.emoji} {meal.nom}</div>
           <div style={{ fontSize: 12, color: C.textMuted }}>{items.length} aliment(s) · {totalKcal} kcal</div>
         </div>
         <ChevronDown size={18} color={C.textMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
@@ -1270,28 +1438,99 @@ function MealCard({ meal, items, onAdd, onRemove }) {
             </div>
           ))}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-            <select value={food} onChange={(e) => setFood(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 12.5 }}>
-              {FOOD_DB.map((f) => <option key={f.nom} value={f.nom}>{f.nom}</option>)}
-            </select>
-            <input type="number" placeholder="g" value={grams} onChange={(e) => setGrams(e.target.value)} style={{ width: 64, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
-            <button onClick={add} style={{ background: C.blue, border: "none", borderRadius: 10, padding: "0 12px", color: "#06171F" }}>
-              <Plus size={16} />
-            </button>
-          </div>
+          {!manualMode ? (
+            <>
+              <div style={{ position: "relative" }}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedFood(null); }}
+                  placeholder="🔍 Rechercher un aliment (ex : yaourt nature, whey...)"
+                  style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 12.5 }}
+                />
+                {searching && <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Recherche...</div>}
+                {searchResults.length > 0 && !selectedFood && (
+                  <div style={{ marginTop: 4, maxHeight: 170, overflowY: "auto", border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, background: C.surface }}>
+                    {searchResults.map((r, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setSelectedFood(r); setSearchResults([]); setSearchQuery(r.nom); }}
+                        style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderBottom: i < searchResults.length - 1 ? `1px solid ${C.cardBorderLight}` : "none", padding: "8px 10px" }}
+                      >
+                        <div style={{ fontSize: 12.5, color: C.text, fontWeight: 600 }}>{r.nom}</div>
+                        <div style={{ fontSize: 10.5, color: C.textDim }}>{Math.round(r.kcal)} kcal / 100g</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedFood && (
+                <div style={{ fontSize: 11.5, color: C.blue, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Check size={12} /> {selectedFood.nom}
+                  <button onClick={() => { setSelectedFood(null); setSearchQuery(""); }} style={{ background: "transparent", border: "none", color: C.textDim, display: "flex" }}><X size={12} /></button>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <input type="number" placeholder="Quantité en grammes" value={grams} onChange={(e) => setGrams(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+                <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : C.surface, border: "none", borderRadius: 10, padding: "0 12px", color: selectedFood ? "#06171F" : C.textDim }}>
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              <button onClick={() => setManualMode(true)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11.5, textDecoration: "underline", textAlign: "left", padding: 0 }}>
+                Aliment non trouvé ? Ajouter manuellement
+              </button>
+            </>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <input type="text" placeholder="Nom de l'aliment" value={manualNom} onChange={(e) => setManualNom(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
+              <input type="number" placeholder="Quantité en grammes (optionnel)" value={manualGrams} onChange={(e) => setManualGrams(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+              <input type="number" placeholder="Calories (kcal) — ou laisse vide" value={manualKcal} onChange={(e) => setManualKcal(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+              <div style={{ fontSize: 10.5, color: C.textDim }}>Ou renseigne les macros, les calories seront calculées automatiquement :</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input type="number" placeholder="Protéines (g)" value={manualProt} onChange={(e) => setManualProt(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 12.5, fontFamily: FONT_MONO }} />
+                <input type="number" placeholder="Glucides (g)" value={manualGluc} onChange={(e) => setManualGluc(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 12.5, fontFamily: FONT_MONO }} />
+                <input type="number" placeholder="Lipides (g)" value={manualLip} onChange={(e) => setManualLip(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 12.5, fontFamily: FONT_MONO }} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setManualMode(false)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 0", color: C.textMuted, fontSize: 13, fontWeight: 600 }}>
+                  Annuler
+                </button>
+                <button onClick={addManual} style={{ flex: 1, background: C.blue, border: "none", borderRadius: 10, padding: "9px 0", color: "#06171F", fontSize: 13, fontWeight: 700 }}>
+                  Ajouter
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Card>
   );
 }
 
-function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, saveObjectifsNutrition }) {
+function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
+  const [showNutriDetail, setShowNutriDetail] = useState(false);
   const totals = useMemo(() => {
     const all = Object.values(meals).flat();
     return all.reduce(
-      (a, i) => ({ kcal: a.kcal + i.kcal, prot: a.prot + i.prot, gluc: a.gluc + i.gluc, lip: a.lip + i.lip }),
-      { kcal: 0, prot: 0, gluc: 0, lip: 0 }
+      (a, i) => ({
+        kcal: a.kcal + i.kcal,
+        prot: a.prot + i.prot,
+        gluc: a.gluc + i.gluc,
+        lip: a.lip + i.lip,
+        fibres: a.fibres + (i.fibres || 0),
+        sucres: a.sucres + (i.sucres || 0),
+        sodium: a.sodium + (i.sodium || 0),
+        potassium: a.potassium + (i.potassium || 0),
+        calcium: a.calcium + (i.calcium || 0),
+        fer: a.fer + (i.fer || 0),
+        magnesium: a.magnesium + (i.magnesium || 0),
+        vitamineD: a.vitamineD + (i.vitamineD || 0),
+      }),
+      { kcal: 0, prot: 0, gluc: 0, lip: 0, fibres: 0, sucres: 0, sodium: 0, potassium: 0, calcium: 0, fer: 0, magnesium: 0, vitamineD: 0 }
     );
   }, [meals]);
 
@@ -1322,17 +1561,37 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
         <div style={{ fontFamily: FONT_DISPLAY, fontSize: 34, color: C.text, letterSpacing: 0.5 }}>NUTRITION</div>
       </div>
 
-      <Card style={{ background: `radial-gradient(circle at 80% 0%, ${C.blueSoft}, ${C.card} 60%)` }}>
+      <Card style={{ background: `radial-gradient(circle at 80% 0%, ${C.blueSoft}, ${C.card} 60%)`, cursor: "pointer" }} onClick={() => setShowNutriDetail(true)}>
         <SectionLabel icon={Flame}>Calories</SectionLabel>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 10 }}>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 32, color: C.text, fontWeight: 700 }}>{Math.round(totals.kcal)}</div>
-          <div onClick={() => setShowGoalEditor(true)} style={{ fontSize: 14, color: C.textMuted, paddingBottom: 4, cursor: "pointer", textDecoration: "underline dashed" }}>/ {Math.round(objectifs.kcal)} kcal</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 16 }}>
+          <div style={{ position: "relative", width: 104, height: 104, flexShrink: 0 }}>
+            <svg width="104" height="104" viewBox="0 0 104 104">
+              <circle cx="52" cy="52" r="44" fill="none" stroke={C.cardBorderLight} strokeWidth="10" />
+              <circle
+                cx="52" cy="52" r="44" fill="none" stroke={C.blue} strokeWidth="10"
+                strokeDasharray={2 * Math.PI * 44}
+                strokeDashoffset={2 * Math.PI * 44 - Math.min(1, totals.kcal / (objectifs.kcal || 1)) * 2 * Math.PI * 44}
+                strokeLinecap="round" transform="rotate(-90 52 52)"
+                style={{ transition: "stroke-dashoffset .4s ease" }}
+              />
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 22, color: C.text, fontWeight: 700, lineHeight: 1 }}>{Math.round(totals.kcal)}</div>
+              <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>kcal</div>
+            </div>
+          </div>
+          <div>
+            <div onClick={(e) => { e.stopPropagation(); setShowGoalEditor(true); }} style={{ fontSize: 14, color: C.textMuted, cursor: "pointer", textDecoration: "underline dashed" }}>
+              Objectif : {Math.round(objectifs.kcal)} kcal
+            </div>
+            <div style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>
+              {totals.kcal <= objectifs.kcal
+                ? `${Math.round(objectifs.kcal - totals.kcal)} kcal restantes`
+                : `${Math.round(totals.kcal - objectifs.kcal)} kcal dépassées`}
+            </div>
+            <div style={{ fontSize: 11, color: C.blue, marginTop: 6 }}>Voir détails →</div>
+          </div>
         </div>
-        <ProgressBar value={totals.kcal} max={objectifs.kcal} color={C.blue} height={9} />
-      </Card>
-
-      <Card>
-        <SectionLabel icon={ClipboardList}>Macronutriments</SectionLabel>
         <div style={{ display: "flex", gap: 14 }}>
           {macro("Protéines", totals.prot, Math.round((objectifs.kcal * objectifs.pctProt / 100) / 4), C.blue)}
           {macro("Glucides", totals.gluc, Math.round((objectifs.kcal * objectifs.pctGluc / 100) / 4), C.green)}
@@ -1348,6 +1607,100 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
           ))}
         </div>
       </div>
+
+      <Card>
+        <SectionLabel icon={Droplet}>Eau</SectionLabel>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>
+              {eauVerres * 50} <span style={{ fontSize: 13, color: C.textMuted, fontWeight: 400 }}>cl</span>
+            </div>
+            <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
+              {eauVerres} verre{eauVerres > 1 ? "s" : ""} · 50 cl / verre
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {eauVerres > 0 && (
+              <button
+                onClick={() => onChangeWater(-1)}
+                style={{ width: 38, height: 38, borderRadius: "50%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.textMuted }}
+              >
+                <X size={16} />
+              </button>
+            )}
+            <button
+              onClick={() => onChangeWater(1)}
+              style={{ width: 38, height: 38, borderRadius: "50%", background: C.blue, border: "none", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <Plus size={18} color="#06171F" />
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+          {Array.from({ length: Math.max(eauVerres, 6) }).map((_, i) => (
+            <svg key={i} width="18" height="26" viewBox="0 0 18 26">
+              <path
+                d="M2 2 H16 L13.5 24 H4.5 Z"
+                fill={i < eauVerres ? C.blue : "none"}
+                stroke={i < eauVerres ? C.blue : C.cardBorderLight}
+                strokeWidth="1.5"
+              />
+            </svg>
+          ))}
+        </div>
+      </Card>
+
+      {showNutriDetail && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowNutriDetail(false)}>
+          <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <SectionLabel icon={Flame}>Détail nutritionnel du jour</SectionLabel>
+              <button onClick={() => setShowNutriDetail(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Macronutriments</div>
+              {[
+                ["Calories", Math.round(totals.kcal), "kcal"],
+                ["Protéines", totals.prot.toFixed(1), "g"],
+                ["Glucides", totals.gluc.toFixed(1), "g"],
+                ["Lipides", totals.lip.toFixed(1), "g"],
+              ].map(([label, val, unit]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", background: C.surface, borderRadius: 10, padding: "8px 12px" }}>
+                  <span style={{ fontSize: 13, color: C.text }}>{label}</span>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: C.textMuted }}>{val} {unit}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginTop: 8 }}>Autres nutriments</div>
+              {[
+                ["Fibres", totals.fibres.toFixed(1), "g"],
+                ["Sucres", totals.sucres.toFixed(1), "g"],
+                ["Sodium", (totals.sodium * 1000).toFixed(0), "mg"],
+                ["Potassium", (totals.potassium * 1000).toFixed(0), "mg"],
+              ].map(([label, val, unit]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", background: C.surface, borderRadius: 10, padding: "8px 12px" }}>
+                  <span style={{ fontSize: 13, color: C.text }}>{label}</span>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: C.textMuted }}>{val} {unit}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginTop: 8 }}>Minéraux & vitamines</div>
+              {[
+                ["Calcium", (totals.calcium * 1000).toFixed(0), "mg"],
+                ["Fer", (totals.fer * 1000).toFixed(1), "mg"],
+                ["Magnésium", (totals.magnesium * 1000).toFixed(0), "mg"],
+                ["Vitamine D", (totals.vitamineD * 1000000).toFixed(1), "µg"],
+              ].map(([label, val, unit]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", background: C.surface, borderRadius: 10, padding: "8px 12px" }}>
+                  <span style={{ fontSize: 13, color: C.text }}>{label}</span>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: C.textMuted }}>{val} {unit}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 4 }}>
+                Ces valeurs dépendent des données disponibles pour chaque aliment renseigné (base Open Food Facts) — certains produits peuvent avoir des informations incomplètes, et les aliments ajoutés manuellement n'incluent pas ces détails.
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
       {showGoalEditor && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowGoalEditor(false)}>
           <Card style={{ width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
@@ -1386,28 +1739,44 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
 /* ------------------------------------------------------------------ */
 /*  BILANS                                                             */
 /* ------------------------------------------------------------------ */
-function PhotoTile({ cat, url, onChange }) {
+function PhotoTile({ cat, url, onChange, uploading }) {
   const ref = useRef(null);
+  const [localPreview, setLocalPreview] = useState(null);
+  const displayUrl = localPreview || url;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <button
         onClick={() => ref.current && ref.current.click()}
         style={{
           width: "100%", aspectRatio: "3/4", borderRadius: 14,
-          border: `1.5px dashed ${url ? C.blue : C.cardBorderLight}`,
-          background: url ? `url(${url}) center/cover` : C.surface,
+          border: `1.5px dashed ${displayUrl ? C.blue : C.cardBorderLight}`,
+          background: displayUrl ? `url(${displayUrl}) center/cover` : C.surface,
           display: "flex", alignItems: "center", justifyContent: "center",
           position: "relative", overflow: "hidden",
         }}
       >
-        {!url && <Camera size={22} color={C.textDim} />}
-        {url && (
+        {!displayUrl && <Camera size={22} color={C.textDim} />}
+        {uploading && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,17,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ fontSize: 10, color: C.text, fontWeight: 700 }}>Envoi...</div>
+          </div>
+        )}
+        {displayUrl && !uploading && (
           <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(10,12,17,0.7)", borderRadius: "50%", padding: 5 }}>
             <Check size={12} color={C.green} />
           </div>
         )}
       </button>
-      <input ref={ref} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) onChange(cat.key, URL.createObjectURL(f)); }} />
+      <input
+        ref={ref} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files[0];
+          if (f) {
+            setLocalPreview(URL.createObjectURL(f));
+            onChange(cat.key, f);
+          }
+        }}
+      />
       <div style={{ fontSize: 10.5, color: C.textMuted, textAlign: "center", fontWeight: 600 }}>{cat.nom}</div>
     </div>
   );
@@ -1471,8 +1840,37 @@ function DailyCheckinModal({ onSubmit }) {
   );
 }
 
-function Bilans({ weightHistory, addWeightEntry, photos, setPhotos, checkins, addCheckin }) {
+function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan, uploadingPhotoKey, checkins, addCheckin }) {
   const [newWeight, setNewWeight] = useState("");
+  const [showPhotoHistory, setShowPhotoHistory] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+
+  const photosActuelles = useMemo(() => {
+    const moisEnCours = todayIso().slice(0, 7);
+    const latest = {};
+    for (const p of photosHistory) {
+      if (p.mois !== moisEnCours) continue;
+      if (!latest[p.categorie]) latest[p.categorie] = p.url;
+    }
+    return latest;
+  }, [photosHistory]);
+
+  const photosParMois = useMemo(() => {
+    const groups = {};
+    for (const p of photosHistory) {
+      const monthKey = p.date.slice(0, 7); // YYYY-MM
+      if (!groups[monthKey]) groups[monthKey] = [];
+      groups[monthKey].push(p);
+    }
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [photosHistory]);
+
+  const formatMonthLabel = (monthKey) => {
+    const [y, m] = monthKey.split("-");
+    const d = new Date(Number(y), Number(m) - 1, 1);
+    const label = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  };
   const emptyForm = {
     sensationForce: 3,
     exerciceProbleme: "",
@@ -1552,13 +1950,77 @@ function Bilans({ weightHistory, addWeightEntry, photos, setPhotos, checkins, ad
 
       {/* Photos */}
       <Card>
-        <SectionLabel icon={Camera}>Bilan photo</SectionLabel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <SectionLabel icon={Camera}>Bilan photo</SectionLabel>
+          {photosHistory.length > 0 && (
+            <button onClick={() => setShowPhotoHistory(true)} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>
+              Historique
+            </button>
+          )}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {PHOTO_CATS.map((c) => (
-            <PhotoTile key={c.key} cat={c} url={photos[c.key]} onChange={(k, u) => setPhotos((p) => ({ ...p, [k]: u }))} />
+            <PhotoTile
+              key={c.key}
+              cat={c}
+              url={photosActuelles[c.key]}
+              uploading={uploadingPhotoKey === c.key}
+              onChange={(k, file) => uploadPhotoBilan(k, file)}
+            />
           ))}
         </div>
       </Card>
+
+      {showPhotoHistory && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={() => { setShowPhotoHistory(false); setSelectedMonth(null); }}
+        >
+          <Card style={{ width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            {!selectedMonth ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <SectionLabel icon={Camera}>Historique par mois</SectionLabel>
+                  <button onClick={() => setShowPhotoHistory(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {photosParMois.map(([monthKey, photosOfMonth]) => (
+                    <button
+                      key={monthKey}
+                      onClick={() => setSelectedMonth(monthKey)}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "12px 14px" }}
+                    >
+                      <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{formatMonthLabel(monthKey)}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.textMuted, fontSize: 12 }}>
+                        {photosOfMonth.length} photo{photosOfMonth.length > 1 ? "s" : ""} <ChevronRight size={14} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <button onClick={() => setSelectedMonth(null)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                    <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {formatMonthLabel(selectedMonth)}
+                  </button>
+                  <button onClick={() => { setShowPhotoHistory(false); setSelectedMonth(null); }} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  {photosParMois.find(([k]) => k === selectedMonth)[1].map((p) => (
+                    <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ width: "100%", aspectRatio: "3/4", borderRadius: 10, background: `url(${p.url}) center/cover`, border: `1px solid ${C.cardBorderLight}` }} />
+                      <div style={{ fontSize: 9.5, color: C.textDim, textAlign: "center" }}>
+                        {PHOTO_CATS.find((c) => c.key === p.categorie)?.nom || p.categorie} · {formatDateDisplay(p.date)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* Check-in hebdo */}
       <Card>
@@ -2796,10 +3258,102 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       .limit(20)
       .then(({ data }) => setRecentSeances(data || []));
   }, [profilId]);
-  const [photos, setPhotos] = useState({ face: null, profil: null, dos: null, bicepsAvant: null, bicepsArriere: null });
+  const [photosHistory, setPhotosHistory] = useState([]);
+  const [uploadingPhotoKey, setUploadingPhotoKey] = useState(null);
   const [checkins, setCheckins] = useState([]);
+  const [eauVerres, setEauVerres] = useState(0);
+  const [datesAvecRepasAnterieures, setDatesAvecRepasAnterieures] = useState(new Set());
   const [dailyCheckinDone, setDailyCheckinDone] = useState(null); // null = en cours de vérification
   const profilIdRef = useRef(profilRow.id);
+
+  const streakNutrition = useMemo(() => {
+    const hasFoodToday = Object.values(meals).some((arr) => arr.length > 0);
+    if (!hasFoodToday) return 0;
+    let streak = 1;
+    let cursor = new Date();
+    cursor.setDate(cursor.getDate() - 1);
+    while (datesAvecRepasAnterieures.has(cursor.toISOString().slice(0, 10))) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }, [meals, datesAvecRepasAnterieures]);
+
+  useEffect(() => {
+    if (!profilId) return;
+    let active = true;
+    (async () => {
+      try {
+        const today = todayIso();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const thirtyDaysAgoIso = thirtyDaysAgo.toISOString().slice(0, 10);
+
+        const [eauRes, repasDatesRes, photosRes] = await Promise.all([
+          supabase.from("eau_quotidien").select("verres").eq("profil_id", profilId).eq("date", today).maybeSingle(),
+          supabase.from("repas").select("date").eq("profil_id", profilId).gte("date", thirtyDaysAgoIso).lt("date", today),
+          supabase.from("photos_bilan").select("*").eq("profil_id", profilId).order("date", { ascending: false }),
+        ]);
+        if (!active) return;
+
+        if (eauRes.data) setEauVerres(eauRes.data.verres);
+
+        setDatesAvecRepasAnterieures(new Set((repasDatesRes.data || []).map((r) => r.date)));
+
+        setPhotosHistory(photosRes.data || []);
+      } catch (err) {
+        console.error("Erreur chargement eau/streak/photos:", err);
+      }
+    })();
+    return () => { active = false; };
+  }, [profilId]);
+
+  const onChangeWater = async (delta) => {
+    if (!profilId) return;
+    const newValue = Math.max(0, eauVerres + delta);
+    setEauVerres(newValue);
+    try {
+      const { error } = await supabase
+        .from("eau_quotidien")
+        .upsert({ profil_id: profilId, date: todayIso(), verres: newValue }, { onConflict: "profil_id,date" });
+      if (error) throw error;
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement eau");
+    }
+  };
+
+  const uploadPhotoBilan = async (categorie, file) => {
+    if (!profilId || !file) return;
+    setUploadingPhotoKey(categorie);
+    try {
+      const today = todayIso();
+      const mois = today.slice(0, 7);
+      const fileName = `${profilId}/${categorie}_${Date.now()}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage.from("photos-bilan").upload(fileName, file);
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from("photos-bilan").getPublicUrl(fileName);
+      const { data, error } = await supabase
+        .from("photos_bilan")
+        .upsert(
+          { profil_id: profilId, categorie, date: today, mois, url: urlData.publicUrl },
+          { onConflict: "profil_id,categorie,mois" }
+        )
+        .select("*")
+        .single();
+      if (error) throw error;
+      setPhotosHistory((prev) => {
+        const sansAncienneDuMois = prev.filter((p) => !(p.categorie === categorie && p.mois === mois));
+        return [data, ...sansAncienneDuMois];
+      });
+      fireToast("Photo enregistrée", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi photo");
+    } finally {
+      setUploadingPhotoKey(null);
+    }
+  };
 
   useEffect(() => {
     if (!profilId) return;
@@ -2896,6 +3450,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
                 prot: Number(r.prot),
                 gluc: Number(r.gluc),
                 lip: Number(r.lip),
+                fibres: Number(r.fibres || 0),
+                sucres: Number(r.sucres || 0),
+                sodium: Number(r.sodium || 0),
+                potassium: Number(r.potassium || 0),
+                calcium: Number(r.calcium || 0),
+                fer: Number(r.fer || 0),
+                magnesium: Number(r.magnesium || 0),
+                vitamineD: Number(r.vitamine_d || 0),
               });
             }
           }
@@ -3023,6 +3585,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           prot: item.prot,
           gluc: item.gluc,
           lip: item.lip,
+          fibres: item.fibres || 0,
+          sucres: item.sucres || 0,
+          sodium: item.sodium || 0,
+          potassium: item.potassium || 0,
+          calcium: item.calcium || 0,
+          fer: item.fer || 0,
+          magnesium: item.magnesium || 0,
+          vitamine_d: item.vitamineD || 0,
           date: todayIso(),
         })
         .select("*")
@@ -3158,7 +3728,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
           )}
           {tab === "seances" && !activeProgramme && (
             <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
@@ -3174,13 +3744,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               onSessionComplete={saveSession}
             />
           )}
-          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} />}
+          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} />}
           {tab === "bilans" && (
             <Bilans
               weightHistory={weightHistory}
               addWeightEntry={addWeightEntry}
-              photos={photos}
-              setPhotos={setPhotos}
+              photosHistory={photosHistory}
+              uploadPhotoBilan={uploadPhotoBilan}
+              uploadingPhotoKey={uploadingPhotoKey}
               checkins={checkins}
               addCheckin={addCheckin}
             />
