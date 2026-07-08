@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dumbbell, Apple, Home, TrendingUp, User, Play, Square, Timer, Video, Upload,
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
-  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw,
+  ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -50,6 +50,7 @@ const FontImports = () => (
     button { font-family: ${FONT_BODY}; cursor: pointer; }
     @keyframes pulseGlow { 0%,100% { opacity:.55; } 50% { opacity:1; } }
     @keyframes slideUp { from { transform: translateY(12px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+    @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
   `}</style>
 );
 
@@ -421,7 +422,7 @@ function CalendrierSeances({ recentSeances }) {
     </div>
   );
 }
-function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil" }) {
+function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
   const poidsEvol7j = useMemo(() => {
     if (!weightHistory || weightHistory.length < 2) return null;
@@ -429,6 +430,54 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
     const weekAgo = weightHistory.length >= 2 ? weightHistory[Math.max(0, weightHistory.length - 2)].poids : last;
     return +(last - weekAgo).toFixed(1);
   }, [weightHistory]);
+
+  const poidsTrendColor = useMemo(() => {
+    if (poidsEvol7j === null || poidsEvol7j === 0) return C.textMuted;
+    let seRapproche;
+    if (user.poidsObjectif === user.poidsActuel) {
+      seRapproche = false; // objectif de maintien : tout mouvement s'en éloigne
+    } else {
+      seRapproche = user.poidsObjectif < user.poidsActuel ? poidsEvol7j < 0 : poidsEvol7j > 0;
+    }
+    return seRapproche ? C.green : C.red;
+  }, [poidsEvol7j, user.poidsObjectif, user.poidsActuel]);
+
+  const caloriesConsommees = useMemo(() => {
+    if (!meals) return 0;
+    return Object.values(meals).flat().reduce((a, i) => a + i.kcal, 0);
+  }, [meals]);
+  const nutritionTotals = useMemo(() => {
+    if (!meals) return { kcal: 0, prot: 0, gluc: 0, lip: 0 };
+    return Object.values(meals).flat().reduce(
+      (a, i) => ({ kcal: a.kcal + i.kcal, prot: a.prot + i.prot, gluc: a.gluc + i.gluc, lip: a.lip + i.lip }),
+      { kcal: 0, prot: 0, gluc: 0, lip: 0 }
+    );
+  }, [meals]);
+  const caloriesObjectif = objectifsNutrition?.kcal || 0;
+  const caloriesRestantes = Math.round(caloriesObjectif - caloriesConsommees);
+  const pctCalories = caloriesObjectif ? Math.min(100, Math.max(0, (caloriesConsommees / caloriesObjectif) * 100)) : 0;
+  const bigRingRadius = 40;
+  const bigRingCirc = 2 * Math.PI * bigRingRadius;
+  const bigRingOffset = bigRingCirc - (pctCalories / 100) * bigRingCirc;
+  const macroStatusColor = (val, obj, baseColor) => {
+    if (obj && val > obj) return C.red;
+    return baseColor;
+  };
+  const macroBar = (label, val, obj, dotColor) => {
+    const sColor = macroStatusColor(val, obj, dotColor);
+    return (
+      <div key={label}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, marginBottom: 4 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.textMuted, fontWeight: 700 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, display: "inline-block" }} />
+            {label}
+          </span>
+          <span style={{ fontFamily: FONT_MONO, color: sColor, fontWeight: 700 }}>{Math.round(val)}/{obj}g</span>
+        </div>
+        <ProgressBar value={val} max={obj} color={sColor} height={6} />
+      </div>
+    );
+  };
 
   const tempsMoyenSeance = useMemo(() => {
     if (!recentSeances || recentSeances.length === 0) return null;
@@ -493,12 +542,43 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       {mode === "accueil" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.text, fontWeight: 600 }}>
               Bienvenue,
             </div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 40, color: C.text, lineHeight: 1, letterSpacing: 0.5 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 40, color: C.blue, lineHeight: 1, letterSpacing: 0.5 }}>
               {user.prenom.toUpperCase()}
             </div>
+            <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, marginTop: 4, textAlign: "left" }}>
+              {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Flame size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Séances</span>
+              </div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{stats.seancesRealisees}</div>
+              <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
+              {objectifSeancesSemaine > 0 && (
+                <div style={{ fontSize: 11, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : C.amber, background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : C.amberSoft, borderRadius: 8, padding: "4px 8px", display: "inline-block" }}>
+                  {seancesCetteSemaine}/{objectifSeancesSemaine} cette semaine
+                </div>
+              )}
+            </Card>
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("nutrition")}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Flame size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Calories</span>
+              </div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>
+                {Math.round(caloriesConsommees)} <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 400 }}>kcal</span>
+              </div>
+              <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>
+                {caloriesObjectif ? `sur ${Math.round(caloriesObjectif)} kcal` : "objectif non défini"}
+              </div>
+              {caloriesObjectif > 0 && <ProgressBar value={caloriesConsommees} max={caloriesObjectif} color={C.blue} height={6} />}
+            </Card>
           </div>
           <Card>
             <SectionLabel icon={Target}>Objectif de poids</SectionLabel>
@@ -521,35 +601,6 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <ProgressBar value={progressPoids} max={100} color={C.amber} />
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Flame size={14} color={C.bl} />
-                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Séances</span>
-              </div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{stats.seancesRealisees}</div>
-              <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
-              {objectifSeancesSemaine > 0 && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : C.amber, background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : C.amberSoft, borderRadius: 8, padding: "4px 8px", display: "inline-block" }}>
-                  {seancesCetteSemaine}/{objectifSeancesSemaine} cette semaine
-                </div>
-              )}
-            </Card>
-            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("bilans")}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <TrendingUp size={14} color={C.blue} />
-                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Poids (7j)</span>
-              </div>
-              {poidsEvol7j === null ? (
-                <div style={{ fontFamily: FONT_MONO, fontSize: 20, color: C.textMuted, fontWeight: 700 }}>—</div>
-              ) : (
-                <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: (poidsEvol7j === 0 ? C.text : ((user.poidsObjectif < user.poidsActuel ? poidsEvol7j < 0 : poidsEvol7j > 0) ? C.green : C.red)), fontWeight: 700 }}>
-                  {poidsEvol7j > 0 ? "+" : ""}{poidsEvol7j} kg
-                </div>
-              )}
-              <div style={{ fontSize: 11, color: C.textDim }}>cette semaine</div>
-            </Card>
-          </div>
-          <div style={{ display: "grid", gridTemplateColns: "1fr 1fr", gap: 12 }}>
             <Card style={{ padding: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Clock size={14} color={C.blue} />
@@ -561,7 +612,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Card style={{ padding: 14, cursor: exerciceProgres ? "pointer" : "default" }} onClick={() => exerciceProgres && setShowProgresDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Dumbbell size={14} color={C.blue} />
-                <span style={{ fontSize: 11, color: C.textMuted,ntWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Progrès</span>
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Progrès</span>
               </div>
               {exerciceProgres ? (
                 <div>
@@ -576,6 +627,107 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
               )}
             </Card>
           </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("bilans")}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <TrendingUp size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Poids</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 22, color: C.text, fontWeight: 700, lineHeight: 1 }}>
+                    {user.poidsActuel} <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 400 }}>kg</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>Il y a 1 sem.</div>
+                </div>
+                {poidsEvol7j !== null && poidsEvol7j !== 0 && (
+                  <div style={{
+                    fontSize: 11, fontWeight: 700,
+                    color: poidsTrendColor,
+                    background: poidsTrendColor === C.green ? C.greenSoft : C.redSoft,
+                    borderRadius: 8, padding: "3px 7px",
+                    display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap",
+                  }}>
+                    {poidsEvol7j < 0 ? "↓" : "↑"} {Math.abs(poidsEvol7j)} kg
+                  </div>
+                )}
+              </div>
+              {weightHistory && weightHistory.length >= 2 ? (
+                <div style={{ height: 40 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={weightHistory} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="homeWgrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={C.blue} stopOpacity={0.4} />
+                          <stop offset="100%" stopColor={C.blue} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <Area
+                        type="monotone" dataKey="poids" stroke={C.blue} strokeWidth={2} fill="url(#homeWgrad)"
+                        isAnimationActive={false}
+                        dot={(props) => {
+                          const { cx, cy, index } = props;
+                          if (index !== weightHistory.length - 1) return <React.Fragment key={`d-${index}`} />;
+                          return <circle key="lastdot" cx={cx} cy={cy} r={3.5} fill={C.blue} stroke={C.card} strokeWidth={2} />;
+                        }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ height: 40, display: "flex", alignItems: "center", fontSize: 10, color: C.textDim }}>Pas encore assez de données</div>
+              )}
+            </Card>
+            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("seances")}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Dumbbell size={14} color={C.blue} />
+                <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Prochaine séance</span>
+              </div>
+              {customProgrammes && customProgrammes.length > 0 ? (
+                <div>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: C.text, letterSpacing: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {customProgrammes[0].nom}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 8 }}>{customProgrammes[0].muscle}</div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onStart(customProgrammes[0]); }}
+                    style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "6px 12px", display: "flex", alignItems: "center", gap: 5, fontWeight: 800, fontSize: 11.5 }}
+                  >
+                    <Play size={11} fill="#06171F" /> Démarrer
+                  </button>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: C.textMuted }}>Aucune séance assignée</div>
+              )}
+            </Card>
+          </div>
+          <Card style={{ cursor: "pointer" }} onClick={() => setTab("nutrition")}>
+            <SectionLabel icon={Apple}>Nutrition du jour</SectionLabel>
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div style={{ position: "relative", width: 96, height: 96, flexShrink: 0 }}>
+                <svg width="96" height="96" viewBox="0 0 96 96">
+                  <circle cx="48" cy="48" r="40" fill="none" stroke={C.cardBorderLight} strokeWidth="9" />
+                  <circle
+                    cx="48" cy="48" r="40" fill="none" stroke={C.blue} strokeWidth="9"
+                    strokeDasharray={bigRingCirc} strokeDashoffset={bigRingOffset}
+                    strokeLinecap="round" transform="rotate(-90 48 48)"
+                    style={{ transition: "stroke-dashoffset .4s ease" }}
+                  />
+                </svg>
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 20, color: C.text, fontWeight: 700, lineHeight: 1 }}>
+                    {caloriesObjectif ? caloriesRestantes : "—"}
+                  </div>
+                  <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>restantes</div>
+                </div>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                {macroBar("Protéines", nutritionTotals.prot, objectifsNutrition?.prot || 0, C.blue)}
+                {macroBar("Glucides", nutritionTotals.gluc, objectifsNutrition?.gluc || 0, C.green)}
+                {macroBar("Lipides", nutritionTotals.lip, objectifsNutrition?.lip || 0, C.amber)}
+              </div>
+            </div>
+          </Card>
         </div>
       )}
       {mode === "seances" && (
@@ -593,7 +745,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
               ) : customProgrammes.map((p) => (
                 <Card key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
-                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSg: 0.5 }}>{p.nom}</div>
+                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSpacing: 0.5 }}>{p.nom}</div>
                     <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
                     <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{p.exercices.length} exercices · {p.duree}</div>
                   </div>
@@ -626,7 +778,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
           <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <SectionLabel icon={Dumbbell}>Tes progrès récents</SectionLabel>
             {tousLesProgres.length === 0 ? (
-              <div style={{ color: C.textMut, fontSize: 13, textAlign: "center", padding: 20 }}>Aucun progrès détecté récemment</div>
+              <div style={{ color: C.textMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Aucun progrès détecté récemment</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {tousLesProgres.map((p, i) => (
@@ -1143,15 +1295,25 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
     );
   }, [meals]);
 
-  const macro = (label, val, obj, color) => (
-    <div style={{ flex: 1 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
-        <span style={{ color: C.textMuted, fontWeight: 700 }}>{label}</span>
-        <span style={{ fontFamily: FONT_MONO, color: C.text }}>{Math.round(val)}/{obj}g</span>
+  const macroStatusColor = (val, obj, baseColor) => {
+    if (obj && val > obj) return C.red;
+    return baseColor;
+  };
+  const macro = (label, val, obj, dotColor) => {
+    const sColor = macroStatusColor(val, obj, dotColor);
+    return (
+      <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, marginBottom: 4 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.textMuted, fontWeight: 700 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, display: "inline-block" }} />
+            {label}
+          </span>
+          <span style={{ fontFamily: FONT_MONO, color: sColor, fontWeight: 700 }}>{Math.round(val)}/{obj}g</span>
+        </div>
+        <ProgressBar value={val} max={obj} color={sColor} height={6} />
       </div>
-      <ProgressBar value={val} max={obj} color={color} height={6} />
-    </div>
-  );
+    );
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1173,8 +1335,8 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
         <SectionLabel icon={ClipboardList}>Macronutriments</SectionLabel>
         <div style={{ display: "flex", gap: 14 }}>
           {macro("Protéines", totals.prot, Math.round((objectifs.kcal * objectifs.pctProt / 100) / 4), C.blue)}
-          {macro("Glucides", totals.gluc, Math.round((objectifs.kcal * objectifs.pctGluc / 100) / 4), C.amber)}
-          {macro("Lipides", totals.lip, Math.round((objectifs.kcal * objectifs.pctLip / 100) / 9), C.green)}
+          {macro("Glucides", totals.gluc, Math.round((objectifs.kcal * objectifs.pctGluc / 100) / 4), C.green)}
+          {macro("Lipides", totals.lip, Math.round((objectifs.kcal * objectifs.pctLip / 100) / 9), C.amber)}
         </div>
       </Card>
 
@@ -1203,7 +1365,7 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
               </div>
               <div>
                 <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Lipides (%)</div>
-                <input type="number" defaultValue={objectifs.pctLip} id="goalLipInput" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px10px", color: C.text, fontSize: 14 }} />
+                <input type="number" defaultValue={objectifs.pctLip} id="goalLipInput" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14 }} />
               </div>
             </div>
             <button onClick={() => {
@@ -1263,9 +1425,70 @@ function CheckinSlider({ label, value, onChange, emojis }) {
   );
 }
 
+function DailyCheckinModal({ onSubmit }) {
+  const [fatigue, setFatigue] = useState(3);
+  const [sommeil, setSommeil] = useState(3);
+  const [energie, setEnergie] = useState(3);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    setSubmitting(true);
+    await onSubmit({ fatigue, sommeil, energie });
+    setSubmitting(false);
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 20, background: "rgba(5,6,9,0.6)",
+      }}
+    >
+      <Card style={{ width: "100%", maxWidth: 400 }}>
+        <SectionLabel icon={ClipboardList}>Check-in du jour</SectionLabel>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 18 }}>
+          Réponds en quelques secondes avant de continuer.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <CheckinSlider label="Fatigue" value={fatigue} onChange={setFatigue} emojis={["😴", "😪", "🙂", "💪", "🔥"]} />
+          <CheckinSlider label="Qualité du sommeil" value={sommeil} onChange={setSommeil} emojis={["😵", "😕", "🙂", "😌", "😍"]} />
+          <CheckinSlider label="Niveau d'énergie" value={energie} onChange={setEnergie} emojis={["🪫", "😐", "🙂", "⚡", "🚀"]} />
+        </div>
+        <button
+          onClick={submit}
+          disabled={submitting}
+          style={{
+            width: "100%", marginTop: 22, background: C.blue, border: "none",
+            color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800,
+            fontSize: 14, opacity: submitting ? 0.6 : 1,
+          }}
+        >
+          {submitting ? "Enregistrement..." : "Valider"}
+        </button>
+      </Card>
+    </div>
+  );
+}
+
 function Bilans({ weightHistory, addWeightEntry, photos, setPhotos, checkins, addCheckin }) {
   const [newWeight, setNewWeight] = useState("");
-  const [form, setForm] = useState({ fatigue: 3, sommeil: 3, nutrition: 3, motivation: 3, douleurs: "", commentaire: "" });
+  const emptyForm = {
+    sensationForce: 3,
+    exerciceProbleme: "",
+    ecartsNutrition: 0,
+    descriptionEcarts: "",
+    heuresSommeil: "",
+    satisfaction: 3,
+    satisfactionRaison: "",
+    centPourcent: null,
+    pourquoiPasCent: "",
+    estimationPourcentage: "",
+    motivation: 3,
+    commentaire: "",
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState("");
 
   const submitWeight = () => {
     const w = parseFloat(newWeight);
@@ -1275,8 +1498,21 @@ function Bilans({ weightHistory, addWeightEntry, photos, setPhotos, checkins, ad
   };
 
   const submitCheckin = () => {
+    if (form.centPourcent === null) {
+      setFormError("Réponds à la question \"As-tu été à 100% cette semaine ?\" avant d'envoyer.");
+      return;
+    }
+    if (!form.pourquoiPasCent.trim()) {
+      setFormError("Explique pourquoi avant d'envoyer le bilan.");
+      return;
+    }
+    if (!form.satisfactionRaison.trim()) {
+      setFormError("Explique ta satisfaction de la semaine avant d'envoyer le bilan.");
+      return;
+    }
+    setFormError("");
     addCheckin({ ...form, date: new Date().toLocaleDateString("fr-FR") });
-    setForm({ fatigue: 3, sommeil: 3, nutrition: 3, motivation: 3, douleurs: "", commentaire: "" });
+    setForm(emptyForm);
   };
 
   return (
@@ -1327,21 +1563,86 @@ function Bilans({ weightHistory, addWeightEntry, photos, setPhotos, checkins, ad
       {/* Check-in hebdo */}
       <Card>
         <SectionLabel icon={ClipboardList}>Bilan de semaine</SectionLabel>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <CheckinSlider label="Niveau de fatigue" value={form.fatigue} onChange={(v) => setForm({ ...form, fatigue: v })} emojis={["😴", "😪", "🙂", "💪", "🔥"]} />
-          <CheckinSlider label="Qualité du sommeil" value={form.sommeil} onChange={(v) => setForm({ ...form, sommeil: v })} emojis={["😵", "😕", "🙂", "😌", "😍"]} />
-          <CheckinSlider label="Respect de la nutrition" value={form.nutrition} onChange={(v) => setForm({ ...form, nutrition: v })} emojis={["❌", "😬", "🙂", "✅", "💯"]} />
-          <CheckinSlider label="Motivation" value={form.motivation} onChange={(v) => setForm({ ...form, motivation: v })} emojis={["🥱", "😐", "🙂", "😃", "🚀"]} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <CheckinSlider label="Sensation de force" value={form.sensationForce} onChange={(v) => setForm({ ...form, sensationForce: v })} emojis={["🪫", "😓", "🙂", "💪", "🔥"]} />
 
           <div>
-            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Douleurs / gênes musculaires</div>
-            <input type="text" value={form.douleurs} onChange={(e) => setForm({ ...form, douleurs: e.target.value })} placeholder="ex : légère gêne épaule droite" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13 }} />
+            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Un exercice t'a posé problème ?</div>
+            <input type="text" value={form.exerciceProbleme} onChange={(e) => setForm({ ...form, exerciceProbleme: e.target.value })} placeholder="ex : douleur épaule sur développé couché" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13 }} />
           </div>
+
+          <div>
+            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Écarts nutritionnels cette semaine</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {["0", "1", "2", "3+"].map((label, idx) => (
+                <button
+                  key={label}
+                  onClick={() => setForm({ ...form, ecartsNutrition: idx })}
+                  style={{
+                    flex: 1, padding: "9px 0", borderRadius: 10, fontWeight: 700, fontSize: 13,
+                    border: `1px solid ${form.ecartsNutrition === idx ? C.blue : C.cardBorderLight}`,
+                    background: form.ecartsNutrition === idx ? C.blueSoft : C.surface,
+                    color: form.ecartsNutrition === idx ? C.blue : C.textMuted,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {form.ecartsNutrition > 0 && (
+            <div>
+              <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Qu'as-tu mangé en dehors du plan ?</div>
+              <textarea rows={2} value={form.descriptionEcarts} onChange={(e) => setForm({ ...form, descriptionEcarts: e.target.value })} placeholder="ex : fast food samedi soir" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, resize: "none" }} />
+            </div>
+          )}
+
+          <div>
+            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Heures de sommeil moyennes / nuit</div>
+            <input type="number" step="0.5" min="0" max="14" value={form.heuresSommeil} onChange={(e) => setForm({ ...form, heuresSommeil: e.target.value })} placeholder="ex : 7.5" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+          </div>
+
+          <CheckinSlider label="Satisfaction de la semaine" value={form.satisfaction} onChange={(v) => setForm({ ...form, satisfaction: v })} emojis={["😞", "😕", "🙂", "😄", "🤩"]} />
+          <div>
+            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Pourquoi es-tu (ou pas) satisfait(e) de ta semaine ?</div>
+            <textarea rows={2} value={form.satisfactionRaison} onChange={(e) => setForm({ ...form, satisfactionRaison: e.target.value })} placeholder="explique en quelques mots..." style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, resize: "none" }} />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>As-tu été à 100% cette semaine (entraînement / alimentation / sommeil) ?</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <PillButton active={form.centPourcent === true} onClick={() => setForm({ ...form, centPourcent: true })} style={{ flex: 1, textAlign: "center" }}>Oui</PillButton>
+              <PillButton active={form.centPourcent === false} onClick={() => setForm({ ...form, centPourcent: false })} style={{ flex: 1, textAlign: "center" }}>Non</PillButton>
+            </div>
+          </div>
+
+          {form.centPourcent !== null && (
+            <div>
+              <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Pourquoi ?</div>
+              <input type="text" value={form.pourquoiPasCent} onChange={(e) => setForm({ ...form, pourquoiPasCent: e.target.value })} placeholder={form.centPourcent ? "ex : tout a été respecté à la lettre" : "ex : voyage professionnel, manque de temps..."} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13 }} />
+            </div>
+          )}
+
+          {form.centPourcent === false && (
+            <div>
+              <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>À combien tu t'estimes ? (%)</div>
+              <input type="number" min="0" max="100" value={form.estimationPourcentage} onChange={(e) => setForm({ ...form, estimationPourcentage: e.target.value })} placeholder="ex : 70" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+            </div>
+          )}
+
+          <CheckinSlider label="Motivation" value={form.motivation} onChange={(v) => setForm({ ...form, motivation: v })} emojis={["🥱", "😐", "🙂", "😃", "🚀"]} />
 
           <div>
             <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Commentaire libre pour ton coach</div>
             <textarea rows={3} value={form.commentaire} onChange={(e) => setForm({ ...form, commentaire: e.target.value })} placeholder="Comment s'est passée ta semaine ?" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, resize: "none" }} />
           </div>
+
+          {formError && (
+            <div style={{ fontSize: 12.5, color: C.red, background: C.redSoft, borderRadius: 10, padding: "8px 12px" }}>
+              {formError}
+            </div>
+          )}
 
           <button onClick={submitCheckin} style={{ background: C.text, border: "none", color: "#0A0C11", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Send size={15} /> Envoyer le bilan de semaine
@@ -1355,7 +1656,7 @@ function Bilans({ weightHistory, addWeightEntry, photos, setPhotos, checkins, ad
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {checkins.slice().reverse().map((c, i) => (
               <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted }}>
-                <span style={{ color: C.text, fontWeight: 700 }}>{c.date}</span> — fatigue {c.fatigue}/5, sommeil {c.sommeil}/5, nutrition {c.nutrition}/5
+                <span style={{ color: C.text, fontWeight: 700 }}>{c.date}</span> — force {c.sensationForce}/5, satisfaction {c.satisfaction}/5, sommeil {c.heuresSommeil || "—"}h, écarts {c.ecartsNutrition > 0 ? `${c.ecartsNutrition === 3 ? "3+" : c.ecartsNutrition}` : "0"}
               </div>
             ))}
           </div>
@@ -1481,15 +1782,100 @@ function LogoutButton({ onLogout }) {
   );
 }
 
-function ViewModeToggle({ viewMode, setViewMode }) {
+function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div style={{ display: "flex", gap: 8 }}>
-      <PillButton active={viewMode === "coach"} onClick={() => setViewMode("coach")} style={{ flex: 1, textAlign: "center" }}>
-        Vue Coach
-      </PillButton>
-      <PillButton active={viewMode === "client"} onClick={() => setViewMode("client")} style={{ flex: 1, textAlign: "center" }}>
-        Vue Client
-      </PillButton>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          width: 40, height: 40, borderRadius: 12,
+          background: C.surface, border: `1px solid ${C.cardBorderLight}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Menu size={19} color={C.text} />
+      </button>
+
+      {open && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 150, display: "flex" }}>
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "absolute", inset: 0, background: "rgba(5,6,9,0.55)" }}
+          />
+          <div
+            style={{
+              position: "relative", width: 260, maxWidth: "80%", height: "100%",
+              background: C.card, borderRight: `1px solid ${C.cardBorderLight}`,
+              padding: "24px 18px", display: "flex", flexDirection: "column", gap: 22,
+              animation: "slideInLeft .25s ease",
+              overflowY: "auto",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 24, color: C.text, letterSpacing: 0.5 }}>MENU</div>
+              <button onClick={() => setOpen(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {showViewToggle && (
+              <div>
+                <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+                  Affichage
+                </div>
+                <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
+              </div>
+            )}
+
+            <div style={{ marginTop: "auto" }}>
+              <LogoutButton onLogout={onLogout} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ViewModeToggle({ viewMode, setViewMode }) {
+  const isClient = viewMode === "client";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <button
+        onClick={() => setViewMode(isClient ? "coach" : "client")}
+        style={{
+          position: "relative",
+          width: 54, height: 30,
+          borderRadius: 999,
+          border: `1px solid ${C.cardBorderLight}`,
+          background: isClient ? C.blue : C.surface,
+          padding: 0,
+          transition: "background .25s ease",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 2,
+            left: isClient ? 25 : 2,
+            width: 24, height: 24,
+            borderRadius: "50%",
+            background: C.text,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "left .25s cubic-bezier(.4,0,.2,1)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+          }}
+        >
+          {isClient ? <Dumbbell size={13} color={C.blue} /> : <ClipboardList size={13} color={C.textMuted} />}
+        </div>
+      </button>
+      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>{isClient ? "Vue Client" : "Vue Coach"}</span>
+        <span style={{ fontSize: 10, color: C.textDim }}>{isClient ? "Tu vois l'app comme un client" : "Gestion de tes clients"}</span>
+      </div>
     </div>
   );
 }
@@ -1936,17 +2322,19 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [editingProgramme, setEditingProgramme] = useState(null);
   const [selectedProgramme, setSelectedProgramme] = useState(null);
   const [customProgrammes, setCustomProgrammes] = useState([]);
+  const [checkinsQuotidiens, setCheckinsQuotidiens] = useState([]);
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       try {
-        const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes] = await Promise.all([
+        const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes, dailyRes] = await Promise.all([
           supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(10),
           supabase.from("poids_historique").select("*").eq("profil_id", client.id).order("date", { ascending: true }),
           supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
           supabase.from("repas").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
           supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }),
+          supabase.from("checkins_quotidiens").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
         ]);
         if (!active) return;
 
@@ -1956,6 +2344,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
         setCheckins(checkinsRes.data || []);
         setRepas(repasRes.data || []);
         setCustomProgrammes(programmesRes.data || []);
+        setCheckinsQuotidiens(dailyRes.data || []);
 
         if (seancesData.length > 0) {
           const ids = seancesData.map((s) => s.id);
@@ -2104,6 +2493,33 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
         ) : tab === "bilans" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <Card>
+              <SectionLabel icon={Flame}>Fatigue / Sommeil / Énergie</SectionLabel>
+              {checkinsQuotidiens.length === 0 ? (
+                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucun check-in quotidien pour le moment</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 11, color: C.textDim, marginBottom: 10 }}>
+                    Moyenne sur les {checkinsQuotidiens.length} derniers jours renseignés
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    {[
+                      { label: "Fatigue", key: "fatigue" },
+                      { label: "Sommeil", key: "sommeil" },
+                      { label: "Énergie", key: "energie" },
+                    ].map((m) => {
+                      const avg = checkinsQuotidiens.reduce((a, c) => a + (c[m.key] || 0), 0) / checkinsQuotidiens.length;
+                      return (
+                        <div key={m.key} style={{ background: C.surface, borderRadius: 10, padding: 10, textAlign: "center" }}>
+                          <div style={{ fontSize: 10, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{m.label}</div>
+                          <div style={{ fontFamily: FONT_MONO, fontSize: 20, color: C.text, fontWeight: 700 }}>{avg.toFixed(1)}<span style={{ fontSize: 12, color: C.textMuted }}>/5</span></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </Card>
+            <Card>
               <SectionLabel icon={TrendingUp}>Évolution du poids</SectionLabel>
               {weightHistory.length > 0 ? (
                 <div style={{ height: 140 }}>
@@ -2133,7 +2549,14 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
                 <div style={{ color: C.textMuted, fontSize: 13 }}>Aucun bilan envoyé</div>
               ) : checkins.map((c, i) => (
                 <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
-                  <span style={{ color: C.text, fontWeight: 700 }}>{c.date}</span> — fatigue {c.fatigue}/5, sommeil {c.sommeil}/5, nutrition {c.nutrition}/5
+                  <span style={{ color: C.text, fontWeight: 700 }}>{c.date}</span> — force {c.sensation_force ?? "—"}/5, satisfaction {c.satisfaction ?? "—"}/5, sommeil {c.heures_sommeil ?? "—"}h, écarts {c.ecarts_nutrition > 0 ? (c.ecarts_nutrition === 3 ? "3+" : c.ecarts_nutrition) : "0"}
+                  {c.satisfaction_raison && <div style={{ marginTop: 4, color: C.textDim }}>Satisfaction : {c.satisfaction_raison}</div>}
+                  {c.cent_pourcent === false && (
+                    <div style={{ marginTop: 4, color: C.amber }}>
+                      Pas à 100% ({c.estimation_pourcentage ?? "—"}%){c.pourquoi_pas_cent ? ` — ${c.pourquoi_pas_cent}` : ""}
+                    </div>
+                  )}
+                  {c.douleurs && <div style={{ marginTop: 4, color: C.textDim }}>Exercice à problème : {c.douleurs}</div>}
                   {c.commentaire && <div style={{ marginTop: 4, color: C.textDim }}>{c.commentaire}</div>}
                 </div>
               ))}
@@ -2234,15 +2657,13 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
     <div style={appShellStyle}>
       <FontImports />
       <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
+          <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={true} />
           <div>
             <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Espace coach</div>
             <div style={{ fontFamily: FONT_DISPLAY, fontSize: 34, color: C.text, letterSpacing: 0.5 }}>MES CLIENTS</div>
           </div>
-          <LogoutButton onLogout={onLogout} />
         </div>
-
-        <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
 
         <button
           onClick={() => setShowAddForm(true)}
@@ -2377,7 +2798,49 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   }, [profilId]);
   const [photos, setPhotos] = useState({ face: null, profil: null, dos: null, bicepsAvant: null, bicepsArriere: null });
   const [checkins, setCheckins] = useState([]);
+  const [dailyCheckinDone, setDailyCheckinDone] = useState(null); // null = en cours de vérification
   const profilIdRef = useRef(profilRow.id);
+
+  useEffect(() => {
+    if (!profilId) return;
+    let active = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("checkins_quotidiens")
+          .select("id")
+          .eq("profil_id", profilId)
+          .eq("date", todayIso())
+          .maybeSingle();
+        if (!active) return;
+        if (error) throw error;
+        setDailyCheckinDone(!!data);
+      } catch (err) {
+        console.error("Erreur vérification check-in quotidien:", err);
+        if (active) setDailyCheckinDone(true); // en cas d'erreur, on ne bloque pas l'accès à l'app
+      }
+    })();
+    return () => { active = false; };
+  }, [profilId]);
+
+  const submitDailyCheckin = async ({ fatigue, sommeil, energie }) => {
+    if (!profilId) return;
+    try {
+      const { error } = await supabase.from("checkins_quotidiens").insert({
+        profil_id: profilId,
+        date: todayIso(),
+        fatigue,
+        sommeil,
+        energie,
+      });
+      if (error) throw error;
+      setDailyCheckinDone(true);
+      fireToast("Merci, bonne séance 💪", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement du check-in");
+    }
+  };
 
   useEffect(() => {
     profilIdRef.current = profilId;
@@ -2405,11 +2868,17 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           setCheckins(
             checkinsRes.data.map((r) => ({
               date: r.date,
-              fatigue: r.fatigue,
-              sommeil: r.sommeil,
-              nutrition: r.nutrition,
+              sensationForce: r.sensation_force,
+              exerciceProbleme: r.douleurs || "",
+              ecartsNutrition: r.ecarts_nutrition,
+              descriptionEcarts: r.description_ecarts || "",
+              heuresSommeil: r.heures_sommeil,
+              satisfaction: r.satisfaction,
+              satisfactionRaison: r.satisfaction_raison || "",
+              centPourcent: r.cent_pourcent,
+              pourquoiPasCent: r.pourquoi_pas_cent || "",
+              estimationPourcentage: r.estimation_pourcentage,
               motivation: r.motivation,
-              douleurs: r.douleurs || "",
               commentaire: r.commentaire || "",
             }))
           );
@@ -2517,11 +2986,17 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     try {
       const { error } = await supabase.from("bilans_semaine").insert({
         profil_id: profilId,
-        fatigue: c.fatigue,
-        sommeil: c.sommeil,
-        nutrition: c.nutrition,
+        sensation_force: c.sensationForce,
+        douleurs: c.exerciceProbleme,
+        ecarts_nutrition: c.ecartsNutrition,
+        description_ecarts: c.descriptionEcarts,
+        heures_sommeil: c.heuresSommeil ? parseFloat(c.heuresSommeil) : null,
+        satisfaction: c.satisfaction,
+        satisfaction_raison: c.satisfactionRaison,
+        cent_pourcent: c.centPourcent,
+        pourquoi_pas_cent: c.pourquoiPasCent,
+        estimation_pourcentage: c.estimationPourcentage ? parseInt(c.estimationPourcentage) : null,
         motivation: c.motivation,
-        douleurs: c.douleurs,
         commentaire: c.commentaire,
         date: c.date,
       });
@@ -2669,45 +3144,54 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   return (
     <div style={appShellStyle}>
       <FontImports />
-      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 110px", position: "relative" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-          {setViewMode && <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />}
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <LogoutButton onLogout={onLogout} />
+      <div
+        style={{
+          width: "100%", maxWidth: 440, display: "flex", flexDirection: "column",
+          filter: dailyCheckinDone === false ? "blur(7px)" : "none",
+          pointerEvents: dailyCheckinDone === false ? "none" : "auto",
+          userSelect: dailyCheckinDone === false ? "none" : "auto",
+          transition: "filter .3s ease",
+        }}
+      >
+        <div style={{ width: "100%", padding: "24px 16px 110px", position: "relative" }}>
+          <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 8 }}>
+            <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
+          {tab === "accueil" && !activeProgramme && (
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} />
+          )}
+          {tab === "seances" && !activeProgramme && (
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+          )}
+          {activeProgramme && (
+            <SessionView
+              programme={activeProgramme}
+              history={exerciseHistory}
+              setHistory={setExerciseHistory}
+              onFinish={() => { setActiveProgramme(null); fireToast("Séance envoyée au coach ✅", "green"); }}
+              onCancel={() => setActiveProgramme(null)}
+              fireToast={fireToast}
+              onSessionComplete={saveSession}
+            />
+          )}
+          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} />}
+          {tab === "bilans" && (
+            <Bilans
+              weightHistory={weightHistory}
+              addWeightEntry={addWeightEntry}
+              photos={photos}
+              setPhotos={setPhotos}
+              checkins={checkins}
+              addCheckin={addCheckin}
+            />
+          )}
+          {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} onSave={saveProfile} />}
         </div>
-        {tab === "accueil" && !activeProgramme && (
-          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} />
-        )}
-        {tab === "seances" && !activeProgramme && (
-          <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
-        )}
-        {activeProgramme && (
-          <SessionView
-            programme={activeProgramme}
-            history={exerciseHistory}
-            setHistory={setExerciseHistory}
-            onFinish={() => { setActiveProgramme(null); fireToast("Séance envoyée au coach ✅", "green"); }}
-            onCancel={() => setActiveProgramme(null)}
-            fireToast={fireToast}
-            onSessionComplete={saveSession}
-          />
-        )}
-        {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} />}
-        {tab === "bilans" && (
-          <Bilans
-            weightHistory={weightHistory}
-            addWeightEntry={addWeightEntry}
-            photos={photos}
-            setPhotos={setPhotos}
-            checkins={checkins}
-            addCheckin={addCheckin}
-          />
-        )}
-        {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} onSave={saveProfile} />}
+
+        {!activeProgramme && <BottomNav active={tab} setActive={setTab} />}
       </div>
 
-      {!activeProgramme && <BottomNav active={tab} setActive={setTab} />}
+      {dailyCheckinDone === false && <DailyCheckinModal onSubmit={submitDailyCheckin} />}
     </div>
   );
 }
