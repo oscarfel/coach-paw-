@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Dépendances
+node_modules/
+
+# Build & PWA
+dist/
+dev-dist/
+
+# Sauvegardes locales App.jsx
+src/App.jsx.backup*
+
+# Variables d'environnement (si tu en as un jour)
+.env
+.env.local
+
+# Editeurs
+.vscode/
+.idea/
