@@ -42,7 +42,15 @@ const FONT_MONO = "'JetBrains Mono', monospace";
 const FontImports = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
-    * { box-sizing: border-box; min-width: 0; }
+    html, body {
+      touch-action: pan-x pan-y;
+      overscroll-behavior: none;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      height: 100%;
+      overflow-x: hidden;
+    }
+    * { box-sizing: border-box; min-width: 0; touch-action: manipulation; }
     ::-webkit-scrollbar { width: 0px; height: 0px; }
     input, select, textarea { font-family: ${FONT_BODY}; outline: none; }
     select {
@@ -228,6 +236,51 @@ const userToProfilUpdate = (user) => ({
   objectif_principal: user.objectifPrincipal,
   objectif_secondaire: user.objectifSecondaire,
 });
+
+const VAPID_PUBLIC_KEY = "BDi0UWSmYcnYCJOGerkBTVhTIi7SKCtlwVtrvUNK1dJ0tdntd7aeer_d5FjkDmmwrrRJ8pXxMWeLkZuRT_8GBAE";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function subscribeToPush(profilId, fireToast) {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      fireToast("Les notifications push ne sont pas supportées sur cet appareil/navigateur");
+      return false;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      fireToast("Notifications refusées");
+      return false;
+    }
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const subJson = subscription.toJSON();
+    const { error } = await supabase.from("push_subscriptions").upsert(
+      { profil_id: profilId, endpoint: subJson.endpoint, keys_p256dh: subJson.keys.p256dh, keys_auth: subJson.keys.auth },
+      { onConflict: "profil_id,endpoint" }
+    );
+    if (error) throw error;
+    fireToast("Notifications activées", "green");
+    return true;
+  } catch (err) {
+    console.error(err);
+    fireToast("Erreur activation des notifications");
+    return false;
+  }
+}
 
 async function fetchProfilByAuthUserId(authUserId) {
   const { data, error } = await supabase
@@ -595,8 +648,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                       style={{ transition: "stroke-dashoffset .4s ease" }}
                     />
                   </svg>
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34 }}>
-                    {tierInfo.emoji}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <MedalBadge color={tierInfo.color} size={40} />
                   </div>
                 </div>
               </div>
@@ -829,7 +882,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
           <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <SectionLabel icon={Award}>Ton palier du mois</SectionLabel>
             <div style={{ textAlign: "center", margin: "8px 0 20px" }}>
-              <div style={{ fontSize: 42 }}>{tierInfo.emoji}</div>
+              <div style={{ display: "flex", justifyContent: "center" }}><MedalBadge color={tierInfo.color} size={64} /></div>
               <div style={{ fontFamily: FONT_MONO, fontSize: 30, color: tierInfo.color, fontWeight: 700 }}>{Math.round(badgeScore)}%</div>
               <div style={{ fontSize: 12, color: C.textMuted }}>
                 Palier {tierInfo.label}
@@ -2323,6 +2376,8 @@ function MensurationsCard({ mensurationsHistory, addMensuration }) {
     tourMolletDroit: "", tourMolletGauche: "",
   };
   const [form, setForm] = useState(emptyForm);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(null);
 
   const champs = [
     { key: "tourTaille", label: "Tour de taille" },
@@ -2346,9 +2401,34 @@ function MensurationsCard({ mensurationsHistory, addMensuration }) {
 
   const derniere = mensurationsHistory && mensurationsHistory.length > 0 ? mensurationsHistory[mensurationsHistory.length - 1] : null;
 
+  const parMois = useMemo(() => {
+    const groups = {};
+    for (const m of (mensurationsHistory || [])) {
+      if (!m.dateRaw) continue;
+      const monthKey = m.dateRaw.slice(0, 7);
+      if (!groups[monthKey]) groups[monthKey] = [];
+      groups[monthKey].push(m);
+    }
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [mensurationsHistory]);
+
+  const formatMonthLabelLocal = (monthKey) => {
+    const [y, mo] = monthKey.split("-");
+    const d = new Date(Number(y), Number(mo) - 1, 1);
+    const label = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  };
+
   return (
     <Card>
-      <SectionLabel icon={Target}>Mensurations</SectionLabel>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <SectionLabel icon={Target}>Mensurations</SectionLabel>
+        {mensurationsHistory && mensurationsHistory.length > 0 && (
+          <button onClick={() => setShowHistory(true)} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>
+            Historique
+          </button>
+        )}
+      </div>
       {derniere && (
         <div style={{ fontSize: 11, color: C.textDim, marginBottom: 12 }}>Dernière saisie : {derniere.date}</div>
       )}
@@ -2379,6 +2459,57 @@ function MensurationsCard({ mensurationsHistory, addMensuration }) {
           ))}
         </div>
       )}
+
+      {showHistory && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={() => { setShowHistory(false); setSelectedMonth(null); }}
+        >
+          <Card style={{ width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            {!selectedMonth ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <SectionLabel icon={Target}>Historique par mois</SectionLabel>
+                  <button onClick={() => setShowHistory(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {parMois.map(([monthKey, entries]) => (
+                    <button
+                      key={monthKey}
+                      onClick={() => setSelectedMonth(monthKey)}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "12px 14px" }}
+                    >
+                      <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{formatMonthLabelLocal(monthKey)}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.textMuted, fontSize: 12 }}>
+                        {entries.length} saisie{entries.length > 1 ? "s" : ""} <ChevronRight size={14} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <button onClick={() => setSelectedMonth(null)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                    <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {formatMonthLabelLocal(selectedMonth)}
+                  </button>
+                  <button onClick={() => { setShowHistory(false); setSelectedMonth(null); }} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {parMois.find(([k]) => k === selectedMonth)[1].map((m, i) => (
+                    <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted }}>
+                      <div style={{ color: C.text, fontWeight: 700, marginBottom: 4 }}>{m.date}</div>
+                      <div>Taille {m.tourTaille ?? "—"}cm · Poitrine {m.tourPoitrine ?? "—"}cm · Épaule {m.tourEpaule ?? "—"}cm</div>
+                      <div>Bras D/G {m.tourBrasDroit ?? "—"}/{m.tourBrasGauche ?? "—"}cm · Avant-bras D/G {m.tourAvantBrasDroit ?? "—"}/{m.tourAvantBrasGauche ?? "—"}cm</div>
+                      <div>Cuisse D/G {m.tourCuisseDroite ?? "—"}/{m.tourCuisseGauche ?? "—"}cm · Mollet D/G {m.tourMolletDroit ?? "—"}/{m.tourMolletGauche ?? "—"}cm</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+      )}
     </Card>
   );
 }
@@ -2398,9 +2529,19 @@ const inputStyle = {
   borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14,
 };
 
-function Profil({ user, setUser, fireToast, onSave, documentsRecus, notificationsRecues, onMarquerNotifLue, onChangePhoto }) {
+function Profil({ user, setUser, fireToast, onSave, documentsRecus, notificationsRecues, onMarquerNotifLue, onChangePhoto, onEnableNotifs }) {
   const set = (k) => (e) => setUser({ ...user, [k]: e.target.value });
   const photoFileRef = useRef(null);
+  const [notifPermission, setNotifPermission] = useState(() =>
+    (typeof window !== "undefined" && "Notification" in window) ? Notification.permission : "unsupported"
+  );
+
+  const handleEnableNotifs = async () => {
+    await onEnableNotifs();
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission);
+    }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -2489,6 +2630,40 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
           </Field>
         </div>
       </Card>
+
+      {onEnableNotifs && (
+        <Card>
+          <SectionLabel icon={Bell}>Notifications push</SectionLabel>
+          {notifPermission === "granted" ? (
+            <div style={{ fontSize: 13, color: C.green, display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+              <CheckCircle2 size={15} /> Notifications activées
+            </div>
+          ) : notifPermission === "denied" ? (
+            <>
+              <div style={{ fontSize: 12.5, color: C.red, marginBottom: 10, fontWeight: 600 }}>
+                Tu as refusé les notifications. Pour les réactiver, c'est à faire manuellement dans les réglages :
+              </div>
+              <div style={{ fontSize: 11.5, color: C.textMuted, background: C.surface, borderRadius: 10, padding: 12, lineHeight: 1.6 }}>
+                <strong style={{ color: C.text }}>Sur iPhone :</strong> Réglages → Safari (ou l'app installée) → Notifications<br />
+                <strong style={{ color: C.text }}>Sur Android/Chrome :</strong> appuie sur le 🔒 à côté de l'adresse → Autorisations → Notifications<br />
+                <strong style={{ color: C.text }}>Sur ordinateur :</strong> clique l'icône à gauche de l'adresse du site → Notifications → Autoriser
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+                Reçois une alerte sur ton téléphone quand ton coach t'envoie un message, même app fermée.
+              </div>
+              <button
+                onClick={handleEnableNotifs}
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 13.5 }}
+              >
+                Activer les notifications
+              </button>
+            </>
+          )}
+        </Card>
+      )}
 
       <button onClick={onSave} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14 }}>
         Enregistrer les modifications
@@ -3204,6 +3379,26 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
     </div>
   );
 }
+
+const MedalBadge = ({ color, size = 36 }) => {
+  const gradId = `medalGrad-${color.replace("#", "")}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="1" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.55" />
+        </linearGradient>
+      </defs>
+      <path d="M15 3 L23 19 L31 3" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.45" />
+      <circle cx="24" cy="27" r="17" fill={`url(#${gradId})`} stroke={color} strokeWidth="1.5" />
+      <path
+        d="M24 18.5 L26.7 24.3 L33 25.1 L28.3 29.4 L29.6 35.7 L24 32.5 L18.4 35.7 L19.7 29.4 L15 25.1 L21.3 24.3 Z"
+        fill="#FFFFFF" opacity="0.92"
+      />
+    </svg>
+  );
+};
 
 const LegendDot = ({ color, label }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -3946,6 +4141,7 @@ function NotificationsView({ coachId, clients, fireToast }) {
     if (!titre.trim() || !message.trim()) { fireToast("Ajoute un titre et un message"); return; }
     setSending(true);
     try {
+      const targetIds = targetClientId === "tous" ? clients.map((c) => c.id) : [targetClientId];
       if (targetClientId === "tous") {
         const rows = clients.map((c) => ({ coach_id: coachId, client_id: c.id, titre, message, lu: false }));
         if (rows.length > 0) {
@@ -3956,6 +4152,16 @@ function NotificationsView({ coachId, clients, fireToast }) {
         const { error } = await supabase.from("notifications").insert({ coach_id: coachId, client_id: targetClientId, titre, message, lu: false });
         if (error) throw error;
       }
+      // Déclenche l'envoi push réel (silencieux si non configuré ou si le client n'a pas activé les notifications)
+      Promise.allSettled(
+        targetIds.map((clientId) =>
+          fetch("/api/send-push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientId, titre, message }),
+          })
+        )
+      ).catch(() => {});
       fireToast("Notification envoyée", "green");
       setTitre("");
       setMessage("");
@@ -4014,6 +4220,101 @@ function NotificationsView({ coachId, clients, fireToast }) {
   );
 }
 
+function PlanAlimentaireModal({ planActuel, onSave, onClose }) {
+  const [mode, setMode] = useState("pourcentage"); // "pourcentage" | "grammes"
+  const [kcal, setKcal] = useState(planActuel.kcal);
+  const [pctProt, setPctProt] = useState(planActuel.pctProt);
+  const [pctGluc, setPctGluc] = useState(planActuel.pctGluc);
+  const [pctLip, setPctLip] = useState(planActuel.pctLip);
+  const [gProt, setGProt] = useState(planActuel.prot);
+  const [gGluc, setGGluc] = useState(planActuel.gluc);
+  const [gLip, setGLip] = useState(planActuel.lip);
+
+  const kcalDepuisGrammes = (parseFloat(gProt) || 0) * 4 + (parseFloat(gGluc) || 0) * 4 + (parseFloat(gLip) || 0) * 9;
+  const pctTotal = (parseFloat(pctProt) || 0) + (parseFloat(pctGluc) || 0) + (parseFloat(pctLip) || 0);
+
+  const save = () => {
+    if (mode === "pourcentage") {
+      onSave({
+        kcal: parseInt(kcal) || planActuel.kcal,
+        pctProt: parseInt(pctProt) || 0,
+        pctGluc: parseInt(pctGluc) || 0,
+        pctLip: parseInt(pctLip) || 0,
+      });
+    } else {
+      const total = kcalDepuisGrammes || 1;
+      onSave({
+        kcal: Math.round(total),
+        pctProt: Math.round(((parseFloat(gProt) || 0) * 4 / total) * 100),
+        pctGluc: Math.round(((parseFloat(gGluc) || 0) * 4 / total) * 100),
+        pctLip: Math.round(((parseFloat(gLip) || 0) * 9 / total) * 100),
+      });
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 380, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <SectionLabel icon={Flame}>Plan alimentaire</SectionLabel>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <PillButton active={mode === "pourcentage"} onClick={() => setMode("pourcentage")} style={{ flex: 1, textAlign: "center" }}>En %</PillButton>
+          <PillButton active={mode === "grammes"} onClick={() => setMode("grammes")} style={{ flex: 1, textAlign: "center" }}>En grammes</PillButton>
+        </div>
+
+        {mode === "pourcentage" ? (
+          <>
+            <div style={{ fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Objectif calorique</div>
+            <input type="number" value={kcal} onChange={(e) => setKcal(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 16, fontFamily: FONT_MONO, marginBottom: 16 }} />
+            <div style={{ fontSize: 11, color: C.textDim, marginBottom: 8, fontWeight: 700, textTransform: "uppercase" }}>
+              Répartition des macros — total {pctTotal}% {pctTotal !== 100 && <span style={{ color: C.red }}>(devrait faire 100%)</span>}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Protéines (%)</div>
+                <input type="number" value={pctProt} onChange={(e) => setPctProt(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14 }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Glucides (%)</div>
+                <input type="number" value={pctGluc} onChange={(e) => setPctGluc(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14 }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Lipides (%)</div>
+                <input type="number" value={pctLip} onChange={(e) => setPctLip(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14 }} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 11, color: C.textDim, marginBottom: 8, fontWeight: 700, textTransform: "uppercase" }}>
+              Macros en grammes — {Math.round(kcalDepuisGrammes)} kcal calculées
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Protéines (g)</div>
+                <input type="number" value={gProt} onChange={(e) => setGProt(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14, fontFamily: FONT_MONO }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Glucides (g)</div>
+                <input type="number" value={gGluc} onChange={(e) => setGGluc(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14, fontFamily: FONT_MONO }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Lipides (g)</div>
+                <input type="number" value={gLip} onChange={(e) => setGLip(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14, fontFamily: FONT_MONO }} />
+              </div>
+            </div>
+          </>
+        )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "12px", fontWeight: 600, fontSize: 14 }}>Annuler</button>
+          <button onClick={save} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [tab, setTab] = useState("programme");
   const [loading, setLoading] = useState(true);
@@ -4031,12 +4332,26 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [poidsRawDates, setPoidsRawDates] = useState([]);
   const [photosHistoryCoach, setPhotosHistoryCoach] = useState([]);
   const [mensurationsCoach, setMensurationsCoach] = useState([]);
+  const [notifActivees, setNotifActivees] = useState(null); // null = en cours de vérification
+  const [showPlanEditor, setShowPlanEditor] = useState(false);
+  const [planAlimentaire, setPlanAlimentaire] = useState(() => {
+    const kcal = client.objectif_calories || 2400;
+    const pctProt = client.pct_prot || 30;
+    const pctGluc = client.pct_gluc || 45;
+    const pctLip = client.pct_lip || 25;
+    return {
+      kcal, pctProt, pctGluc, pctLip,
+      prot: Math.round((kcal * pctProt / 100) / 4),
+      gluc: Math.round((kcal * pctGluc / 100) / 4),
+      lip: Math.round((kcal * pctLip / 100) / 9),
+    };
+  });
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       try {
-        const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes, dailyRes, photosRes, mensurationsRes] = await Promise.all([
+        const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes, dailyRes, photosRes, mensurationsRes, pushRes] = await Promise.all([
           supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(10),
           supabase.from("poids_historique").select("*").eq("profil_id", client.id).order("date", { ascending: true }),
           supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
@@ -4045,6 +4360,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           supabase.from("checkins_quotidiens").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
           supabase.from("photos_bilan").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
           supabase.from("mensurations").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(5),
+          supabase.from("push_subscriptions").select("id").eq("profil_id", client.id).limit(1),
         ]);
         if (!active) return;
 
@@ -4058,6 +4374,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
         setCheckinsQuotidiens(dailyRes.data || []);
         setPhotosHistoryCoach(photosRes.data || []);
         setMensurationsCoach(mensurationsRes.data || []);
+        setNotifActivees((pushRes.data || []).length > 0);
 
         if (seancesData.length > 0) {
           const ids = seancesData.map((s) => s.id);
@@ -4337,6 +4654,20 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <SectionLabel icon={Flame}>Plan alimentaire</SectionLabel>
+                <button onClick={() => setShowPlanEditor(true)} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>Modifier</button>
+              </div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700, marginBottom: 6 }}>
+                {planAlimentaire.kcal} <span style={{ fontSize: 13, color: C.textMuted, fontWeight: 400 }}>kcal / jour</span>
+              </div>
+              <div style={{ display: "flex", gap: 14, fontSize: 12, color: C.textMuted }}>
+                <span>Protéines <strong style={{ color: C.blue }}>{planAlimentaire.prot}g</strong></span>
+                <span>Glucides <strong style={{ color: C.green }}>{planAlimentaire.gluc}g</strong></span>
+                <span>Lipides <strong style={{ color: C.amber }}>{planAlimentaire.lip}g</strong></span>
+              </div>
+            </Card>
             {repas.length === 0 ? (
               <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucun repas enregistré</div></Card>
             ) : repas.map((r) => (
@@ -4352,6 +4683,34 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
             ))}
           </div>
         )}
+        {showPlanEditor && (
+          <PlanAlimentaireModal
+            planActuel={planAlimentaire}
+            onClose={() => setShowPlanEditor(false)}
+            onSave={async (nouveauPlan) => {
+              try {
+                const { error } = await supabase.from("profils").update({
+                  objectif_calories: nouveauPlan.kcal,
+                  pct_prot: nouveauPlan.pctProt,
+                  pct_gluc: nouveauPlan.pctGluc,
+                  pct_lip: nouveauPlan.pctLip,
+                }).eq("id", client.id);
+                if (error) throw error;
+                setPlanAlimentaire({
+                  ...nouveauPlan,
+                  prot: Math.round((nouveauPlan.kcal * nouveauPlan.pctProt / 100) / 4),
+                  gluc: Math.round((nouveauPlan.kcal * nouveauPlan.pctGluc / 100) / 4),
+                  lip: Math.round((nouveauPlan.kcal * nouveauPlan.pctLip / 100) / 9),
+                });
+                fireToast("Plan alimentaire mis à jour", "green");
+                setShowPlanEditor(false);
+              } catch (err) {
+                console.error(err);
+                fireToast("Erreur mise à jour du plan");
+              }
+            }}
+          />
+        )}
         {tab === "profil" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <Card>
@@ -4366,6 +4725,20 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
               <SectionLabel icon={Target}>Objectifs</SectionLabel>
               <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Objectif principal: {client.objectif_principal || "-"}</div>
               <div style={{ fontSize: 14, color: C.text }}>Objectif secondaire: {client.objectif_secondaire || "-"}</div>
+            </Card>
+            <Card>
+              <SectionLabel icon={Bell}>Notifications push</SectionLabel>
+              {notifActivees === null ? (
+                <div style={{ fontSize: 13, color: C.textMuted }}>Vérification...</div>
+              ) : notifActivees ? (
+                <div style={{ fontSize: 13, color: C.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                  <CheckCircle2 size={15} /> Activées par le client
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: C.textMuted, fontWeight: 600 }}>
+                  Non activées (le client n'a pas encore autorisé les notifications)
+                </div>
+              )}
             </Card>
           </div>
         )}
@@ -4870,6 +5243,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         setMensurationsHistory(
           (mensurationsRes.data || []).map((m) => ({
             date: formatDateDisplay(m.date),
+            dateRaw: m.date,
             tourTaille: m.tour_taille,
             tourPoitrine: m.tour_poitrine,
             tourEpaule: m.tour_epaule,
@@ -4919,7 +5293,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         tour_mollet_gauche: form.tourMolletGauche || null,
       });
       if (error) throw error;
-      setMensurationsHistory((prev) => [...prev, { date: formatDateDisplay(todayIso()), ...form }]);
+      setMensurationsHistory((prev) => [...prev, { date: formatDateDisplay(todayIso()), dateRaw: todayIso(), ...form }]);
       fireToast("Mensurations enregistrées", "green");
     } catch (err) {
       console.error(err);
@@ -5394,7 +5768,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               addMensuration={addMensuration}
             />
           )}
-          {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} onSave={saveProfile} documentsRecus={documentsRecus} notificationsRecues={notificationsRecues} onMarquerNotifLue={onMarquerNotifLue} onChangePhoto={uploadPhotoProfil} />}
+          {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} onSave={saveProfile} documentsRecus={documentsRecus} notificationsRecues={notificationsRecues} onMarquerNotifLue={onMarquerNotifLue} onChangePhoto={uploadPhotoProfil} onEnableNotifs={() => subscribeToPush(profilId, fireToast)} />}
         </div>
 
         {!activeProgramme && <BottomNav active={tab} setActive={setTab} />}
