@@ -3,6 +3,7 @@ import {
   Dumbbell, Apple, Home, TrendingUp, User, Play, Square, Timer, Video, Upload,
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
+  Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -13,25 +14,25 @@ import { supabase } from "./supabaseClient";
 /*  DESIGN TOKENS                                                      */
 /* ------------------------------------------------------------------ */
 const C = {
-  bg: "#0A0C11",
-  bgGradA: "#10131B",
-  bgGradB: "#080A0E",
-  surface: "#12151D",
-  card: "#171B25",
-  cardBorder: "#252B38",
-  cardBorderLight: "#2E3544",
-  text: "#F3F5F8",
-  textMuted: "#8B93A5",
-  textDim: "#5C6577",
-  blue: "#63CBFF",
-  blueSoft: "rgba(99,203,255,0.14)",
-  blueBorder: "rgba(99,203,255,0.35)",
-  amber: "#FF8F5C",
-  amberSoft: "rgba(255,143,92,0.14)",
-  green: "#4ADE9B",
-  greenSoft: "rgba(74,222,155,0.14)",
-  red: "#FF6B6B",
-  redSoft: "rgba(255,107,107,0.14)",
+  bg: "#F6F2E9",
+  bgGradA: "#EAF5F5",
+  bgGradB: "#F6F2E9",
+  surface: "#FFFFFF",
+  card: "#FFFFFF",
+  cardBorder: "#E4DCC9",
+  cardBorderLight: "#D6CBAF",
+  text: "#163445",
+  textMuted: "#5E7A85",
+  textDim: "#93A8AD",
+  blue: "#1FA3C0",
+  blueSoft: "rgba(31,163,192,0.12)",
+  blueBorder: "rgba(31,163,192,0.35)",
+  amber: "#D9A05C",
+  amberSoft: "rgba(217,160,92,0.14)",
+  green: "#3FAE8A",
+  greenSoft: "rgba(63,174,138,0.14)",
+  red: "#E1614F",
+  redSoft: "rgba(225,97,79,0.12)",
 };
 
 const FONT_DISPLAY = "'Bebas Neue', sans-serif";
@@ -41,9 +42,25 @@ const FONT_MONO = "'JetBrains Mono', monospace";
 const FontImports = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; min-width: 0; }
     ::-webkit-scrollbar { width: 0px; height: 0px; }
     input, select, textarea { font-family: ${FONT_BODY}; outline: none; }
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-color: ${C.surface};
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235E7A85'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 30px !important;
+    }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] { -moz-appearance: textfield; }
     input[type=range] { -webkit-appearance: none; background: transparent; }
     input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: ${C.cardBorderLight}; }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -6px; width: 16px; height: 16px; border-radius: 50%; background: ${C.blue}; box-shadow: 0 0 0 4px ${C.blueSoft}; }
@@ -198,6 +215,7 @@ const profilToUser = (p) => ({
   poidsObjectif: p.poids_objectif,
   objectifPrincipal: p.objectif_principal,
   objectifSecondaire: p.objectif_secondaire,
+  photoUrl: p.photo_url || null,
 });
 
 const userToProfilUpdate = (user) => ({
@@ -315,17 +333,17 @@ const BottomNav = ({ active, setActive }) => (
       transform: "translateX(-50%)",
       width: "calc(100% - 28px)",
       maxWidth: 440,
-      background: "rgba(18,21,29,0.55)",
+      background: "rgba(255,255,255,0.7)",
       backdropFilter: "blur(18px)",
       WebkitBackdropFilter: "blur(18px)",
-      border: `1px solid rgba(99,203,255,0.18)`,
+      border: `1px solid rgba(31,163,192,0.22)`,
       borderRadius: 24,
       padding: "10px 8px",
       display: "flex",
       justifyContent: "space-around",
       alignItems: "center",
       zIndex: 50,
-      boxShadow: "0 10px 40px rgba(0,0,0,0.45)",
+      boxShadow: "0 10px 40px rgba(22,52,69,0.12)",
     }}
   >
     {NAV_ITEMS.map((item) => {
@@ -348,7 +366,7 @@ const BottomNav = ({ active, setActive }) => (
             position: "relative",
           }}
         >
-          <Icon size={20} color={isActive ? C.blue : "rgba(99,203,255,0.55)"} strokeWidth={isActive ? 2.4 : 2} />
+          <Icon size={20} color={isActive ? C.blue : "rgba(31,163,192,0.5)"} strokeWidth={isActive ? 2.4 : 2} />
           <span
             style={{
               fontSize: 9.5,
@@ -929,23 +947,32 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
           border: "none",
           padding: 14,
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        <div style={{ textAlign: "left" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ex.nom}</div>
-          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-            {log.sets.length}/{ex.sets} séries
-            {last && (
-              <span style={{ color: C.blue }}> · dernière fois {last.poids}kg × {last.reps}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}>
+          <div style={{ width: 52, height: 52, borderRadius: 12, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+            {ex.imageUrl ? (
+              <img src={ex.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <Dumbbell size={22} color={C.textDim} />
             )}
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ex.nom}</div>
+            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+              {log.sets.length}/{ex.sets} séries
+              {last && (
+                <span style={{ color: C.blue }}> · dernière fois {last.poids}kg × {last.reps}</span>
+              )}
+            </div>
           </div>
         </div>
         <ChevronDown
           size={18}
           color={C.textMuted}
-          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }}
+          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}
         />
       </button>
 
@@ -1142,6 +1169,104 @@ function playBeep() {
     console.error("Erreur son:", err);
   }
 }
+function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
+  const exIndex = programme.exercices.findIndex((e) => e.id === rest.exId);
+  const ex = programme.exercices[exIndex];
+  const estDerniereSerieDeLExercice = rest.setNumber >= ex.sets;
+  const prochainExercice = estDerniereSerieDeLExercice ? programme.exercices[exIndex + 1] : null;
+
+  const nextInfo = estDerniereSerieDeLExercice
+    ? (prochainExercice
+        ? { label: "Prochain exercice", nom: prochainExercice.nom, last: history[prochainExercice.nom] }
+        : null)
+    : { label: `Prochaine série · ${rest.setNumber + 1}/${ex.sets}`, nom: ex.nom, last: history[ex.nom] };
+
+  const [poids, setPoids] = useState(rest.poids != null ? String(rest.poids) : "");
+  const [reps, setReps] = useState(rest.reps != null ? String(rest.reps) : "");
+
+  const pct = rest.total > 0 ? Math.min(100, ((rest.total - rest.left) / rest.total) * 100) : 100;
+  const ringRadius = 92;
+  const ringCirc = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCirc - (pct / 100) * ringCirc;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>Repos</span>
+        <button onClick={onSkip} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={22} /></button>
+      </div>
+
+      {nextInfo ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 14, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+            {nextInfo.image ? (
+              <img src={nextInfo.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <Dumbbell size={26} color={C.textDim} />
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{nextInfo.label}</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSpacing: 0.5 }}>{nextInfo.nom}</div>
+            {nextInfo.last && (
+              <div style={{ fontSize: 12, color: C.blue, marginTop: 2 }}>Dernière fois : {nextInfo.last.poids}kg × {nextInfo.last.reps}</div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 24, textAlign: "center" }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text }}>Dernière série de la séance 💪</div>
+        </div>
+      )}
+
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
+        <div style={{ position: "relative", width: 220, height: 220 }}>
+          <svg width="220" height="220" viewBox="0 0 220 220">
+            <circle cx="110" cy="110" r={ringRadius} fill="none" stroke={C.cardBorderLight} strokeWidth="14" />
+            <circle
+              cx="110" cy="110" r={ringRadius} fill="none" stroke={C.amber} strokeWidth="14"
+              strokeDasharray={ringCirc} strokeDashoffset={ringOffset}
+              strokeLinecap="round" transform="rotate(-90 110 110)"
+              style={{ transition: "stroke-dashoffset 1s linear" }}
+            />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 48, color: C.text, fontWeight: 700 }}>{rest.left}</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>secondes</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+        Ta série qui vient d'être validée
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>CHARGE (KG)</div>
+          <input
+            type="number" value={poids} onChange={(e) => setPoids(e.target.value)}
+            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>RÉPÉTITIONS</div>
+          <input
+            type="number" value={reps} onChange={(e) => setReps(e.target.value)}
+            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
+          />
+        </div>
+      </div>
+
+      <button
+        onClick={() => { onUpdateSet(poids, reps); onSkip(); }}
+        style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15 }}
+      >
+        Terminer le repos
+      </button>
+    </div>
+  );
+}
+
 function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete }) {
   const [seconds, setSeconds] = useState(0);
   const startTimeKey = `session_start_${programme.id || programme.nom}`;
@@ -1174,15 +1299,28 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   const totalSets = Object.values(logs).reduce((a, l) => a + l.sets.length, 0);
 
   const validateSet = (ex, set) => {
-    setLogs((prev) => ({
-      ...prev,
-      [ex.id]: { ...prev[ex.id], sets: [...prev[ex.id].sets, set] },
-    }));
+    let setNumber = 1;
+    setLogs((prev) => {
+      setNumber = prev[ex.id].sets.length + 1;
+      return {
+        ...prev,
+        [ex.id]: { ...prev[ex.id], sets: [...prev[ex.id].sets, set] },
+      };
+    });
     setHistory((prev) => ({
       ...prev,
       [ex.nom]: { poids: set.poids, reps: set.reps, date: "aujourd'hui" },
     }));
-    setRest({ total: ex.rest, left: ex.rest });
+    setRest({ total: ex.rest, left: ex.rest, exId: ex.id, setNumber, poids: set.poids, reps: set.reps });
+  };
+
+  const updateLastSet = (exId, poids, reps) => {
+    setLogs((prev) => {
+      const sets = [...prev[exId].sets];
+      if (sets.length === 0) return prev;
+      sets[sets.length - 1] = { ...sets[sets.length - 1], poids: parseFloat(poids) || sets[sets.length - 1].poids, reps: parseInt(reps) || sets[sets.length - 1].reps };
+      return { ...prev, [exId]: { ...prev[exId], sets } };
+    });
   };
 
   const attachVideo = (ex, url) => {
@@ -1210,8 +1348,20 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     );
   }
 
+  if (rest) {
+    return (
+      <RestScreen
+        rest={rest}
+        programme={programme}
+        history={history}
+        onSkip={() => setRest(null)}
+        onUpdateSet={(poids, reps) => updateLastSet(rest.exId, poids, reps)}
+      />
+    );
+  }
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: rest ? 70 : 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <button onClick={onCancel} style={{ alignSelf: "flex-start", background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
       </button>
@@ -1261,7 +1411,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         disabled={totalSets === 0}
         style={{
           background: totalSets === 0 ? C.surface : C.text,
-          color: totalSets === 0 ? C.textDim : "#0A0C11",
+          color: totalSets === 0 ? C.textDim : "#FFFFFF",
           border: `1px solid ${C.cardBorderLight}`,
           borderRadius: 16,
           padding: "14px",
@@ -1275,30 +1425,6 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       >
         <Send size={16} /> Terminer et envoyer au coach
       </button>
-
-      {rest && (
-        <div
-          style={{
-            position: "fixed", bottom: 96, left: "50%", transform: "translateX(-50%)",
-            width: "calc(100% - 28px)", maxWidth: 440,
-            background: C.card, border: `1px solid ${C.amber}`, borderRadius: 16,
-            padding: "10px 14px", display: "flex", alignItems: "center", gap: 12, zIndex: 55,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-          }}
-        >
-          <Clock size={18} color={C.amber} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Repos</div>
-            <ProgressBar value={rest.total - rest.left} max={rest.total} color={C.amber} height={5} />
-          </div>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 18, color: C.amber, fontWeight: 700, minWidth: 42, textAlign: "right" }}>
-            {rest.left}s
-          </div>
-          <button onClick={() => setRest(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}>
-            <X size={16} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -1794,6 +1920,64 @@ function CheckinSlider({ label, value, onChange, emojis }) {
   );
 }
 
+function PhotoProfilObligatoireModal({ onUpload }) {
+  const [preview, setPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    setPreview(URL.createObjectURL(file));
+    setUploading(true);
+    await onUpload(file);
+    setUploading(false);
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 20, background: "rgba(5,6,9,0.6)",
+      }}
+    >
+      <Card style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
+        <SectionLabel icon={Camera}>Ta photo de profil</SectionLabel>
+        <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 20 }}>
+          Ajoute une photo de ton visage pour que ton coach puisse te reconnaître facilement.
+        </div>
+        <button
+          onClick={() => fileRef.current && fileRef.current.click()}
+          disabled={uploading}
+          style={{
+            width: 140, height: 140, borderRadius: "50%", margin: "0 auto 20px",
+            background: preview ? `url(${preview}) center/cover` : C.surface,
+            border: `2px dashed ${preview ? C.blue : C.cardBorderLight}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {!preview && <Camera size={30} color={C.textDim} />}
+        </button>
+        <input
+          ref={fileRef} type="file" accept="image/*" capture="user" style={{ display: "none" }}
+          onChange={(e) => handleFile(e.target.files[0])}
+        />
+        <button
+          onClick={() => fileRef.current && fileRef.current.click()}
+          disabled={uploading}
+          style={{
+            width: "100%", background: C.blue, border: "none",
+            color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800,
+            fontSize: 14, opacity: uploading ? 0.6 : 1,
+          }}
+        >
+          {uploading ? "Envoi..." : preview ? "Changer la photo" : "Choisir une photo"}
+        </button>
+      </Card>
+    </div>
+  );
+}
+
 function DailyCheckinModal({ onSubmit }) {
   const [fatigue, setFatigue] = useState(3);
   const [sommeil, setSommeil] = useState(3);
@@ -1840,7 +2024,7 @@ function DailyCheckinModal({ onSubmit }) {
   );
 }
 
-function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan, uploadingPhotoKey, checkins, addCheckin }) {
+function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan, uploadingPhotoKey, checkins, addCheckin, mensurationsHistory, addMensuration }) {
   const [newWeight, setNewWeight] = useState("");
   const [showPhotoHistory, setShowPhotoHistory] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(null);
@@ -1933,8 +2117,8 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={C.cardBorder} vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#5C6577" }} axisLine={false} tickLine={false} />
-              <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 10, fill: "#5C6577" }} axisLine={false} tickLine={false} width={30} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} />
+              <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} width={30} />
               <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, fontSize: 12 }} labelStyle={{ color: C.textMuted }} />
               <Area type="monotone" dataKey="poids" stroke={C.blue} strokeWidth={2.5} fill="url(#wgrad)" />
             </AreaChart>
@@ -1947,80 +2131,6 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
           </button>
         </div>
       </Card>
-
-      {/* Photos */}
-      <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <SectionLabel icon={Camera}>Bilan photo</SectionLabel>
-          {photosHistory.length > 0 && (
-            <button onClick={() => setShowPhotoHistory(true)} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>
-              Historique
-            </button>
-          )}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {PHOTO_CATS.map((c) => (
-            <PhotoTile
-              key={c.key}
-              cat={c}
-              url={photosActuelles[c.key]}
-              uploading={uploadingPhotoKey === c.key}
-              onChange={(k, file) => uploadPhotoBilan(k, file)}
-            />
-          ))}
-        </div>
-      </Card>
-
-      {showPhotoHistory && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={() => { setShowPhotoHistory(false); setSelectedMonth(null); }}
-        >
-          <Card style={{ width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            {!selectedMonth ? (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <SectionLabel icon={Camera}>Historique par mois</SectionLabel>
-                  <button onClick={() => setShowPhotoHistory(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {photosParMois.map(([monthKey, photosOfMonth]) => (
-                    <button
-                      key={monthKey}
-                      onClick={() => setSelectedMonth(monthKey)}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "12px 14px" }}
-                    >
-                      <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{formatMonthLabel(monthKey)}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.textMuted, fontSize: 12 }}>
-                        {photosOfMonth.length} photo{photosOfMonth.length > 1 ? "s" : ""} <ChevronRight size={14} />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <button onClick={() => setSelectedMonth(null)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                    <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {formatMonthLabel(selectedMonth)}
-                  </button>
-                  <button onClick={() => { setShowPhotoHistory(false); setSelectedMonth(null); }} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                  {photosParMois.find(([k]) => k === selectedMonth)[1].map((p) => (
-                    <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <div style={{ width: "100%", aspectRatio: "3/4", borderRadius: 10, background: `url(${p.url}) center/cover`, border: `1px solid ${C.cardBorderLight}` }} />
-                      <div style={{ fontSize: 9.5, color: C.textDim, textAlign: "center" }}>
-                        {PHOTO_CATS.find((c) => c.key === p.categorie)?.nom || p.categorie} · {formatDateDisplay(p.date)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </Card>
-        </div>
-      )}
 
       {/* Check-in hebdo */}
       <Card>
@@ -2106,11 +2216,87 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
             </div>
           )}
 
-          <button onClick={submitCheckin} style={{ background: C.text, border: "none", color: "#0A0C11", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <button onClick={submitCheckin} style={{ background: C.text, border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Send size={15} /> Envoyer le bilan de semaine
           </button>
         </div>
       </Card>
+
+      {/* Photos */}
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <SectionLabel icon={Camera}>Bilan photo</SectionLabel>
+          {photosHistory.length > 0 && (
+            <button onClick={() => setShowPhotoHistory(true)} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>
+              Historique
+            </button>
+          )}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {PHOTO_CATS.map((c) => (
+            <PhotoTile
+              key={c.key}
+              cat={c}
+              url={photosActuelles[c.key]}
+              uploading={uploadingPhotoKey === c.key}
+              onChange={(k, file) => uploadPhotoBilan(k, file)}
+            />
+          ))}
+        </div>
+      </Card>
+
+      {showPhotoHistory && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={() => { setShowPhotoHistory(false); setSelectedMonth(null); }}
+        >
+          <Card style={{ width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            {!selectedMonth ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <SectionLabel icon={Camera}>Historique par mois</SectionLabel>
+                  <button onClick={() => setShowPhotoHistory(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {photosParMois.map(([monthKey, photosOfMonth]) => (
+                    <button
+                      key={monthKey}
+                      onClick={() => setSelectedMonth(monthKey)}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "12px 14px" }}
+                    >
+                      <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{formatMonthLabel(monthKey)}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, color: C.textMuted, fontSize: 12 }}>
+                        {photosOfMonth.length} photo{photosOfMonth.length > 1 ? "s" : ""} <ChevronRight size={14} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <button onClick={() => setSelectedMonth(null)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                    <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {formatMonthLabel(selectedMonth)}
+                  </button>
+                  <button onClick={() => { setShowPhotoHistory(false); setSelectedMonth(null); }} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  {photosParMois.find(([k]) => k === selectedMonth)[1].map((p) => (
+                    <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ width: "100%", aspectRatio: "3/4", borderRadius: 10, background: `url(${p.url}) center/cover`, border: `1px solid ${C.cardBorderLight}` }} />
+                      <div style={{ fontSize: 9.5, color: C.textDim, textAlign: "center" }}>
+                        {PHOTO_CATS.find((c) => c.key === p.categorie)?.nom || p.categorie} · {formatDateDisplay(p.date)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+      )}
+
+      <MensurationsCard mensurationsHistory={mensurationsHistory} addMensuration={addMensuration} />
 
       {checkins.length > 0 && (
         <Card>
@@ -2125,6 +2311,75 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
         </Card>
       )}
     </div>
+  );
+}
+
+function MensurationsCard({ mensurationsHistory, addMensuration }) {
+  const emptyForm = {
+    tourTaille: "", tourPoitrine: "", tourEpaule: "",
+    tourBrasDroit: "", tourBrasGauche: "",
+    tourAvantBrasDroit: "", tourAvantBrasGauche: "",
+    tourCuisseDroite: "", tourCuisseGauche: "",
+    tourMolletDroit: "", tourMolletGauche: "",
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  const champs = [
+    { key: "tourTaille", label: "Tour de taille" },
+    { key: "tourPoitrine", label: "Tour de poitrine" },
+    { key: "tourEpaule", label: "Tour d'épaule" },
+    { key: "tourBrasDroit", label: "Tour de bras droit" },
+    { key: "tourBrasGauche", label: "Tour de bras gauche" },
+    { key: "tourAvantBrasDroit", label: "Tour d'avant-bras droit" },
+    { key: "tourAvantBrasGauche", label: "Tour d'avant-bras gauche" },
+    { key: "tourCuisseDroite", label: "Tour de cuisse droite" },
+    { key: "tourCuisseGauche", label: "Tour de cuisse gauche" },
+    { key: "tourMolletDroit", label: "Tour de mollet droit" },
+    { key: "tourMolletGauche", label: "Tour de mollet gauche" },
+  ];
+
+  const submit = () => {
+    if (!champs.some((c) => form[c.key])) return;
+    addMensuration(form);
+    setForm(emptyForm);
+  };
+
+  const derniere = mensurationsHistory && mensurationsHistory.length > 0 ? mensurationsHistory[mensurationsHistory.length - 1] : null;
+
+  return (
+    <Card>
+      <SectionLabel icon={Target}>Mensurations</SectionLabel>
+      {derniere && (
+        <div style={{ fontSize: 11, color: C.textDim, marginBottom: 12 }}>Dernière saisie : {derniere.date}</div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+        {champs.map((c) => (
+          <div key={c.key}>
+            <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>{c.label} (cm)</div>
+            <input
+              type="number"
+              value={form[c.key]}
+              onChange={(e) => setForm({ ...form, [c.key]: e.target.value })}
+              placeholder={derniere ? String(derniere[c.key] ?? "") : "—"}
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }}
+            />
+          </div>
+        ))}
+      </div>
+      <button onClick={submit} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>
+        Enregistrer mes mensurations
+      </button>
+
+      {mensurationsHistory && mensurationsHistory.length > 0 && (
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          {mensurationsHistory.slice().reverse().slice(0, 5).map((m, i) => (
+            <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 11.5, color: C.textMuted }}>
+              <span style={{ color: C.text, fontWeight: 700 }}>{m.date}</span> — taille {m.tourTaille ?? "—"}cm, poitrine {m.tourPoitrine ?? "—"}cm, bras D/G {m.tourBrasDroit ?? "—"}/{m.tourBrasGauche ?? "—"}cm, cuisse D/G {m.tourCuisseDroite ?? "—"}/{m.tourCuisseGauche ?? "—"}cm
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -2143,20 +2398,63 @@ const inputStyle = {
   borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14,
 };
 
-function Profil({ user, setUser, fireToast, onSave }) {
+function Profil({ user, setUser, fireToast, onSave, documentsRecus, notificationsRecues, onMarquerNotifLue, onChangePhoto }) {
   const set = (k) => (e) => setUser({ ...user, [k]: e.target.value });
+  const photoFileRef = useRef(null);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 62, height: 62, borderRadius: "50%", background: C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <User size={26} color={C.blue} />
-        </div>
+        <button
+          onClick={() => photoFileRef.current && photoFileRef.current.click()}
+          style={{
+            width: 62, height: 62, borderRadius: "50%",
+            background: user.photoUrl ? `url(${user.photoUrl}) center/cover` : C.blueSoft,
+            border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0, position: "relative", overflow: "hidden",
+          }}
+        >
+          {!user.photoUrl && <User size={26} color={C.blue} />}
+        </button>
+        <input ref={photoFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f && onChangePhoto) onChangePhoto(f); }} />
         <div>
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, color: C.text, letterSpacing: 0.5 }}>{user.prenom} {user.nom}</div>
           <div style={{ fontSize: 12, color: C.textMuted }}>{user.age} ans · {user.taille} cm</div>
         </div>
       </div>
+
+      {notificationsRecues && notificationsRecues.length > 0 && (
+        <Card>
+          <SectionLabel icon={Bell}>Notifications</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {notificationsRecues.map((n) => (
+              <div
+                key={n.id}
+                onClick={() => !n.lu && onMarquerNotifLue(n.id)}
+                style={{ background: n.lu ? C.surface : C.blueSoft, border: `1px solid ${n.lu ? C.cardBorderLight : C.blueBorder}`, borderRadius: 10, padding: 10, cursor: n.lu ? "default" : "pointer" }}
+              >
+                <div style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>{n.titre}</div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{n.message}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {documentsRecus && documentsRecus.length > 0 && (
+        <Card>
+          <SectionLabel icon={FileText}>Documents de ton coach</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {documentsRecus.map((d) => (
+              <a key={d.id} href={d.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, textDecoration: "none" }}>
+                <FileText size={16} color={C.blue} />
+                <span style={{ flex: 1, fontSize: 13, color: C.text, fontWeight: 600 }}>{d.nom}</span>
+                <Download size={15} color={C.textMuted} />
+              </a>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <SectionLabel icon={User}>Informations personnelles</SectionLabel>
@@ -2244,8 +2542,9 @@ function LogoutButton({ onLogout }) {
   );
 }
 
-function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle }) {
+function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, setCoachTab, tachesEnAttenteCount = 0 }) {
   const [open, setOpen] = useState(false);
+  const [outilsOuvert, setOutilsOuvert] = useState(false);
   return (
     <>
       <button
@@ -2288,6 +2587,116 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle }) {
                   Affichage
                 </div>
                 <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
+              </div>
+            )}
+
+            {viewMode === "coach" && coachTab && setCoachTab && (
+              <div>
+                <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+                  Navigation
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button
+                    onClick={() => { setCoachTab("dashboard"); setOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: coachTab === "dashboard" ? C.blueSoft : "transparent", border: "none",
+                      color: coachTab === "dashboard" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <LayoutDashboard size={16} /> Tableau de bord
+                  </button>
+                  <button
+                    onClick={() => { setCoachTab("clients"); setOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: coachTab === "clients" ? C.blueSoft : "transparent", border: "none",
+                      color: coachTab === "clients" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <User size={16} /> Client
+                  </button>
+                  <button
+                    onClick={() => { setCoachTab("taches"); setOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: coachTab === "taches" ? C.blueSoft : "transparent", border: "none",
+                      color: coachTab === "taches" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <ClipboardList size={16} /> Tâches
+                    {tachesEnAttenteCount > 0 && (
+                      <span style={{ marginLeft: "auto", background: C.red, color: "#FFFFFF", fontSize: 10.5, fontWeight: 800, borderRadius: 999, padding: "2px 7px" }}>
+                        {tachesEnAttenteCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => { setCoachTab("programmes"); setOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: coachTab === "programmes" ? C.blueSoft : "transparent", border: "none",
+                      color: coachTab === "programmes" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <Dumbbell size={16} /> Programmes
+                  </button>
+                  <button
+                    onClick={() => setOutilsOuvert(!outilsOuvert)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: (coachTab === "outils-drive" || coachTab === "outils-automatisation") ? C.blueSoft : "transparent", border: "none",
+                      color: (coachTab === "outils-drive" || coachTab === "outils-automatisation") ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <Wrench size={16} /> Outils
+                    <ChevronDown size={14} style={{ marginLeft: "auto", transform: outilsOuvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  </button>
+                  {outilsOuvert && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 14, borderLeft: `1px solid ${C.cardBorderLight}`, marginLeft: 12 }}>
+                      <button
+                        onClick={() => { setCoachTab("outils-drive"); setOpen(false); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
+                          background: coachTab === "outils-drive" ? C.blueSoft : "transparent", border: "none",
+                          color: coachTab === "outils-drive" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
+                        }}
+                      >
+                        <FileText size={14} /> Drive
+                      </button>
+                      <button
+                        onClick={() => { setCoachTab("outils-automatisation"); setOpen(false); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
+                          background: coachTab === "outils-automatisation" ? C.blueSoft : "transparent", border: "none",
+                          color: coachTab === "outils-automatisation" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
+                        }}
+                      >
+                        <Zap size={14} /> Automatisation
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setCoachTab("vod"); setOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: coachTab === "vod" ? C.blueSoft : "transparent", border: "none",
+                      color: coachTab === "vod" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <VideoIcon size={16} /> VOD
+                  </button>
+                  <button
+                    onClick={() => { setCoachTab("notifications"); setOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: coachTab === "notifications" ? C.blueSoft : "transparent", border: "none",
+                      color: coachTab === "notifications" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <Bell size={16} /> Notifications
+                  </button>
+                </div>
               </div>
             )}
 
@@ -2465,7 +2874,7 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
   );
 }
 
-function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, fireToast }) {
+function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, onCreated, fireToast }) {
   const [selectedForSuperset, setSelectedForSuperset] = useState([]);
 
   const toggleSelectForSuperset = (idx) => {
@@ -2607,9 +3016,29 @@ function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, f
       return;
     }
     try {
-    setSaving(true);
+      setSaving(true);
+
+      if (estModele) {
+        const exercicesJson = exercices.map((ex) => ({
+          nom: ex.nom, sets: ex.sets, repsParSerie: ex.repsParSerie, rest: ex.rest,
+          tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.videoDemoUrl,
+          ordre: ex.ordre, groupeSuperset: ex.groupeSuperset || null,
+        }));
+        if (editingProgramme?.id) {
+          const { error } = await supabase.from("programmes_modeles").update({ nom, muscle, exercices: exercicesJson }).eq("id", editingProgramme.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("programmes_modeles").insert({ coach_id: coachId, nom, muscle, exercices: exercicesJson });
+          if (error) throw error;
+        }
+        fireToast(editingProgramme?.id ? "Modèle modifié" : "Modèle créé", "green");
+        onCreated();
+        onClose();
+        return;
+      }
+
       let progId;
-      if (editingProgramme) {
+      if (editingProgramme?.id) {
         const { error: updateErr } = await supabase
           .from("programmes")
           .update({ nom, muscle })
@@ -2641,7 +3070,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, f
       }));
       const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
       if (exErr) throw exErr;
-      fireToast(editingProgramme ? "Séance modifiée" : "Séance créée", "green");
+      fireToast(editingProgramme?.id ? "Séance modifiée" : "Séance créée", "green");
       onCreated();
       onClose();
     } catch (err) {
@@ -2654,8 +3083,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, f
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20, overflowY: "auto" }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <SectionLabel icon={Dumbbell}>Nouvelle séance</SectionLabel>
+      <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto", overflowX: "hidden" }} onClick={(e) => e.stopPropagation()}>
+        <SectionLabel icon={Dumbbell}>{estModele ? (editingProgramme?.id ? "Modifier le modèle" : "Nouveau modèle") : (editingProgramme?.id ? "Modifier la séance" : "Nouvelle séance")}</SectionLabel>
         <input type="text" placeholder="Nom (ex: Push)" value={nom} onChange={(e) => setNom(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 8 }} />
         <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
         <SectionLabel icon={Plus}>Exercices</SectionLabel>
@@ -2730,8 +3159,12 @@ function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, f
           <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
             <select value={selectedExId} onChange={(e) => setSelectedExId(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }}>
               <option value="">Choisir un exercice...</option>
-              {bibliotheque.map((ex) => (
-                <option key={ex.id} value={ex.id}>{ex.nom}</option>
+              {GROUPES_MUSCULAIRES.filter((g) => bibliotheque.some((ex) => (ex.groupe_musculaire || "Autre") === g)).map((g) => (
+                <optgroup key={g} label={g}>
+                  {bibliotheque.filter((ex) => (ex.groupe_musculaire || "Autre") === g).map((ex) => (
+                    <option key={ex.id} value={ex.id}>{ex.nom}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             <button onClick={() => setShowNewExercice(true)} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}><Plus size={14} /></button>
@@ -2771,6 +3204,816 @@ function SeanceForm({ clientId, coachId, editingProgramme, onClose, onCreated, f
     </div>
   );
 }
+
+const LegendDot = ({ color, label }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+    <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+    <span style={{ fontSize: 11, color: C.textMuted }}>{label}</span>
+  </div>
+);
+
+function MiniCalendarClient({ seancesDates, poidsDates, bilansDates }) {
+  const [viewDate, setViewDate] = useState(new Date());
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const isoFor = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  return (
+    <Card>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <button onClick={() => setViewDate(new Date(year, month - 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+          <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
+        </button>
+        <div style={{ fontWeight: 700, fontSize: 14, color: C.text, textTransform: "capitalize" }}>
+          {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+        </div>
+        <button onClick={() => setViewDate(new Date(year, month + 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+        <LegendDot color={C.blue} label="Séances" />
+        <LegendDot color={C.red} label="Poids" />
+        <LegendDot color={C.green} label="Bilan" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+        {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 10, color: C.textDim, fontWeight: 700 }}>{d}</div>
+        ))}
+        {cells.map((d, i) => {
+          if (d === null) return <div key={i} />;
+          const iso = isoFor(d);
+          const hasS = seancesDates.has(iso);
+          const hasP = poidsDates.has(iso);
+          const hasB = bilansDates.has(iso);
+          return (
+            <div key={i} style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 8, background: (hasS || hasP || hasB) ? C.surface : "transparent" }}>
+              <div style={{ fontSize: 10.5, color: C.text }}>{d}</div>
+              <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
+                {hasS && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.blue }} />}
+                {hasP && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.red }} />}
+                {hasB && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.green }} />}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function MiniDatePicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const isoFor = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{ width: "100%", textAlign: "left", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: value ? C.text : C.textDim, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}
+      >
+        <Calendar size={14} color={C.textDim} /> {value ? formatDateDisplay(value) : "Choisir une date d'échéance"}
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "105%", left: 0, zIndex: 20, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: 12, width: 260, boxShadow: "0 10px 30px rgba(22,52,69,0.18)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <button onClick={() => setViewDate(new Date(year, month - 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+              <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} />
+            </button>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, textTransform: "capitalize" }}>
+              {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+            </div>
+            <button onClick={() => setViewDate(new Date(year, month + 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+              <div key={i} style={{ textAlign: "center", fontSize: 9, color: C.textDim, fontWeight: 700 }}>{d}</div>
+            ))}
+            {cells.map((d, i) => d === null ? <div key={i} /> : (
+              <button
+                key={i}
+                onClick={() => { onChange(isoFor(d)); setOpen(false); }}
+                style={{ aspectRatio: "1", borderRadius: 6, border: "none", background: value === isoFor(d) ? C.blue : "transparent", color: value === isoFor(d) ? "#FFFFFF" : C.text, fontSize: 11 }}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TachesView({ coachId, fireToast }) {
+  const [taches, setTaches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("a_faire");
+  const [showForm, setShowForm] = useState(false);
+  const [editingTache, setEditingTache] = useState(null);
+  const [titre, setTitre] = useState("");
+  const [dateEcheance, setDateEcheance] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from("taches").select("*").eq("coach_id", coachId).order("date_echeance", { ascending: true });
+      if (error) throw error;
+      setTaches(data || []);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur chargement tâches");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const openNew = () => { setEditingTache(null); setTitre(""); setDateEcheance(""); setShowForm(true); };
+  const openEdit = (t) => { setEditingTache(t); setTitre(t.titre); setDateEcheance(t.date_echeance || ""); setShowForm(true); };
+
+  const save = async () => {
+    if (!titre.trim()) { fireToast("Ajoute un titre"); return; }
+    try {
+      if (editingTache) {
+        const { error } = await supabase.from("taches").update({ titre, date_echeance: dateEcheance || null }).eq("id", editingTache.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("taches").insert({ coach_id: coachId, titre, date_echeance: dateEcheance || null, statut: "a_faire" });
+        if (error) throw error;
+      }
+      fireToast(editingTache ? "Tâche modifiée" : "Tâche créée", "green");
+      setShowForm(false);
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement tâche");
+    }
+  };
+
+  const toggleStatut = async (t) => {
+    const nouveauStatut = t.statut === "a_faire" ? "termine" : "a_faire";
+    try {
+      const { error } = await supabase.from("taches").update({ statut: nouveauStatut }).eq("id", t.id);
+      if (error) throw error;
+      setTaches((prev) => prev.map((x) => (x.id === t.id ? { ...x, statut: nouveauStatut } : x)));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur mise à jour");
+    }
+  };
+
+  const remove = async (id) => {
+    if (!confirm("Supprimer cette tâche ?")) return;
+    try {
+      const { error } = await supabase.from("taches").delete().eq("id", id);
+      if (error) throw error;
+      setTaches((prev) => prev.filter((x) => x.id !== id));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression");
+    }
+  };
+
+  const filtered = taches.filter((t) => t.statut === filter);
+
+  return (
+    <>
+      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+        Gérez vos tâches quotidiennes et suivez leur avancement.
+      </div>
+      <button
+        onClick={openNew}
+        style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+      >
+        <Plus size={18} /> Créer une tâche
+      </button>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <PillButton active={filter === "a_faire"} onClick={() => setFilter("a_faire")} style={{ flex: 1, textAlign: "center" }}>
+          À faire ({taches.filter((t) => t.statut === "a_faire").length})
+        </PillButton>
+        <PillButton active={filter === "termine"} onClick={() => setFilter("termine")} style={{ flex: 1, textAlign: "center" }}>
+          Terminées
+        </PillButton>
+      </div>
+
+      {loading ? (
+        <div style={{ color: C.textMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+      ) : filtered.length === 0 ? (
+        <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune tâche ici</div></Card>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtered.map((t) => (
+            <Card key={t.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                onClick={() => toggleStatut(t)}
+                style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${t.statut === "termine" ? C.green : C.cardBorderLight}`, background: t.statut === "termine" ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+              >
+                {t.statut === "termine" && <Check size={13} color="#FFFFFF" />}
+              </button>
+              <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openEdit(t)}>
+                <div style={{ fontSize: 14, color: C.text, fontWeight: 600, textDecoration: t.statut === "termine" ? "line-through" : "none" }}>{t.titre}</div>
+                {t.date_echeance && <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>📅 {formatDateDisplay(t.date_echeance)}</div>}
+              </div>
+              <button onClick={() => remove(t.id)} style={{ background: "transparent", border: "none", color: C.red }}>
+                <Trash2 size={15} />
+              </button>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowForm(false)}>
+          <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+            <SectionLabel icon={ClipboardList}>{editingTache ? "Modifier la tâche" : "Nouvelle tâche"}</SectionLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: C.textDim, marginBottom: 5, fontWeight: 700, textTransform: "uppercase" }}>Titre</div>
+                <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="ex : Préparer le programme d'Oscar" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: C.textDim, marginBottom: 5, fontWeight: 700, textTransform: "uppercase" }}>Date d'échéance</div>
+                <MiniDatePicker value={dateEcheance} onChange={setDateEcheance} />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 0", color: C.textMuted, fontWeight: 600, fontSize: 13 }}>Annuler</button>
+                <button onClick={save} style={{ flex: 1, background: C.blue, border: "none", borderRadius: 10, padding: "10px 0", color: "#06171F", fontWeight: 700, fontSize: 13 }}>{editingTache ? "Enregistrer" : "Créer"}</button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ProgrammesModelesView({ coachId, clients, fireToast }) {
+  const [modeles, setModeles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formMode, setFormMode] = useState(null); // null | "modele" | "pickClient" | "assign"
+  const [editingModele, setEditingModele] = useState(null);
+  const [assignClientId, setAssignClientId] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from("programmes_modeles").select("*").eq("coach_id", coachId).order("created_at", { ascending: false });
+      if (error) throw error;
+      setModeles(data || []);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur chargement modèles");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const remove = async (id) => {
+    if (!confirm("Supprimer ce modèle ?")) return;
+    try {
+      const { error } = await supabase.from("programmes_modeles").delete().eq("id", id);
+      if (error) throw error;
+      setModeles((prev) => prev.filter((m) => m.id !== id));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression");
+    }
+  };
+
+  if (formMode === "modele") {
+    return (
+      <SeanceForm
+        estModele
+        coachId={coachId}
+        editingProgramme={editingModele}
+        onClose={() => { setFormMode(null); setEditingModele(null); }}
+        onCreated={load}
+        fireToast={fireToast}
+      />
+    );
+  }
+
+  if (formMode === "assign" && assignClientId) {
+    return (
+      <SeanceForm
+        clientId={assignClientId}
+        editingProgramme={{ nom: editingModele.nom, muscle: editingModele.muscle, exercices: editingModele.exercices }}
+        onClose={() => { setFormMode(null); setEditingModele(null); setAssignClientId(null); }}
+        onCreated={() => fireToast("Programme envoyé au client", "green")}
+        fireToast={fireToast}
+      />
+    );
+  }
+
+  if (formMode === "pickClient") {
+    return (
+      <div>
+        <button onClick={() => { setFormMode(null); setEditingModele(null); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+        </button>
+        <SectionLabel icon={User}>Assigner « {editingModele.nom} » à...</SectionLabel>
+        {clients.length === 0 ? (
+          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client pour le moment</div></Card>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+            {clients.map((c) => (
+              <Card
+                key={c.id}
+                onClick={() => { setAssignClientId(c.id); setFormMode("assign"); }}
+                style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
+                <span style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>{c.prenom} {c.nom}</span>
+                <ChevronRight size={16} color={C.textDim} />
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => { setEditingModele(null); setFormMode("modele"); }}
+        style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+      >
+        <Plus size={18} /> Créer un modèle
+      </button>
+      {loading ? (
+        <div style={{ color: C.textMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+      ) : modeles.length === 0 ? (
+        <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun modèle pour le moment</div></Card>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {modeles.map((m) => (
+            <Card key={m.id}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: C.text, letterSpacing: 0.5 }}>{m.nom}</div>
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{m.muscle} · {(m.exercices || []).length} exercices</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { setEditingModele(m); setFormMode("modele"); }} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 0", color: C.text, fontSize: 12.5, fontWeight: 600 }}>Modifier</button>
+                <button onClick={() => { setEditingModele(m); setFormMode("pickClient"); }} style={{ flex: 1, background: C.blueSoft, border: "none", borderRadius: 10, padding: "8px 0", color: C.blue, fontSize: 12.5, fontWeight: 700 }}>Assigner</button>
+                <button onClick={() => remove(m.id)} style={{ background: "transparent", border: "none", color: C.red, padding: "0 8px" }}><Trash2 size={16} /></button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function OutilsView({ coachId, clients, fireToast, section }) {
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [targetClientId, setTargetClientId] = useState("tous");
+  const fileRef = useRef(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from("documents_coach").select("*").eq("coach_id", coachId).order("created_at", { ascending: false });
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur chargement documents");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const upload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fileName = `${coachId}/${Date.now()}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage.from("documents-coach").upload(fileName, file);
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from("documents-coach").getPublicUrl(fileName);
+      const { error } = await supabase.from("documents_coach").insert({
+        coach_id: coachId,
+        client_id: targetClientId === "tous" ? null : targetClientId,
+        nom: file.name,
+        url: urlData.publicUrl,
+      });
+      if (error) throw error;
+      fireToast("Document envoyé", "green");
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi document");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const remove = async (id) => {
+    if (!confirm("Supprimer ce document ?")) return;
+    try {
+      const { error } = await supabase.from("documents_coach").delete().eq("id", id);
+      if (error) throw error;
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression");
+    }
+  };
+
+  return (
+    <>
+      {section === "drive" && (
+        <>
+          <SectionLabel icon={FileText}>Drive</SectionLabel>
+          <Card style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+              Envoie des PDF (programmes, guides, factures...) à un client précis ou à tous tes clients d'un coup.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <select
+                value={targetClientId}
+                onChange={(e) => setTargetClientId(e.target.value)}
+                style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+              >
+                <option value="tous">Tous mes clients</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => fileRef.current && fileRef.current.click()}
+              disabled={uploading}
+              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1 }}
+            >
+              <Upload size={16} /> {uploading ? "Envoi..." : "Envoyer un PDF"}
+            </button>
+            <input ref={fileRef} type="file" accept="application/pdf" style={{ display: "none" }} onChange={(e) => upload(e.target.files[0])} />
+          </Card>
+
+          {loading ? (
+            <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+          ) : documents.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              {documents.map((d) => {
+                const c = clients.find((cl) => cl.id === d.client_id);
+                return (
+                  <Card key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
+                    <FileText size={18} color={C.blue} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{d.nom}</div>
+                      <div style={{ fontSize: 11, color: C.textMuted }}>{c ? `${c.prenom} ${c.nom}` : "Tous les clients"}</div>
+                    </div>
+                    <button onClick={() => remove(d.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {section === "automatisation" && (
+        <>
+          <SectionLabel icon={Zap}>Automatisation</SectionLabel>
+          <Card>
+            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Bientôt disponible</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>
+              On définira ensemble ce qu'il serait utile d'automatiser (rappels, relances, messages de bienvenue...) une fois que tu auras une idée plus précise de ce qui te ferait gagner du temps au quotidien.
+            </div>
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
+const GROUPES_MUSCULAIRES = ["Pectoraux", "Dos", "Épaules", "Bras", "Jambes", "Abdominaux", "Cardio", "Autre"];
+
+function VODView({ coachId, fireToast }) {
+  const [exercices, setExercices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [nomExercice, setNomExercice] = useState("");
+  const [groupeExercice, setGroupeExercice] = useState(GROUPES_MUSCULAIRES[0]);
+  const [editingId, setEditingId] = useState(null);
+  const [editingNom, setEditingNom] = useState("");
+  const [editingGroupe, setEditingGroupe] = useState(GROUPES_MUSCULAIRES[0]);
+  const fileRef = useRef(null);
+  const editFileRef = useRef(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from("exercices_bibliotheque").select("*").eq("coach_id", coachId).order("nom", { ascending: true });
+      if (error) throw error;
+      setExercices(data || []);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur chargement exercices");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const upload = async (file) => {
+    if (!nomExercice.trim()) { fireToast("Donne un nom à l'exercice avant de l'envoyer"); return; }
+    setUploading(true);
+    try {
+      let videoUrl = null;
+      if (file) {
+        const fileName = `bibliotheque/${coachId}/${Date.now()}_${file.name}`;
+        const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, file);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
+        videoUrl = urlData.publicUrl;
+      }
+      const { error } = await supabase.from("exercices_bibliotheque").insert({ coach_id: coachId, nom: nomExercice, video_demo_url: videoUrl, groupe_musculaire: groupeExercice });
+      if (error) throw error;
+      fireToast("Exercice ajouté", "green");
+      setNomExercice("");
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur création exercice");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const startEdit = (ex) => { setEditingId(ex.id); setEditingNom(ex.nom); setEditingGroupe(ex.groupe_musculaire || GROUPES_MUSCULAIRES[0]); };
+
+  const saveEdit = async () => {
+    if (!editingNom.trim()) return;
+    try {
+      const { error } = await supabase.from("exercices_bibliotheque").update({ nom: editingNom, groupe_musculaire: editingGroupe }).eq("id", editingId);
+      if (error) throw error;
+      setExercices((prev) => prev.map((ex) => (ex.id === editingId ? { ...ex, nom: editingNom, groupe_musculaire: editingGroupe } : ex)));
+      fireToast("Exercice modifié", "green");
+      setEditingId(null);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur modification");
+    }
+  };
+
+  const replaceVideo = async (id, file) => {
+    if (!file) return;
+    try {
+      const fileName = `bibliotheque/${coachId}/${Date.now()}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, file);
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
+      const { error } = await supabase.from("exercices_bibliotheque").update({ video_demo_url: urlData.publicUrl }).eq("id", id);
+      if (error) throw error;
+      setExercices((prev) => prev.map((ex) => (ex.id === id ? { ...ex, video_demo_url: urlData.publicUrl } : ex)));
+      fireToast("Vidéo mise à jour", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi vidéo");
+    }
+  };
+
+  const remove = async (id) => {
+    if (!confirm("Supprimer cet exercice de la bibliothèque ?")) return;
+    try {
+      const { error } = await supabase.from("exercices_bibliotheque").delete().eq("id", id);
+      if (error) throw error;
+      setExercices((prev) => prev.filter((ex) => ex.id !== id));
+      fireToast("Exercice supprimé", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression");
+    }
+  };
+
+  const groupes = useMemo(() => {
+    const map = {};
+    for (const ex of exercices) {
+      const g = ex.groupe_musculaire || "Autre";
+      if (!map[g]) map[g] = [];
+      map[g].push(ex);
+    }
+    return GROUPES_MUSCULAIRES.filter((g) => map[g]).map((g) => [g, map[g]]);
+  }, [exercices]);
+
+  const renderExerciceRow = (ex) => (
+    <Card key={ex.id} style={{ padding: 12 }}>
+      {editingId === ex.id ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="text" autoFocus value={editingNom} onChange={(e) => setEditingNom(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); }}
+              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13 }}
+            />
+            <button onClick={() => setEditingId(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={16} /></button>
+          </div>
+          <select value={editingGroupe} onChange={(e) => setEditingGroupe(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13 }}>
+            {GROUPES_MUSCULAIRES.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select>
+          <button onClick={saveEdit} style={{ background: C.blue, border: "none", borderRadius: 8, padding: "8px", color: "#06171F", fontSize: 12, fontWeight: 700 }}>Enregistrer</button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {ex.video_demo_url ? (
+            <VideoIcon size={18} color={C.blue} style={{ flexShrink: 0 }} />
+          ) : (
+            <Dumbbell size={18} color={C.textDim} style={{ flexShrink: 0 }} />
+          )}
+          <div style={{ flex: 1, fontSize: 13, color: C.text, fontWeight: 600 }}>{ex.nom}</div>
+          <button onClick={() => editFileRef.current && (editFileRef.current.dataset.exId = ex.id, editFileRef.current.click())} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11 }}>
+            {ex.video_demo_url ? "Changer vidéo" : "+ Vidéo"}
+          </button>
+          <button onClick={() => startEdit(ex)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 15 }}>✎</button>
+          <button onClick={() => remove(ex.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+        </div>
+      )}
+    </Card>
+  );
+
+  return (
+    <>
+      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+        Ta bibliothèque d'exercices avec vidéos de démo. Elle est directement utilisée quand tu crées une séance — les exercices que tu ajoutes ici apparaissent dans "Choisir un exercice".
+      </div>
+      <Card style={{ marginBottom: 20 }}>
+        <input
+          type="text"
+          value={nomExercice}
+          onChange={(e) => setNomExercice(e.target.value)}
+          placeholder="Nom de l'exercice (ex : Squat barre)"
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}
+        />
+        <select value={groupeExercice} onChange={(e) => setGroupeExercice(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}>
+          {GROUPES_MUSCULAIRES.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <button
+          onClick={() => fileRef.current && fileRef.current.click()}
+          disabled={uploading}
+          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1, marginBottom: 8 }}
+        >
+          <Upload size={16} /> {uploading ? "Envoi..." : "Ajouter avec une vidéo"}
+        </button>
+        <button
+          onClick={() => upload(null)}
+          disabled={uploading}
+          style={{ width: "100%", background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "10px", fontWeight: 600, fontSize: 12.5 }}
+        >
+          Ajouter sans vidéo pour l'instant
+        </button>
+        <input ref={fileRef} type="file" accept="video/*" style={{ display: "none" }} onChange={(e) => upload(e.target.files[0])} />
+      </Card>
+
+      {loading ? (
+        <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+      ) : exercices.length === 0 ? (
+        <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun exercice pour le moment</div></Card>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {groupes.map(([groupe, exs]) => (
+            <div key={groupe}>
+              <SectionLabel icon={Dumbbell}>{groupe}</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {exs.map(renderExerciceRow)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <input
+        ref={editFileRef}
+        type="file"
+        accept="video/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const id = editFileRef.current.dataset.exId;
+          const file = e.target.files[0];
+          if (id && file) replaceVideo(id, file);
+        }}
+      />
+    </>
+  );
+}
+
+function NotificationsView({ coachId, clients, fireToast }) {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [targetClientId, setTargetClientId] = useState("tous");
+  const [titre, setTitre] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from("notifications").select("*").eq("coach_id", coachId).order("created_at", { ascending: false }).limit(20);
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur chargement notifications");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const send = async () => {
+    if (!titre.trim() || !message.trim()) { fireToast("Ajoute un titre et un message"); return; }
+    setSending(true);
+    try {
+      if (targetClientId === "tous") {
+        const rows = clients.map((c) => ({ coach_id: coachId, client_id: c.id, titre, message, lu: false }));
+        if (rows.length > 0) {
+          const { error } = await supabase.from("notifications").insert(rows);
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase.from("notifications").insert({ coach_id: coachId, client_id: targetClientId, titre, message, lu: false });
+        if (error) throw error;
+      }
+      fireToast("Notification envoyée", "green");
+      setTitre("");
+      setMessage("");
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi notification");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <>
+      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+        Ces notifications s'affichent dans l'app quand le client l'ouvre — ce ne sont pas encore de vraies notifications push sur leur téléphone (ça demande une configuration technique en plus, qu'on pourra mettre en place plus tard si tu veux).
+      </div>
+      <Card style={{ marginBottom: 20 }}>
+        <SectionLabel icon={Bell}>Nouvelle notification</SectionLabel>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <select
+            value={targetClientId}
+            onChange={(e) => setTargetClientId(e.target.value)}
+            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+          >
+            <option value="tous">Tous mes clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+            ))}
+          </select>
+          <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Titre" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
+          <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "none" }} />
+          <button onClick={send} disabled={sending} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: sending ? 0.6 : 1 }}>
+            {sending ? "Envoi..." : "Envoyer"}
+          </button>
+        </div>
+      </Card>
+
+      {loading ? (
+        <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+      ) : notifications.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {notifications.map((n) => {
+            const c = clients.find((cl) => cl.id === n.client_id);
+            return (
+              <Card key={n.id} style={{ padding: 12 }}>
+                <div style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>{n.titre}</div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{n.message}</div>
+                <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 4 }}>{c ? `${c.prenom} ${c.nom}` : "Client"} · {n.lu ? "Lu" : "Non lu"}</div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
 function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [tab, setTab] = useState("programme");
   const [loading, setLoading] = useState(true);
@@ -2785,28 +4028,36 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [selectedProgramme, setSelectedProgramme] = useState(null);
   const [customProgrammes, setCustomProgrammes] = useState([]);
   const [checkinsQuotidiens, setCheckinsQuotidiens] = useState([]);
+  const [poidsRawDates, setPoidsRawDates] = useState([]);
+  const [photosHistoryCoach, setPhotosHistoryCoach] = useState([]);
+  const [mensurationsCoach, setMensurationsCoach] = useState([]);
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       try {
-        const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes, dailyRes] = await Promise.all([
+        const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes, dailyRes, photosRes, mensurationsRes] = await Promise.all([
           supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(10),
           supabase.from("poids_historique").select("*").eq("profil_id", client.id).order("date", { ascending: true }),
           supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
           supabase.from("repas").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
           supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }),
           supabase.from("checkins_quotidiens").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
+          supabase.from("photos_bilan").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
+          supabase.from("mensurations").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(5),
         ]);
         if (!active) return;
 
         const seancesData = seancesRes.data || [];
         setSeances(seancesData);
         setWeightHistory((poidsRes.data || []).map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) })));
+        setPoidsRawDates((poidsRes.data || []).map((r) => r.date));
         setCheckins(checkinsRes.data || []);
         setRepas(repasRes.data || []);
         setCustomProgrammes(programmesRes.data || []);
         setCheckinsQuotidiens(dailyRes.data || []);
+        setPhotosHistoryCoach(photosRes.data || []);
+        setMensurationsCoach(mensurationsRes.data || []);
 
         if (seancesData.length > 0) {
           const ids = seancesData.map((s) => s.id);
@@ -2828,6 +4079,17 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
     load();
     return () => { active = false; };
   }, [client.id]);
+
+  const seancesDatesSet = useMemo(() => new Set(seances.map((s) => s.date)), [seances]);
+  const poidsDatesSet = useMemo(() => new Set(poidsRawDates), [poidsRawDates]);
+  const bilansDatesSet = useMemo(() => {
+    const set = new Set();
+    for (const c of checkins) {
+      const d = parseFrDate(c.date);
+      if (d) set.add(d.toISOString().slice(0, 10));
+    }
+    return set;
+  }, [checkins]);
 
   const detailTabs = [
     { key: "programme", label: "Programme", icon: Dumbbell },
@@ -2896,8 +4158,13 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           <LogoutButton onLogout={onLogout} />
         </div>
 
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 32, color: C.text, letterSpacing: 0.5, marginBottom: 4 }}>
-          {client.prenom} {client.nom}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: client.photo_url ? `url(${client.photo_url}) center/cover` : C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {!client.photo_url && <User size={20} color={C.blue} />}
+          </div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 32, color: C.text, letterSpacing: 0.5 }}>
+            {client.prenom} {client.nom}
+          </div>
         </div>
         <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>{client.objectif_principal}</div>
 
@@ -2954,6 +4221,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           </div>
         ) : tab === "bilans" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <MiniCalendarClient seancesDates={seancesDatesSet} poidsDates={poidsDatesSet} bilansDates={bilansDatesSet} />
             <Card>
               <SectionLabel icon={Flame}>Fatigue / Sommeil / Énergie</SectionLabel>
               {checkinsQuotidiens.length === 0 ? (
@@ -2994,8 +4262,8 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
                         </linearGradient>
                       </defs>
                       <CartesianGrid stroke={C.cardBorder} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#5C6577" }} axisLine={false} tickLine={false} />
-                      <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 10, fill: "#5C6577" }} axisLine={false} tickLine={false} width={30} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} />
+                      <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} width={30} />
                       <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, fontSize: 12 }} />
                       <Area type="monotone" dataKey="poids" stroke={C.blue} strokeWidth={2.5} fill="url(#coachWgrad)" />
                     </AreaChart>
@@ -3022,6 +4290,49 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
                   {c.commentaire && <div style={{ marginTop: 4, color: C.textDim }}>{c.commentaire}</div>}
                 </div>
               ))}
+            </Card>
+
+            <Card>
+              <SectionLabel icon={Camera}>Bilan photo</SectionLabel>
+              {photosHistoryCoach.length === 0 ? (
+                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune photo envoyée</div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  {PHOTO_CATS.map((cat) => {
+                    const latest = photosHistoryCoach.find((p) => p.categorie === cat.key);
+                    return (
+                      <div key={cat.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div
+                          style={{
+                            width: "100%", aspectRatio: "3/4", borderRadius: 10,
+                            background: latest ? `url(${latest.url}) center/cover` : C.surface,
+                            border: `1px solid ${C.cardBorderLight}`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}
+                        >
+                          {!latest && <Camera size={16} color={C.textDim} />}
+                        </div>
+                        <div style={{ fontSize: 9.5, color: C.textDim, textAlign: "center" }}>{cat.nom}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <SectionLabel icon={Target}>Mensurations</SectionLabel>
+              {mensurationsCoach.length === 0 ? (
+                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune mensuration envoyée</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {mensurationsCoach.map((m, i) => (
+                    <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted }}>
+                      <span style={{ color: C.text, fontWeight: 700 }}>{formatDateDisplay(m.date)}</span> — taille {m.tour_taille ?? "—"}cm, poitrine {m.tour_poitrine ?? "—"}cm, épaule {m.tour_epaule ?? "—"}cm, bras D/G {m.tour_bras_droit ?? "—"}/{m.tour_bras_gauche ?? "—"}cm, avant-bras D/G {m.tour_avant_bras_droit ?? "—"}/{m.tour_avant_bras_gauche ?? "—"}cm, cuisse D/G {m.tour_cuisse_droite ?? "—"}/{m.tour_cuisse_gauche ?? "—"}cm, mollet D/G {m.tour_mollet_droit ?? "—"}/{m.tour_mollet_gauche ?? "—"}cm
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
         ) : (
@@ -3075,11 +4386,38 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   );
 }
 
+const parseFrDate = (str) => {
+  if (!str) return null;
+  const parts = str.split("/").map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [d, m, y] = parts;
+  return new Date(y, m - 1, d);
+};
+
 function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMode }) {
+  const [coachTab, setCoachTab] = useState("dashboard");
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [recentSeances, setRecentSeances] = useState([]);
+  const [recentBilans, setRecentBilans] = useState([]);
+  const [dernierBilanParClient, setDernierBilanParClient] = useState({});
+  const [seancesEnAttente, setSeancesEnAttente] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedGroupe, setSelectedGroupe] = useState("Tous");
+  const [editingGroupeId, setEditingGroupeId] = useState(null);
+  const [groupeInput, setGroupeInput] = useState("");
+  const [tachesEnAttenteCount, setTachesEnAttenteCount] = useState(0);
+
+  useEffect(() => {
+    supabase
+      .from("taches")
+      .select("id", { count: "exact", head: true })
+      .eq("coach_id", coachProfil.id)
+      .eq("statut", "a_faire")
+      .then(({ count }) => setTachesEnAttenteCount(count || 0));
+  }, [coachProfil.id, coachTab]);
 
   const loadClients = async () => {
     setLoading(true);
@@ -3091,7 +4429,47 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         .eq("role", "client")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setClients(data || []);
+      const clientsData = data || [];
+      setClients(clientsData);
+
+      if (clientsData.length > 0) {
+        const ids = clientsData.map((c) => c.id);
+        const today = todayIso();
+        const [seancesRes, bilansRes, programmesRes, seancesAujourdhuiRes] = await Promise.all([
+          supabase.from("seances").select("id, profil_id, nom_programme, date").in("profil_id", ids).order("date", { ascending: false }).limit(8),
+          supabase.from("bilans_semaine").select("id, profil_id, date").in("profil_id", ids).limit(150),
+          supabase.from("programmes").select("id, profil_id, nom").in("profil_id", ids).order("created_at", { ascending: true }),
+          supabase.from("seances").select("profil_id").in("profil_id", ids).eq("date", today),
+        ]);
+        setRecentSeances(seancesRes.data || []);
+
+        const bilansAvecDate = (bilansRes.data || [])
+          .map((b) => ({ ...b, dateParsed: parseFrDate(b.date) }))
+          .filter((b) => b.dateParsed)
+          .sort((a, b) => b.dateParsed - a.dateParsed);
+        setRecentBilans(bilansAvecDate.slice(0, 6));
+
+        const latestByClient = {};
+        for (const b of bilansAvecDate) {
+          if (!latestByClient[b.profil_id]) latestByClient[b.profil_id] = b.dateParsed;
+        }
+        setDernierBilanParClient(latestByClient);
+
+        const profilsAvecSeanceAujourdhui = new Set((seancesAujourdhuiRes.data || []).map((s) => s.profil_id));
+        const premierProgrammeParClient = {};
+        for (const p of programmesRes.data || []) {
+          if (!premierProgrammeParClient[p.profil_id]) premierProgrammeParClient[p.profil_id] = p.nom;
+        }
+        const enAttente = clientsData
+          .filter((c) => premierProgrammeParClient[c.id] && !profilsAvecSeanceAujourdhui.has(c.id))
+          .map((c) => ({ client: c, programme: premierProgrammeParClient[c.id] }));
+        setSeancesEnAttente(enAttente);
+      } else {
+        setRecentSeances([]);
+        setRecentBilans([]);
+        setDernierBilanParClient({});
+        setSeancesEnAttente([]);
+      }
     } catch (err) {
       console.error(err);
       fireToast("Erreur chargement clients");
@@ -3103,6 +4481,43 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
   useEffect(() => {
     loadClients();
   }, [coachProfil.id]);
+
+  const saveGroupe = async (clientId, groupe) => {
+    try {
+      const { error } = await supabase.from("profils").update({ groupe: groupe || null }).eq("id", clientId);
+      if (error) throw error;
+      setClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, groupe: groupe || null } : c)));
+      setEditingGroupeId(null);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement dossier");
+    }
+  };
+
+  const bilansEnAttente = useMemo(() => {
+    const today = new Date();
+    return clients
+      .map((c) => {
+        const derniere = dernierBilanParClient[c.id];
+        const joursSince = derniere ? Math.floor((today - derniere) / 86400000) : null;
+        return { client: c, joursSince };
+      })
+      .filter((x) => x.joursSince === null || x.joursSince > 7)
+      .sort((a, b) => (b.joursSince ?? 9999) - (a.joursSince ?? 9999));
+  }, [clients, dernierBilanParClient]);
+
+  const groupesDisponibles = useMemo(() => {
+    const set = new Set(clients.map((c) => c.groupe).filter(Boolean));
+    return Array.from(set);
+  }, [clients]);
+
+  const clientsFiltres = useMemo(() => {
+    return clients.filter((c) => {
+      const matchSearch = `${c.prenom} ${c.nom}`.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchGroupe = selectedGroupe === "Tous" || (selectedGroupe === "Sans dossier" ? !c.groupe : c.groupe === selectedGroupe);
+      return matchSearch && matchGroupe;
+    });
+  }, [clients, searchQuery, selectedGroupe]);
 
   if (selectedClient) {
     return (
@@ -3120,49 +4535,190 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
       <FontImports />
       <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
-          <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={true} />
+          <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={true} coachTab={coachTab} setCoachTab={setCoachTab} tachesEnAttenteCount={tachesEnAttenteCount} />
           <div>
             <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Espace coach</div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 34, color: C.text, letterSpacing: 0.5 }}>MES CLIENTS</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 34, color: C.text, letterSpacing: 0.5 }}>
+              {coachTab === "dashboard" ? "TABLEAU DE BORD" : coachTab === "clients" ? "MES CLIENTS" : coachTab === "taches" ? "MES TÂCHES" : coachTab === "programmes" ? "PROGRAMMES" : coachTab === "outils-drive" ? "DRIVE" : coachTab === "outils-automatisation" ? "AUTOMATISATION" : coachTab === "vod" ? "VOD" : "NOTIFICATIONS"}
+            </div>
           </div>
         </div>
 
-        <button
-          onClick={() => setShowAddForm(true)}
-          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16, marginTop: 16 }}
-        >
-          <Plus size={18} /> Ajouter un client
-        </button>
-
-        {showAddForm && (
-          <AddClientForm
-            coachProfilId={coachProfil.id}
-            onClose={() => setShowAddForm(false)}
-            onCreated={loadClients}
-            fireToast={fireToast}
-          />
-        )}
-
         {loading ? (
           <div style={{ color: C.textMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
-        ) : clients.length === 0 ? (
-          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client pour le moment</div></Card>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {clients.map((c) => (
-              <Card
-                key={c.id}
-                onClick={() => setSelectedClient(c)}
-                style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <div>
-                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSpacing: 0.5 }}>{c.prenom} {c.nom}</div>
-                  <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{c.objectif_principal}</div>
+        ) : coachTab === "taches" ? (
+          <TachesView coachId={coachProfil.id} fireToast={fireToast} />
+        ) : coachTab === "programmes" ? (
+          <ProgrammesModelesView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
+        ) : coachTab === "outils-drive" ? (
+          <OutilsView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="drive" />
+        ) : coachTab === "outils-automatisation" ? (
+          <OutilsView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="automatisation" />
+        ) : coachTab === "vod" ? (
+          <VODView coachId={coachProfil.id} fireToast={fireToast} />
+        ) : coachTab === "notifications" ? (
+          <NotificationsView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
+        ) : coachTab === "dashboard" ? (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <Card style={{ padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <User size={14} color={C.blue} />
+                  <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Clients actifs</span>
                 </div>
-                <ChevronRight size={18} color={C.textMuted} />
+                <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: C.text, fontWeight: 700 }}>{clients.length}</div>
               </Card>
-            ))}
-          </div>
+              <Card style={{ padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <AlertCircle size={14} color={bilansEnAttente.length > 0 ? C.red : C.green} />
+                  <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Bilans en attente</span>
+                </div>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: bilansEnAttente.length > 0 ? C.red : C.green, fontWeight: 700 }}>{bilansEnAttente.length}</div>
+              </Card>
+            </div>
+
+            {seancesEnAttente.length > 0 && (
+              <Card style={{ marginBottom: 14 }}>
+                <SectionLabel icon={Dumbbell}>Séances en attente aujourd'hui</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {seancesEnAttente.slice(0, 6).map(({ client, programme }) => (
+                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>
+                      <span style={{ fontSize: 13, color: C.text }}>
+                        <span style={{ fontWeight: 700 }}>{client.prenom}</span> doit faire « {programme} » aujourd'hui
+                      </span>
+                      <ChevronRight size={14} color={C.textDim} />
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {bilansEnAttente.length > 0 && (
+              <Card style={{ marginBottom: 14 }}>
+                <SectionLabel icon={AlertCircle}>Bilans en attente</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {bilansEnAttente.slice(0, 5).map(({ client, joursSince }) => (
+                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>
+                      <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{client.prenom} {client.nom}</span>
+                      <span style={{ fontSize: 11.5, color: C.red }}>{joursSince === null ? "Jamais envoyé" : `Il y a ${joursSince} j`}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {(recentSeances.length > 0 || recentBilans.length > 0) && (
+              <Card>
+                <SectionLabel icon={Flame}>Activité récente</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {recentSeances.slice(0, 4).map((s) => {
+                    const c = clients.find((cl) => cl.id === s.profil_id);
+                    return (
+                      <div key={`s-${s.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
+                        <Dumbbell size={13} color={C.blue} />
+                        <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a terminé « {s.nom_programme} » · {formatDateDisplay(s.date)}
+                      </div>
+                    );
+                  })}
+                  {recentBilans.slice(0, 4).map((b) => {
+                    const c = clients.find((cl) => cl.id === b.profil_id);
+                    return (
+                      <div key={`b-${b.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
+                        <ClipboardList size={13} color={C.green} />
+                        <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a rempli son bilan de semaine · {b.date}
+                      </div>
+                    );
+                  })}
+                  {recentSeances.length === 0 && recentBilans.length === 0 && (
+                    <div style={{ fontSize: 12.5, color: C.textDim }}>Aucune activité récente</div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setShowAddForm(true)}
+              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+            >
+              <Plus size={18} /> Ajouter un client
+            </button>
+
+            {showAddForm && (
+              <AddClientForm
+                coachProfilId={coachProfil.id}
+                onClose={() => setShowAddForm(false)}
+                onCreated={loadClients}
+                fireToast={fireToast}
+              />
+            )}
+
+            <div style={{ position: "relative", marginBottom: 10 }}>
+              <Search size={15} color={C.textDim} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher un client..."
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "10px 12px 10px 36px", color: C.text, fontSize: 13.5 }}
+              />
+            </div>
+
+            {groupesDisponibles.length > 0 && (
+              <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 14, paddingBottom: 2 }}>
+                {["Tous", ...groupesDisponibles, "Sans dossier"].map((g) => (
+                  <PillButton key={g} active={selectedGroupe === g} onClick={() => setSelectedGroupe(g)} style={{ whiteSpace: "nowrap" }}>
+                    {g}
+                  </PillButton>
+                ))}
+              </div>
+            )}
+
+            {clientsFiltres.length === 0 ? (
+              <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client trouvé</div></Card>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {clientsFiltres.map((c) => (
+                  <Card key={c.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div onClick={() => setSelectedClient(c)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: "50%", background: c.photo_url ? `url(${c.photo_url}) center/cover` : C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {!c.photo_url && <User size={18} color={C.blue} />}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: C.text, letterSpacing: 0.5 }}>{c.prenom} {c.nom}</div>
+                          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{c.objectif_principal}</div>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} color={C.textMuted} />
+                    </div>
+                    {editingGroupeId === c.id ? (
+                      <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          autoFocus
+                          value={groupeInput}
+                          onChange={(e) => setGroupeInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveGroupe(c.id, groupeInput); }}
+                          placeholder="Nom du dossier"
+                          style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 10px", color: C.text, fontSize: 12 }}
+                        />
+                        <button onClick={() => saveGroupe(c.id, groupeInput)} style={{ background: C.blue, border: "none", borderRadius: 8, padding: "0 10px", color: "#06171F", fontSize: 12, fontWeight: 700 }}>OK</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingGroupeId(c.id); setGroupeInput(c.groupe || ""); }}
+                        style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 5, background: "transparent", border: "none", color: c.groupe ? C.blue : C.textDim, fontSize: 11.5, padding: 0 }}
+                      >
+                        <Folder size={12} /> {c.groupe || "Ajouter à un dossier"}
+                      </button>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -3262,6 +4818,9 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const [uploadingPhotoKey, setUploadingPhotoKey] = useState(null);
   const [checkins, setCheckins] = useState([]);
   const [eauVerres, setEauVerres] = useState(0);
+  const [mensurationsHistory, setMensurationsHistory] = useState([]);
+  const [documentsRecus, setDocumentsRecus] = useState([]);
+  const [notificationsRecues, setNotificationsRecues] = useState([]);
   const [datesAvecRepasAnterieures, setDatesAvecRepasAnterieures] = useState(new Set());
   const [dailyCheckinDone, setDailyCheckinDone] = useState(null); // null = en cours de vérification
   const profilIdRef = useRef(profilRow.id);
@@ -3289,10 +4848,15 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const thirtyDaysAgoIso = thirtyDaysAgo.toISOString().slice(0, 10);
 
-        const [eauRes, repasDatesRes, photosRes] = await Promise.all([
+        const [eauRes, repasDatesRes, photosRes, mensurationsRes, documentsRes, notificationsRes] = await Promise.all([
           supabase.from("eau_quotidien").select("verres").eq("profil_id", profilId).eq("date", today).maybeSingle(),
           supabase.from("repas").select("date").eq("profil_id", profilId).gte("date", thirtyDaysAgoIso).lt("date", today),
           supabase.from("photos_bilan").select("*").eq("profil_id", profilId).order("date", { ascending: false }),
+          supabase.from("mensurations").select("*").eq("profil_id", profilId).order("date", { ascending: true }),
+          profilRow.coach_id
+            ? supabase.from("documents_coach").select("*").eq("coach_id", profilRow.coach_id).or(`client_id.eq.${profilId},client_id.is.null`).order("created_at", { ascending: false })
+            : Promise.resolve({ data: [] }),
+          supabase.from("notifications").select("*").eq("client_id", profilId).order("created_at", { ascending: false }).limit(20),
         ]);
         if (!active) return;
 
@@ -3301,12 +4865,67 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         setDatesAvecRepasAnterieures(new Set((repasDatesRes.data || []).map((r) => r.date)));
 
         setPhotosHistory(photosRes.data || []);
+        setDocumentsRecus(documentsRes.data || []);
+        setNotificationsRecues(notificationsRes.data || []);
+        setMensurationsHistory(
+          (mensurationsRes.data || []).map((m) => ({
+            date: formatDateDisplay(m.date),
+            tourTaille: m.tour_taille,
+            tourPoitrine: m.tour_poitrine,
+            tourEpaule: m.tour_epaule,
+            tourBrasDroit: m.tour_bras_droit,
+            tourBrasGauche: m.tour_bras_gauche,
+            tourAvantBrasDroit: m.tour_avant_bras_droit,
+            tourAvantBrasGauche: m.tour_avant_bras_gauche,
+            tourCuisseDroite: m.tour_cuisse_droite,
+            tourCuisseGauche: m.tour_cuisse_gauche,
+            tourMolletDroit: m.tour_mollet_droit,
+            tourMolletGauche: m.tour_mollet_gauche,
+          }))
+        );
       } catch (err) {
         console.error("Erreur chargement eau/streak/photos:", err);
       }
     })();
     return () => { active = false; };
   }, [profilId]);
+
+  const onMarquerNotifLue = async (notifId) => {
+    try {
+      const { error } = await supabase.from("notifications").update({ lu: true }).eq("id", notifId);
+      if (error) throw error;
+      setNotificationsRecues((prev) => prev.map((n) => (n.id === notifId ? { ...n, lu: true } : n)));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const addMensuration = async (form) => {
+    if (!profilId) return;
+    try {
+      const { error } = await supabase.from("mensurations").insert({
+        profil_id: profilId,
+        date: todayIso(),
+        tour_taille: form.tourTaille || null,
+        tour_poitrine: form.tourPoitrine || null,
+        tour_epaule: form.tourEpaule || null,
+        tour_bras_droit: form.tourBrasDroit || null,
+        tour_bras_gauche: form.tourBrasGauche || null,
+        tour_avant_bras_droit: form.tourAvantBrasDroit || null,
+        tour_avant_bras_gauche: form.tourAvantBrasGauche || null,
+        tour_cuisse_droite: form.tourCuisseDroite || null,
+        tour_cuisse_gauche: form.tourCuisseGauche || null,
+        tour_mollet_droit: form.tourMolletDroit || null,
+        tour_mollet_gauche: form.tourMolletGauche || null,
+      });
+      if (error) throw error;
+      setMensurationsHistory((prev) => [...prev, { date: formatDateDisplay(todayIso()), ...form }]);
+      fireToast("Mensurations enregistrées", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement mensurations");
+    }
+  };
 
   const onChangeWater = async (delta) => {
     if (!profilId) return;
@@ -3320,6 +4939,23 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     } catch (err) {
       console.error(err);
       fireToast("Erreur enregistrement eau");
+    }
+  };
+
+  const uploadPhotoProfil = async (file) => {
+    if (!profilId || !file) return;
+    try {
+      const fileName = `profil/${profilId}_${Date.now()}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage.from("photos-bilan").upload(fileName, file);
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from("photos-bilan").getPublicUrl(fileName);
+      const { error } = await supabase.from("profils").update({ photo_url: urlData.publicUrl }).eq("id", profilId);
+      if (error) throw error;
+      setUser((u) => ({ ...u, photoUrl: urlData.publicUrl }));
+      fireToast("Photo de profil enregistrée", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi photo de profil");
     }
   };
 
@@ -3717,9 +5353,9 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       <div
         style={{
           width: "100%", maxWidth: 440, display: "flex", flexDirection: "column",
-          filter: dailyCheckinDone === false ? "blur(7px)" : "none",
-          pointerEvents: dailyCheckinDone === false ? "none" : "auto",
-          userSelect: dailyCheckinDone === false ? "none" : "auto",
+          filter: (dailyCheckinDone === false || (dailyCheckinDone === true && !user.photoUrl)) ? "blur(7px)" : "none",
+          pointerEvents: (dailyCheckinDone === false || (dailyCheckinDone === true && !user.photoUrl)) ? "none" : "auto",
+          userSelect: (dailyCheckinDone === false || (dailyCheckinDone === true && !user.photoUrl)) ? "none" : "auto",
           transition: "filter .3s ease",
         }}
       >
@@ -3754,15 +5390,18 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               uploadingPhotoKey={uploadingPhotoKey}
               checkins={checkins}
               addCheckin={addCheckin}
+              mensurationsHistory={mensurationsHistory}
+              addMensuration={addMensuration}
             />
           )}
-          {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} onSave={saveProfile} />}
+          {tab === "profil" && <Profil user={user} setUser={setUser} fireToast={fireToast} onSave={saveProfile} documentsRecus={documentsRecus} notificationsRecues={notificationsRecues} onMarquerNotifLue={onMarquerNotifLue} onChangePhoto={uploadPhotoProfil} />}
         </div>
 
         {!activeProgramme && <BottomNav active={tab} setActive={setTab} />}
       </div>
 
       {dailyCheckinDone === false && <DailyCheckinModal onSubmit={submitDailyCheckin} />}
+      {dailyCheckinDone === true && !user.photoUrl && <PhotoProfilObligatoireModal onUpload={uploadPhotoProfil} />}
     </div>
   );
 }
