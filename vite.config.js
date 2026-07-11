@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
@@ -29,8 +32,14 @@ export default defineConfig({
           },
         ],
       },
+      injectManifest: {
+        // Vercel a une limite de taille pour les fichiers du service worker précaché ;
+        // cette valeur augmente la limite pour englober App.jsx compilé (assez volumineux)
+        maximumFileSizeToCacheInBytes: 5000000,
+      },
       devOptions: {
         enabled: true,
+        type: 'module',
       },
     }),
   ],

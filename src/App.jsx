@@ -440,42 +440,113 @@ const BottomNav = ({ active, setActive }) => (
 /*  ENTRAINEMENT — LISTE                                               */
 /* ------------------------------------------------------------------ */
 function CalendrierSeances({ recentSeances }) {
-  const now = new Date();
-  const annee = now.getFullYear();
-  const mois = now.getMonth();
+  const [viewDate, setViewDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(null);
+  const annee = viewDate.getFullYear();
+  const mois = viewDate.getMonth();
   const premierJour = new Date(annee, mois, 1);
   const nbJours = new Date(annee, mois + 1, 0).getDate();
   const decalage = (premierJour.getDay() + 6) % 7;
-  const joursAvecSeance = new Set((recentSeances || []).map((s) => new Date(s.date).getDate()));
+
+  const seancesParJour = useMemo(() => {
+    const map = {};
+    for (const s of (recentSeances || [])) {
+      const d = new Date(s.date);
+      if (d.getFullYear() !== annee || d.getMonth() !== mois) continue;
+      const jour = d.getDate();
+      if (!map[jour]) map[jour] = [];
+      map[jour].push(s);
+    }
+    return map;
+  }, [recentSeances, annee, mois]);
+
   const cases = [];
   for (let i = 0; i < decalage; i++) cases.push(null);
   for (let j = 1; j <= nbJours; j++) cases.push(j);
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-      {["L", "M", "M", "J", "V", "S", "D"].map((l, i) => (
-        <div key={i} style={{ fontSize: 10, color: C.textMuted, textAlign: "center", fontWeight: 700 }}>{l}</div>
-      ))}
-      {cases.map((j, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 32 }}>
-          {j && (
-            <div style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              fontFamily: FONT_MONO,
-              background: joursAvecSeance.has(j) ? C.blue : "transparent",
-              color: joursAvecSeance.has(j) ? "#06171F" : C.textMuted,
-              fontWeight: joursAvecSeance.has(j) ? 700 : 400,
-            }}>
-              {j}
-            </div>
-          )}
+
+  if (selectedDay && seancesParJour[selectedDay]) {
+    const seriesBySeanceMap = Object.fromEntries((recentSeances || []).map((s) => [s.id, s.series || []]));
+    return (
+      <div>
+        <button onClick={() => setSelectedDay(null)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour au calendrier
+        </button>
+        <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
+          <LegendDot color={C.green} label="Progrès" />
+          <LegendDot color={C.amber} label="Stagnation" />
+          <LegendDot color={C.red} label="Régression" />
         </div>
-      ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {seancesParJour[selectedDay].map((s) => {
+            const sIdx = (recentSeances || []).findIndex((rs) => rs.id === s.id);
+            return (
+              <Card key={s.id} style={{ padding: 14 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{s.nom_programme}</div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{formatDateDisplay(s.date)} · {fmtTime(s.duree_secondes || 0)}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {(s.series || []).map((sr, i) => {
+                    const couleur = sIdx >= 0 ? getProgressionColor(recentSeances, seriesBySeanceMap, sIdx, sr.exercice_nom, sr.poids, sr.reps) : C.text;
+                    return (
+                      <div key={i} style={{ fontSize: 12, color: couleur, background: C.surface, borderRadius: 8, padding: "6px 10px", fontFamily: FONT_MONO, fontWeight: 600, display: "flex", justifyContent: "space-between" }}>
+                        <span>{sr.exercice_nom}</span>
+                        <span>{sr.poids}kg × {sr.reps} <span style={{ color: C.amber, fontWeight: 400 }}>RPE{sr.rpe}</span></span>
+                      </div>
+                    );
+                  })}
+                  {(!s.series || s.series.length === 0) && (
+                    <div style={{ fontSize: 12, color: C.textDim }}>Aucune série enregistrée</div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <button onClick={() => setViewDate(new Date(annee, mois - 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+          <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
+        </button>
+        <div style={{ fontWeight: 700, fontSize: 14, color: C.text, textTransform: "capitalize" }}>
+          {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+        </div>
+        <button onClick={() => setViewDate(new Date(annee, mois + 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+        {["L", "M", "M", "J", "V", "S", "D"].map((l, i) => (
+          <div key={i} style={{ fontSize: 10, color: C.textMuted, textAlign: "center", fontWeight: 700 }}>{l}</div>
+        ))}
+        {cases.map((j, i) => {
+          const aUneSeance = j && seancesParJour[j];
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 32 }}>
+              {j && (
+                <button
+                  onClick={() => aUneSeance && setSelectedDay(j)}
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%", border: "none",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontFamily: FONT_MONO,
+                    background: aUneSeance ? C.blue : "transparent",
+                    color: aUneSeance ? "#FFFFFF" : C.textMuted,
+                    fontWeight: aUneSeance ? 700 : 400,
+                    cursor: aUneSeance ? "pointer" : "default",
+                  }}
+                >
+                  {j}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 10, textAlign: "center" }}>Touche un jour en bleu pour voir le détail de la séance</div>
     </div>
   );
 }
@@ -836,6 +907,12 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       )}
       {mode === "seances" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <button
+            onClick={() => setShowCalendrier(true)}
+            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+          >
+            <Flame size={15} color={C.blue} /> Voir mon calendrier de séances
+          </button>
           <div style={{ marginTop: 4 }}>
             <SectionLabel icon={Dumbbell}>Mes séances</SectionLabel>
             {isCoach && (
@@ -983,11 +1060,16 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   const [rpe, setRpe] = useState("8");
   const fileRef = useRef(null);
   const hasVideo = !!log.video;
-  const last = history[ex.nom];
+  const historique = history[ex.nom]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
+  const currentSetIndex = log.sets.length; // 0-indexée : la prochaine série à faire
+  const rappelSerieActuelle = historique?.sets?.[currentSetIndex];
+  const derniereSerieGlobale = historique?.sets?.[historique.sets.length - 1];
 
   const submit = () => {
     if (!poids || !reps) return;
     onValidate(ex, { poids: parseFloat(poids), reps: parseInt(reps), tempo, rpe });
+    setPoids("");
+    setReps("");
   };
 
   return (
@@ -1016,8 +1098,8 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ex.nom}</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
               {log.sets.length}/{ex.sets} séries
-              {last && (
-                <span style={{ color: C.blue }}> · dernière fois {last.poids}kg × {last.reps}</span>
+              {derniereSerieGlobale && (
+                <span style={{ color: C.blue }}> · dernière fois {derniereSerieGlobale.poids}kg × {derniereSerieGlobale.reps}</span>
               )}
             </div>
           </div>
@@ -1031,18 +1113,39 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
 
       {open && (
         <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {last && (
+          {historique && historique.sets.length > 0 && (
             <div
               style={{
                 background: C.blueSoft,
                 border: `1px solid ${C.blueBorder}`,
                 borderRadius: 12,
-                padding: "8px 12px",
+                padding: "10px 12px",
                 fontSize: 12,
                 color: C.blue,
               }}
             >
-              📌 Rappel : {last.poids} kg × {last.reps} reps le {last.date}
+              <div style={{ fontWeight: 700, marginBottom: rappelSerieActuelle ? 4 : 0 }}>
+                {rappelSerieActuelle
+                  ? `📌 Série ${currentSetIndex + 1} — la dernière fois : ${rappelSerieActuelle.poids} kg × ${rappelSerieActuelle.reps}`
+                  : `📌 Toutes les séries prévues ont un historique (le ${historique.date})`}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                {historique.sets.map((s, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      fontSize: 10.5, fontFamily: FONT_MONO,
+                      color: i === currentSetIndex ? C.blue : C.textMuted,
+                      background: i === currentSetIndex ? "rgba(15,130,168,0.18)" : C.surface,
+                      border: `1px solid ${i === currentSetIndex ? C.blueBorder : C.cardBorderLight}`,
+                      borderRadius: 6, padding: "3px 7px",
+                    }}
+                  >
+                    S{i + 1}: {s.poids}kg×{s.reps}
+                  </span>
+                ))}
+              </div>
+              <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>Séance du {historique.date}</div>
             </div>
           )}
 
@@ -1074,7 +1177,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
                 type="number"
                 value={poids}
                 onChange={(e) => setPoids(e.target.value)}
-                placeholder={last ? String(last.poids) : "0"}
+                placeholder={rappelSerieActuelle ? String(rappelSerieActuelle.poids) : "0"}
                 style={{
                   width: "100%",
                   background: C.surface,
@@ -1093,7 +1196,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
                 type="number"
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}
-                placeholder={last ? String(last.reps) : "0"}
+                placeholder={rappelSerieActuelle ? String(rappelSerieActuelle.reps) : "0"}
                 style={{
                   width: "100%",
                   background: C.surface,
@@ -1230,9 +1333,9 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
 
   const nextInfo = estDerniereSerieDeLExercice
     ? (prochainExercice
-        ? { label: "Prochain exercice", nom: prochainExercice.nom, last: history[prochainExercice.nom] }
+        ? { label: "Prochain exercice", nom: prochainExercice.nom, last: history[prochainExercice.nom]?.sets?.[0] }
         : null)
-    : { label: `Prochaine série · ${rest.setNumber + 1}/${ex.sets}`, nom: ex.nom, last: history[ex.nom] };
+    : { label: `Prochaine série · ${rest.setNumber + 1}/${ex.sets}`, nom: ex.nom, last: history[ex.nom]?.sets?.[rest.setNumber] };
 
   const [poids, setPoids] = useState(rest.poids != null ? String(rest.poids) : "");
   const [reps, setReps] = useState(rest.reps != null ? String(rest.reps) : "");
@@ -1322,12 +1425,42 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
 
 function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete }) {
   const [seconds, setSeconds] = useState(0);
-  const startTimeKey = `session_start_${programme.id || programme.nom}`;
-  const [logs, setLogs] = useState(() =>
-    Object.fromEntries(programme.exercices.map((e) => [e.id, { sets: [], video: null }]))
-  );
-  const [rest, setRest] = useState(null); // { total, left }
+  const sessionKey = programme.id || programme.nom;
+  const startTimeKey = `session_start_${sessionKey}`;
+  const logsKey = `session_logs_${sessionKey}`;
+  const restKey = `session_rest_${sessionKey}`;
+
+  const [logs, setLogs] = useState(() => {
+    const saved = localStorage.getItem(logsKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // s'assure que tous les exercices du programme ont bien une entrée (au cas où le programme a changé)
+        const base = Object.fromEntries(programme.exercices.map((e) => [e.id, { sets: [], video: null }]));
+        return { ...base, ...parsed };
+      } catch { /* ignore */ }
+    }
+    return Object.fromEntries(programme.exercices.map((e) => [e.id, { sets: [], video: null }]));
+  });
+
+  const [rest, setRest] = useState(() => {
+    const saved = localStorage.getItem(restKey);
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      const left = parsed.total - Math.floor((Date.now() - parsed.startedAt) / 1000);
+      if (left <= 0) { localStorage.removeItem(restKey); return null; }
+      return { ...parsed, left };
+    } catch {
+      return null;
+    }
+  });
   const [finished, setFinished] = useState(false);
+
+  // Persiste la progression à chaque changement : permet de quitter puis revenir sans rien perdre
+  useEffect(() => {
+    localStorage.setItem(logsKey, JSON.stringify(logs));
+  }, [logs, logsKey]);
 
   useEffect(() => {
     let start = localStorage.getItem(startTimeKey);
@@ -1336,18 +1469,29 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       localStorage.setItem(startTimeKey, start);
     }
     const startTime = parseInt(start);
-    const id = setInterval(() => {
-      setSeconds(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
+    const tick = () => setSeconds(Math.floor((Date.now() - startTime) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
+  // Chrono de repos basé sur une horloge réelle (timestamp) : reste juste même si l'écran
+  // s'éteint ou que l'app passe en arrière-plan, contrairement à un simple compteur.
   useEffect(() => {
     if (!rest) return;
-    if (rest.left <= 0) { playBeep(); setRest(null); return; }
-    const id = setInterval(() => setRest((r) => (r ? { ...r, left: r.left - 1 } : r)), 1000);
+    const tick = () => {
+      const left = rest.total - Math.floor((Date.now() - rest.startedAt) / 1000);
+      if (left <= 0) {
+        playBeep();
+        localStorage.removeItem(restKey);
+        setRest(null);
+        return;
+      }
+      setRest((r) => (r ? { ...r, left } : r));
+    };
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [rest]);
+  }, [rest?.startedAt]);
 
   const totalSets = Object.values(logs).reduce((a, l) => a + l.sets.length, 0);
 
@@ -1360,11 +1504,9 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         [ex.id]: { ...prev[ex.id], sets: [...prev[ex.id].sets, set] },
       };
     });
-    setHistory((prev) => ({
-      ...prev,
-      [ex.nom]: { poids: set.poids, reps: set.reps, date: "aujourd'hui" },
-    }));
-    setRest({ total: ex.rest, left: ex.rest, exId: ex.id, setNumber, poids: set.poids, reps: set.reps });
+    const nouveauRest = { total: ex.rest, startedAt: Date.now(), left: ex.rest, exId: ex.id, setNumber, poids: set.poids, reps: set.reps };
+    localStorage.setItem(restKey, JSON.stringify(nouveauRest));
+    setRest(nouveauRest);
   };
 
   const updateLastSet = (exId, poids, reps) => {
@@ -1374,6 +1516,12 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       sets[sets.length - 1] = { ...sets[sets.length - 1], poids: parseFloat(poids) || sets[sets.length - 1].poids, reps: parseInt(reps) || sets[sets.length - 1].reps };
       return { ...prev, [exId]: { ...prev[exId], sets } };
     });
+  };
+
+  const nettoyerStockageSession = () => {
+    localStorage.removeItem(startTimeKey);
+    localStorage.removeItem(logsKey);
+    localStorage.removeItem(restKey);
   };
 
   const attachVideo = (ex, url) => {
@@ -1437,7 +1585,14 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
           <div style={{ fontFamily: FONT_MONO, fontSize: 34, color: C.text, fontWeight: 700, letterSpacing: 1 }}>
             {fmtTime(seconds)}
           </div>
-        <button onClick={() => { localStorage.removeItem(startTimeKey); onCancel(); }} style={{ background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 999, padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+        <button
+          onClick={() => {
+            if (totalSets > 0 && !confirm("Réinitialiser va effacer toutes les séries déjà validées dans cette séance. Continuer ?")) return;
+            nettoyerStockageSession();
+            onCancel();
+          }}
+          style={{ background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 999, padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+        >
           <RotateCcw size={13} /> Réinitialiser
         </button>
         </div>
@@ -1458,7 +1613,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       <button
         onClick={() => {
           setFinished(true);
-          localStorage.removeItem(startTimeKey);
+          nettoyerStockageSession();
           onSessionComplete?.({ programme, logs, seconds });
         }}
         disabled={totalSets === 0}
@@ -1512,13 +1667,33 @@ function MealCard({ meal, items, onAdd, onRemove }) {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=12&lc=fr`;
-        const res = await fetch(url);
-        const data = await res.json();
-        const parsed = (data.products || [])
+        const [ciqualRes, offRes] = await Promise.all([
+          supabase.from("aliments_ciqual").select("*").ilike("nom", `%${searchQuery}%`).limit(8),
+          fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=12&lc=fr`).then((r) => r.json()).catch(() => ({ products: [] })),
+        ]);
+
+        const ciqualParsed = (ciqualRes.data || []).map((a) => ({
+          nom: a.nom,
+          source: "CIQUAL",
+          kcal: a.kcal || 0,
+          prot: a.prot || 0,
+          gluc: a.gluc || 0,
+          lip: a.lip || 0,
+          fibres: a.fibres || 0,
+          sucres: a.sucres || 0,
+          sodium: a.sodium || 0,
+          potassium: a.potassium || 0,
+          calcium: a.calcium || 0,
+          fer: a.fer || 0,
+          magnesium: a.magnesium || 0,
+          vitamineD: a.vitamine_d || 0,
+        }));
+
+        const offParsed = (offRes.products || [])
           .filter((p) => p.product_name && p.nutriments && p.nutriments["energy-kcal_100g"] != null)
           .map((p) => ({
             nom: p.product_name,
+            source: p.brands || "Open Food Facts",
             kcal: p.nutriments["energy-kcal_100g"] || 0,
             prot: p.nutriments["proteins_100g"] || 0,
             gluc: p.nutriments["carbohydrates_100g"] || 0,
@@ -1532,7 +1707,9 @@ function MealCard({ meal, items, onAdd, onRemove }) {
             magnesium: p.nutriments["magnesium_100g"] || 0,
             vitamineD: p.nutriments["vitamin-d_100g"] || 0,
           }));
-        setSearchResults(parsed);
+
+        // CIQUAL (aliments bruts, référence officielle) en premier, puis Open Food Facts (produits transformés/marques)
+        setSearchResults([...ciqualParsed, ...offParsed]);
       } catch (err) {
         console.error("Erreur recherche aliment:", err);
         setSearchResults([]);
@@ -1637,7 +1814,9 @@ function MealCard({ meal, items, onAdd, onRemove }) {
                         style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderBottom: i < searchResults.length - 1 ? `1px solid ${C.cardBorderLight}` : "none", padding: "8px 10px" }}
                       >
                         <div style={{ fontSize: 12.5, color: C.text, fontWeight: 600 }}>{r.nom}</div>
-                        <div style={{ fontSize: 10.5, color: C.textDim }}>{Math.round(r.kcal)} kcal / 100g</div>
+                        <div style={{ fontSize: 10.5, color: C.textDim }}>
+                          {Math.round(r.kcal)} kcal / 100g · <span style={{ color: r.source === "CIQUAL" ? C.green : C.blue }}>{r.source}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -4321,6 +4500,71 @@ function PlanAlimentaireModal({ planActuel, onSave, onClose }) {
   );
 }
 
+function ResetPasswordCard({ client, fireToast }) {
+  const [nouveauMdp, setNouveauMdp] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const genererMotDePasse = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let mdp = "";
+    for (let i = 0; i < 8; i++) mdp += chars[Math.floor(Math.random() * chars.length)];
+    return mdp;
+  };
+
+  const reinitialiser = async () => {
+    if (!client.auth_user_id) {
+      fireToast("Impossible : ce compte n'a pas d'identifiant d'authentification");
+      return;
+    }
+    if (!confirm(`Générer un nouveau mot de passe pour ${client.prenom} ? L'ancien ne fonctionnera plus.`)) return;
+    setLoading(true);
+    try {
+      const mdp = genererMotDePasse();
+      const res = await fetch("/api/reset-client-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authUserId: client.auth_user_id, newPassword: mdp }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur inconnue");
+      setNouveauMdp(mdp);
+      fireToast("Nouveau mot de passe généré", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur : " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copier = () => {
+    navigator.clipboard.writeText(nouveauMdp);
+    fireToast("Copié", "green");
+  };
+
+  return (
+    <Card>
+      <SectionLabel icon={ClipboardList}>Mot de passe</SectionLabel>
+      <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+        Si {client.prenom} a oublié son mot de passe, génère-en un nouveau ici et transmets-le-lui toi-même (SMS, en personne...). Aucun email n'est envoyé automatiquement.
+      </div>
+      {nouveauMdp && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.greenSoft, border: `1px solid ${C.green}`, borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+          <span style={{ fontFamily: FONT_MONO, fontSize: 15, color: C.text, fontWeight: 700, flex: 1 }}>{nouveauMdp}</span>
+          <button onClick={copier} style={{ background: C.green, border: "none", borderRadius: 8, padding: "6px 10px", color: "#06171F", fontSize: 11, fontWeight: 700 }}>Copier</button>
+        </div>
+      )}
+      <button
+        onClick={reinitialiser}
+        disabled={loading}
+        style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 13.5, opacity: loading ? 0.6 : 1 }}
+      >
+        {loading ? "Génération..." : "Générer un nouveau mot de passe"}
+      </button>
+    </Card>
+  );
+}
+
 function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [tab, setTab] = useState("programme");
   const [loading, setLoading] = useState(true);
@@ -4757,6 +5001,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
                 </div>
               )}
             </Card>
+            <ResetPasswordCard client={client} fireToast={fireToast} />
           </div>
         )}
       </div>
@@ -5315,7 +5560,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       .select("*, series(*)")
       .eq("profil_id", profilId)
       .order("date", { ascending: false })
-      .limit(20)
+      .limit(90)
       .then(({ data }) => setRecentSeances(data || []));
   }, [profilId]);
   const [photosHistory, setPhotosHistory] = useState([]);
@@ -5619,25 +5864,30 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           if (!active) return;
 
           if (seriesData) {
+            const dernieresSeanceDateParEx = {};
+            for (const row of seriesData) {
+              const exNom = row.exercice_nom;
+              const seanceDate = dateBySeance[row.seance_id];
+              if (!dernieresSeanceDateParEx[exNom] || seanceDate > dernieresSeanceDateParEx[exNom]) {
+                dernieresSeanceDateParEx[exNom] = seanceDate;
+              }
+            }
             const history = {};
             for (const row of seriesData) {
               const exNom = row.exercice_nom;
               const seanceDate = dateBySeance[row.seance_id];
-              const existing = history[exNom];
-              if (!existing || seanceDate > existing._seanceDate) {
-                history[exNom] = {
-                  poids: Number(row.poids),
-                  reps: Number(row.reps),
-                  date: formatDateDisplay(seanceDate),
-                  _seanceDate: seanceDate,
-                };
-              }
+              if (seanceDate !== dernieresSeanceDateParEx[exNom]) continue;
+              if (!history[exNom]) history[exNom] = { date: formatDateDisplay(seanceDate), sets: [] };
+              history[exNom].sets.push({
+                poids: Number(row.poids),
+                reps: Number(row.reps),
+                numeroSerie: row.numero_serie || (history[exNom].sets.length + 1),
+              });
             }
-            const clean = {};
-            for (const [k, v] of Object.entries(history)) {
-              clean[k] = { poids: v.poids, reps: v.reps, date: v.date };
+            for (const exNom of Object.keys(history)) {
+              history[exNom].sets.sort((a, b) => a.numeroSerie - b.numeroSerie);
             }
-            setExerciseHistory(clean);
+            setExerciseHistory(history);
           }
         }
       } catch (err) {
@@ -5798,7 +6048,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       for (const ex of programme.exercices) {
         const log = logs[ex.id];
         if (!log) continue;
-        for (const set of log.sets) {
+        log.sets.forEach((set, idx) => {
           rows.push({
             seance_id: seance.id,
             exercice_nom: ex.nom,
@@ -5807,8 +6057,9 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             rpe: String(set.rpe),
             tempo: set.tempo || "",
             video_url: log.video || null,
+            numero_serie: idx + 1,
           });
-        }
+        });
       }
       if (rows.length) {
         const { error: seriesErr } = await supabase.from("series").insert(rows);
@@ -5822,8 +6073,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         for (const ex of programme.exercices) {
           const log = logs[ex.id];
           if (log?.sets.length) {
-            const last = log.sets[log.sets.length - 1];
-            next[ex.nom] = { poids: last.poids, reps: last.reps, date: displayDate };
+            next[ex.nom] = { date: displayDate, sets: log.sets.map((s) => ({ poids: s.poids, reps: s.reps })) };
           }
         }
         return next;
