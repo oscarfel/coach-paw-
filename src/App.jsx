@@ -578,6 +578,28 @@ function CalendrierSeances({ recentSeances }) {
 }
 function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition, streak = 0 }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
+  const [draggedProgIdx, setDraggedProgIdx] = useState(null);
+  const [dragOverProgIdx, setDragOverProgIdx] = useState(null);
+
+  const handleReorderDrop = async (dropIdx) => {
+    if (draggedProgIdx === null || draggedProgIdx === dropIdx) {
+      setDraggedProgIdx(null);
+      setDragOverProgIdx(null);
+      return;
+    }
+    const reordered = [...customProgrammes];
+    const [moved] = reordered.splice(draggedProgIdx, 1);
+    reordered.splice(dropIdx, 0, moved);
+    setDraggedProgIdx(null);
+    setDragOverProgIdx(null);
+    try {
+      await Promise.all(reordered.map((p, i) => supabase.from("programmes").update({ ordre: i }).eq("id", p.id)));
+      onSeanceCreated?.();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur réorganisation des séances");
+    }
+  };
   const poidsEvol7j = useMemo(() => {
     if (!weightHistory || weightHistory.length < 2) return null;
     const last = weightHistory[weightHistory.length - 1].poids;
@@ -949,13 +971,29 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {customProgrammes.length === 0 ? (
                 <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach ne t'a pas encore assigné de séance</div></Card>
-              ) : customProgrammes.map((p) => (
-                <Card key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{p.nom}</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
-                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                      {p.exercices.length} exercices · {p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries · {p.duree}
+              ) : customProgrammes.map((p, pIdx) => (
+                <Card
+                  key={p.id}
+                  draggable={isCoach}
+                  onDragStart={() => isCoach && setDraggedProgIdx(pIdx)}
+                  onDragOver={(e) => { if (isCoach) { e.preventDefault(); setDragOverProgIdx(pIdx); } }}
+                  onDrop={() => isCoach && handleReorderDrop(pIdx)}
+                  onDragEnd={() => { setDraggedProgIdx(null); setDragOverProgIdx(null); }}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    opacity: draggedProgIdx === pIdx ? 0.4 : 1,
+                    border: dragOverProgIdx === pIdx && draggedProgIdx !== pIdx ? `2px dashed ${C.blue}` : `1px solid ${C.cardBorder}`,
+                    cursor: isCoach ? "grab" : "default",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {isCoach && <span style={{ color: C.textDim, fontSize: 16, lineHeight: 1 }}>⠿</span>}
+                    <div>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{p.nom}</div>
+                      <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
+                      <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                        {p.exercices.length} exercices · {p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries · {p.duree}
+                      </div>
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1094,6 +1132,10 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   const derniereSerieGlobale = historique?.sets?.[historique.sets.length - 1];
 
   const submit = () => {
+    if (ex.type === "cardio") {
+      onValidate(ex, { poids: 0, reps: ex.dureeMinutes || 0, tempo: "", rpe: rpe || "8" });
+      return;
+    }
     if (!poids || !reps) return;
     onValidate(ex, { poids: parseFloat(poids), reps: parseInt(reps), tempo, rpe });
     setPoids("");
@@ -1103,7 +1145,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen(true)}
         style={{
           width: "100%",
           background: "transparent",
@@ -1125,9 +1167,15 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ex.nom}</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              {log.sets.length}/{ex.sets} séries
-              {derniereSerieGlobale && (
-                <span style={{ color: C.blue }}> · dernière fois {derniereSerieGlobale.poids}kg × {derniereSerieGlobale.reps}</span>
+              {ex.type === "cardio" ? (
+                <>🏃 {ex.dureeMinutes} min {log.sets.length > 0 && "· Fait ✓"}</>
+              ) : (
+                <>
+                  {log.sets.length}/{ex.sets} séries
+                  {derniereSerieGlobale && (
+                    <span style={{ color: C.blue }}> · dernière fois {derniereSerieGlobale.poids}kg × {derniereSerieGlobale.reps}</span>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -1140,19 +1188,40 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
       </button>
 
       {open && (
-        <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setOpen(false)}>
+        <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto", padding: "16px 14px" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+              {ex.imageUrl ? (
+                <img src={ex.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <Dumbbell size={18} color={C.textDim} />
+              )}
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{ex.nom}</div>
+          </div>
+          <button onClick={() => setOpen(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {ex.note && (
+            <div style={{ background: C.amberSoft, border: `1px solid ${C.amber}`, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: C.textOnBg }}>
+              💬 <strong>Note de ton coach :</strong> {ex.note}
+            </div>
+          )}
           {historique && historique.sets.length > 0 && (
             <div
               style={{
-                background: C.blueSoft,
-                border: `1px solid ${C.blueBorder}`,
-                borderRadius: 12,
-                padding: "10px 12px",
-                fontSize: 12,
-                color: C.blue,
+                background: "#FFFFFF",
+                border: `2px solid ${C.amber}`,
+                borderRadius: 14,
+                padding: "12px 14px",
+                fontSize: 13,
+                color: C.textOnBg,
+                boxShadow: "0 0 16px rgba(240,178,92,0.5), 0 4px 12px rgba(10,30,70,0.2)",
               }}
             >
-              <div style={{ fontWeight: 700, marginBottom: rappelSerieActuelle ? 4 : 0 }}>
+              <div style={{ fontWeight: 800, marginBottom: rappelSerieActuelle ? 6 : 0, fontSize: 14 }}>
                 {rappelSerieActuelle
                   ? `📌 Série ${currentSetIndex + 1} — la dernière fois : ${rappelSerieActuelle.poids} kg × ${rappelSerieActuelle.reps}`
                   : `📌 Toutes les séries prévues ont un historique (le ${historique.date})`}
@@ -1162,10 +1231,10 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
                   <span
                     key={i}
                     style={{
-                      fontSize: 10.5, fontFamily: FONT_MONO,
-                      color: i === currentSetIndex ? C.blue : C.textMuted,
-                      background: i === currentSetIndex ? "rgba(15,130,168,0.18)" : C.surface,
-                      border: `1px solid ${i === currentSetIndex ? C.blueBorder : C.cardBorderLight}`,
+                      fontSize: 10.5, fontFamily: FONT_MONO, fontWeight: 700,
+                      color: i === currentSetIndex ? "#FFFFFF" : C.textOnBgMuted,
+                      background: i === currentSetIndex ? C.amber : "#F1F3EA",
+                      border: `1px solid ${i === currentSetIndex ? C.amber : C.cardBorder}`,
                       borderRadius: 6, padding: "3px 7px",
                     }}
                   >
@@ -1173,7 +1242,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
                   </span>
                 ))}
               </div>
-              <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>Séance du {historique.date}</div>
+              <div style={{ fontSize: 10, color: C.textOnBgMuted, marginTop: 6, fontWeight: 600 }}>Séance du {historique.date}</div>
             </div>
           )}
 
@@ -1198,7 +1267,13 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {ex.type === "cardio" ? (
+            <div style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "14px", textAlign: "center", marginBottom: 4 }}>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 28, color: C.text, fontWeight: 700 }}>{ex.dureeMinutes} min</div>
+              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Valide une fois terminé</div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>CHARGE (KG)</div>
               <input
@@ -1237,7 +1312,8 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
                 }}
               />
             </div>
-          </div>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
@@ -1327,28 +1403,60 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
                 gap: 6,
               }}
             >
-              <Check size={15} /> Valider la série
+              <Check size={15} /> {ex.type === "cardio" ? "Terminé" : "Valider la série"}
             </button>
           </div>
+        </div>
+        </Card>
         </div>
       )}
     </Card>
   );
 }
 
+let sharedAudioCtx = null;
+
+// À appeler depuis un vrai clic utilisateur (ex: valider une série) pour "débloquer" le son :
+// beaucoup de navigateurs empêchent de créer/jouer du son depuis un minuteur si aucune
+// interaction directe n'a eu lieu avant.
+function unlockAudio() {
+  try {
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume();
+    }
+  } catch (err) {
+    console.error("Erreur déverrouillage audio:", err);
+  }
+}
+
 function playBeep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.type = "sine";
-    oscillator.frequency.value = 880;
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.5);
+    const ctx = sharedAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    sharedAudioCtx = ctx;
+    if (ctx.state === "suspended") ctx.resume();
+
+    const playTone = (freq, startTime, duration) => {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.type = "sine";
+      oscillator.frequency.value = freq;
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.4, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration + 0.02);
+    };
+
+    const now = ctx.currentTime;
+    // Petite sonnerie à 3 notes montantes, plus reconnaissable qu'un simple bip
+    playTone(784, now, 0.16);
+    playTone(988, now + 0.18, 0.16);
+    playTone(1318, now + 0.36, 0.4);
   } catch (err) {
     console.error("Erreur son:", err);
   }
@@ -1374,10 +1482,10 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   const ringOffset = ringCirc - (pct / 100) * ringCirc;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#CFE4FC", zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>Repos</span>
-        <button onClick={onSkip} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={22} /></button>
+        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>Repos</span>
+        <button onClick={onSkip} style={{ background: "transparent", border: "none", color: C.textOnBg }}><X size={22} /></button>
       </div>
 
       {nextInfo ? (
@@ -1386,20 +1494,20 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
             {nextInfo.image ? (
               <img src={nextInfo.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              <Dumbbell size={26} color={C.textDim} />
+              <Dumbbell size={26} color={C.text} />
             )}
           </div>
           <div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{nextInfo.label}</div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{nextInfo.nom}</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{nextInfo.label}</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.textOnBg }}>{nextInfo.nom}</div>
             {nextInfo.last && (
-              <div style={{ fontSize: 12, color: C.blue, marginTop: 2 }}>Dernière fois : {nextInfo.last.poids}kg × {nextInfo.last.reps}</div>
+              <div style={{ fontSize: 12, color: C.blue, marginTop: 2, fontWeight: 700 }}>Dernière fois : {nextInfo.last.poids}kg × {nextInfo.last.reps}</div>
             )}
           </div>
         </div>
       ) : (
         <div style={{ marginBottom: 24, textAlign: "center" }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>Dernière série de la séance 💪</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.textOnBg }}>Dernière série de la séance 💪</div>
         </div>
       )}
 
@@ -1415,25 +1523,25 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
             />
           </svg>
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 48, color: C.text, fontWeight: 700 }}>{rest.left}</div>
-            <div style={{ fontSize: 12, color: C.textMuted }}>secondes</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 48, color: C.textOnBg, fontWeight: 700 }}>{rest.left}</div>
+            <div style={{ fontSize: 12, color: C.textOnBgMuted, fontWeight: 600 }}>secondes</div>
           </div>
         </div>
       </div>
 
-      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
         Ta série qui vient d'être validée
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>CHARGE (KG)</div>
+          <div style={{ fontSize: 10.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>CHARGE (KG)</div>
           <input
             type="number" value={poids} onChange={(e) => setPoids(e.target.value)}
             style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
           />
         </div>
         <div>
-          <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>RÉPÉTITIONS</div>
+          <div style={{ fontSize: 10.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>RÉPÉTITIONS</div>
           <input
             type="number" value={reps} onChange={(e) => setReps(e.target.value)}
             style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
@@ -1524,6 +1632,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   const totalSets = Object.values(logs).reduce((a, l) => a + l.sets.length, 0);
 
   const validateSet = (ex, set) => {
+    unlockAudio();
     let setNumber = 1;
     setLogs((prev) => {
       setNumber = prev[ex.id].sets.length + 1;
@@ -1591,7 +1700,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <button onClick={onCancel} style={{ alignSelf: "flex-start", background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+      <button onClick={onCancel} style={{ alignSelf: "flex-start", background: "transparent", border: "none", color: C.textOnBg, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
         <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
       </button>
 
@@ -3693,6 +3802,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       note: ex.note,
       groupeSuperset: ex.groupeSuperset || ex.groupe_superset,
       ordre: ex.ordre,
+      type: ex.type || ex.type_exercice || "muscu",
+      dureeMinutes: ex.dureeMinutes ?? ex.duree_minutes ?? null,
     }));
   });
   const [exNom, setExNom] = useState("");
@@ -3700,6 +3811,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   const [exRest, setExRest] = useState(90);
   const [saving, setSaving] = useState(false);
   const [exRepsParSerie, setExRepsParSerie] = useState([10, 10, 10]);
+  const [exType, setExType] = useState("muscu");
+  const [exDureeMinutes, setExDureeMinutes] = useState(15);
 
   useEffect(() => {
     setExRepsParSerie((prev) => {
@@ -3758,7 +3871,13 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
     if (!selectedExId) return;
     const ex = bibliotheque.find((b) => b.id === selectedExId);
     if (!ex) return;
-    setExercices((prev) => [...prev, { nom: ex.nom, videoDemoUrl: ex.video_demo_url, sets: exSets, repsParSerie: exRepsParSerie, rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length }]);
+    setExercices((prev) => [...prev, {
+      nom: ex.nom, videoDemoUrl: ex.video_demo_url,
+      sets: exType === "cardio" ? 1 : exSets,
+      repsParSerie: exType === "cardio" ? [0] : exRepsParSerie,
+      rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length,
+      type: exType, dureeMinutes: exType === "cardio" ? exDureeMinutes : null,
+    }]);
     setSelectedExId("");
     setExSets(3);
     setExRepsParSerie([10, 10, 10]);
@@ -3766,6 +3885,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
     setExTempo("");
     setExRpe("");
     setExNote("");
+    setExType("muscu");
+    setExDureeMinutes(15);
   };
 
   const removeExercice = (idx) => {
@@ -3829,6 +3950,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
         video_demo_url: ex.videoDemoUrl,
         ordre: ex.ordre,
         groupe_superset: ex.groupeSuperset || null,
+        type_exercice: ex.type || "muscu",
+        duree_minutes: ex.dureeMinutes || null,
       }));
       const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
       if (exErr) throw exErr;
@@ -3948,25 +4071,44 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-                <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                <PillButton active={exType === "muscu"} onClick={() => setExType("muscu")} style={{ flex: 1, textAlign: "center" }}>🏋️ Musculation</PillButton>
+                <PillButton active={exType === "cardio"} onClick={() => setExType("cardio")} style={{ flex: 1, textAlign: "center" }}>🏃 Cardio</PillButton>
               </div>
-              <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                {exRepsParSerie.map((r, i) => (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                    <span style={{ fontSize: 10, color: C.textMuted }}>Série {i + 1}</span>
-                    <input
-                      type="number"
-                      value={r}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setExRepsParSerie((prev) => prev.map((x, idx) => (idx === i ? val : x)));
-                      }}
-                      style={{ width: 50, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
-                    />
+              {exType === "cardio" ? (
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>DURÉE (MINUTES)</div>
+                    <input type="number" value={exDureeMinutes} onChange={(e) => setExDureeMinutes(parseInt(e.target.value) || 15)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
                   </div>
-                ))}
-              </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>REPOS APRÈS (S)</div>
+                    <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                    <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                    {exRepsParSerie.map((r, i) => (
+                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                        <span style={{ fontSize: 10, color: C.textMuted }}>Série {i + 1}</span>
+                        <input
+                          type="number"
+                          value={r}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setExRepsParSerie((prev) => prev.map((x, idx) => (idx === i ? val : x)));
+                          }}
+                          style={{ width: 50, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                 <input type="text" placeholder="Tempo (e: 3-1-1-0)" value={exTempo} onChange={(e) => setExTempo(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
                 <input type="number" placeholder="RPE" value={exRpe} onChange={(e) => setExRpe(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
@@ -6232,13 +6374,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       .from("programmes")
       .select("*, programme_exercices(*)")
       .eq("profil_id", profilId)
-      .order("created_at", { ascending: false })
+      .order("ordre", { ascending: true })
       .then(({ data }) => {
         const formatted = (data || []).map((p) => ({
           id: p.id,
           nom: p.nom,
           muscle: p.muscle,
           duree: "",
+          ordre: p.ordre || 0,
           exercices: (p.programme_exercices || [])
             .sort((a, b) => a.ordre - b.ordre)
             .map((ex) => ({
@@ -6251,6 +6394,8 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               rpe: ex.rpe,
               note: ex.note,
               videoDemoUrl: ex.video_demo_url,
+              type: ex.type_exercice || "muscu",
+              dureeMinutes: ex.duree_minutes,
             })),
         }));
         setCustomProgrammes(formatted);
@@ -6859,10 +7004,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
           )}
           {tab === "seances" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("created_at", { ascending: false }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
           )}
           {activeProgramme && (
             <SessionView
