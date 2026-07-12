@@ -136,7 +136,7 @@ const ProgressBar = ({ value, max, color = C.blue, height = 8, bg = C.cardBorder
   );
 };
 
-const PillButton = ({ children, onClick, active, color = C.blue, style, disabled }) => (
+const PillButton = ({ children, onClick, active, color = C.blue, style, disabled, onBg }) => (
   <button
     onClick={onClick}
     disabled={disabled}
@@ -145,7 +145,7 @@ const PillButton = ({ children, onClick, active, color = C.blue, style, disabled
       borderRadius: 999,
       border: `1px solid ${active ? color : C.cardBorderLight}`,
       background: active ? `${color}22` : "transparent",
-      color: active ? color : C.textMuted,
+      color: active ? color : (onBg ? C.textOnBgMuted : C.textMuted),
       fontSize: 13,
       fontWeight: 600,
       opacity: disabled ? 0.4 : 1,
@@ -4207,7 +4207,7 @@ function TachesView({ coachId, fireToast }) {
 
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
         Gérez vos tâches quotidiennes et suivez leur avancement.
       </div>
       <button
@@ -4227,7 +4227,7 @@ function TachesView({ coachId, fireToast }) {
       </div>
 
       {loading ? (
-        <div style={{ color: C.textMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
       ) : filtered.length === 0 ? (
         <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune tâche ici</div></Card>
       ) : (
@@ -4372,7 +4372,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         <Plus size={18} /> Créer un modèle
       </button>
       {loading ? (
-        <div style={{ color: C.textMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
       ) : modeles.length === 0 ? (
         <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun modèle pour le moment</div></Card>
       ) : (
@@ -4539,7 +4539,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
   if (section === "recettes") {
     return (
       <>
-        <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+        <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
           Crée des recettes à envoyer à un client précis ou à tous.
         </div>
         <Card style={{ marginBottom: 20 }}>
@@ -4553,7 +4553,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
         </Card>
 
         {loading ? (
-          <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+          <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
         ) : recettes.length === 0 ? (
           <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune recette pour le moment</div></Card>
         ) : (
@@ -4579,7 +4579,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
   if (section === "courses") {
     return (
       <>
-        <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+        <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
           Envoie une liste de courses à un client précis ou à tous. Il la retrouve dans son onglet Nutrition.
         </div>
         <Card style={{ marginBottom: 20 }}>
@@ -4608,7 +4608,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
         </Card>
 
         {loading ? (
-          <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+          <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
         ) : listesCourses.length === 0 ? (
           <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune liste envoyée pour le moment</div></Card>
         ) : (
@@ -4631,7 +4631,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
   // section === "supplements"
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
         Ajoute des suppléments recommandés avec un lien direct (ex : lien Amazon), visibles par le client dans son onglet Nutrition.
       </div>
       <Card style={{ marginBottom: 20 }}>
@@ -4644,7 +4644,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
       </Card>
 
       {loading ? (
-        <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
       ) : supplements.length === 0 ? (
         <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun supplément pour le moment</div></Card>
       ) : (
@@ -4728,7 +4728,7 @@ function OutilsView({ coachId, clients, fireToast, section }) {
     <>
       {section === "drive" && (
         <>
-          <SectionLabel icon={FileText}>Drive</SectionLabel>
+          <SectionLabel icon={FileText} onBg>Drive</SectionLabel>
           <Card style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
               Envoie des PDF (programmes, guides, factures...) à un client précis ou à tous tes clients d'un coup.
@@ -4756,7 +4756,7 @@ function OutilsView({ coachId, clients, fireToast, section }) {
           </Card>
 
           {loading ? (
-            <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+            <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
           ) : documents.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
               {documents.map((d) => {
@@ -4779,7 +4779,7 @@ function OutilsView({ coachId, clients, fireToast, section }) {
 
       {section === "automatisation" && (
         <>
-          <SectionLabel icon={Zap}>Automatisation</SectionLabel>
+          <SectionLabel icon={Zap} onBg>Automatisation</SectionLabel>
           <Card>
             <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Bientôt disponible</div>
             <div style={{ fontSize: 12, color: C.textMuted }}>
@@ -4939,7 +4939,7 @@ function VODView({ coachId, fireToast }) {
 
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
         Ta bibliothèque d'exercices avec vidéos de démo. Elle est directement utilisée quand tu crées une séance — les exercices que tu ajoutes ici apparaissent dans "Choisir un exercice".
       </div>
       <Card style={{ marginBottom: 20 }}>
@@ -4971,14 +4971,14 @@ function VODView({ coachId, fireToast }) {
       </Card>
 
       {loading ? (
-        <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
       ) : exercices.length === 0 ? (
         <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun exercice pour le moment</div></Card>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {groupes.map(([groupe, exs]) => (
             <div key={groupe}>
-              <SectionLabel icon={Dumbbell}>{groupe}</SectionLabel>
+              <SectionLabel icon={Dumbbell} onBg>{groupe}</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {exs.map(renderExerciceRow)}
               </div>
@@ -5073,7 +5073,7 @@ function NotificationsView({ coachId, clients, fireToast }) {
 
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
         Envoie une notification tout de suite, ou programme-la pour qu'elle parte automatiquement à une date et une heure précises (ex : rappel du bilan chaque dimanche soir).
       </div>
       <Card style={{ marginBottom: 20 }}>
@@ -5113,7 +5113,7 @@ function NotificationsView({ coachId, clients, fireToast }) {
       </Card>
 
       {loading ? (
-        <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
       ) : notifications.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {notifications.map((n) => {
@@ -5403,7 +5403,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
       <div style={appShellStyle}>
         <FontImports />
         <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative" }}>
-          <button onClick={() => { console.log("CLIC RETOUR DETECTE"); setSelectedProgramme(null); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 16 }}>
+          <button onClick={() => { console.log("CLIC RETOUR DETECTE"); setSelectedProgramme(null); }} style={{ background: "transparent", border: "none", color: C.textOnBg, fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 16 }}>
             <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
           </button>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -5459,7 +5459,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
       <FontImports />
       <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <button onClick={onBack} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+          <button onClick={onBack} style={{ background: "transparent", border: "none", color: C.textOnBg, fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
             <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
           </button>
           <LogoutButton onLogout={onLogout} />
@@ -5479,7 +5479,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           {detailTabs.map((t) => {
             const Icon = t.icon;
             return (
-              <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+              <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} onBg style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                 <Icon size={14} /> {t.label}
               </PillButton>
             );
@@ -5487,7 +5487,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
         </div>
 
         {loading ? (
-          <div style={{ color: C.textMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
+          <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
         ) : tab === "programme" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <button onClick={() => { console.log("CLIC DETECTE, showSeanceForm avant:", showSeanceForm); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
@@ -5495,7 +5495,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
             </button>
             {customProgrammes.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <SectionLabel icon={Dumbbell}>Séances personnalisées</SectionLabel>
+                <SectionLabel icon={Dumbbell} onBg>Séances personnalisées</SectionLabel>
                 {customProgrammes.map((p) => (
                   <Card key={p.id} onClick={() => setSelectedProgramme(p)} style={{ cursor: "pointer" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -5971,7 +5971,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         </div>
 
         {loading ? (
-          <div style={{ color: C.textMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
+          <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
         ) : coachTab === "taches" ? (
           <TachesView coachId={coachProfil.id} fireToast={fireToast} />
         ) : coachTab === "programmes" ? (
