@@ -14,34 +14,36 @@ import { supabase } from "./supabaseClient";
 /*  DESIGN TOKENS                                                      */
 /* ------------------------------------------------------------------ */
 const C = {
-  bg: "#F1F2E9",
-  bgGradA: "#9CDCE2",
-  bgGradB: "#F1F2E9",
-  surface: "#FFFFFF",
-  card: "#FFFFFF",
-  cardBorder: "#D8E2DD",
-  cardBorderLight: "#C4D6D0",
-  text: "#0F2E3E",
-  textMuted: "#4F7784",
-  textDim: "#8CA5AB",
-  blue: "#0F82A8",
-  blueSoft: "rgba(15,130,168,0.13)",
-  blueBorder: "rgba(15,130,168,0.38)",
-  amber: "#E0A85C",
-  amberSoft: "rgba(224,168,92,0.16)",
-  green: "#3FAE8A",
-  greenSoft: "rgba(63,174,138,0.14)",
-  red: "#E1614F",
-  redSoft: "rgba(225,97,79,0.12)",
+  bg: "#F5F9FF",
+  bgGradA: "#F5F9FF",
+  bgGradB: "#F5F9FF",
+  surface: "#3E7DEB",
+  card: "#3E7DEB",
+  cardBorder: "rgba(0,178,255,0.6)",
+  cardBorderLight: "rgba(0,200,255,0.85)",
+  text: "#FFFFFF",
+  textOnBg: "#132345",
+  textOnBgMuted: "#5F7391",
+  textMuted: "#DCE9FA",
+  textDim: "#B7CDEE",
+  blue: "#1E56C9",
+  blueSoft: "rgba(30,86,201,0.18)",
+  blueBorder: "rgba(30,86,201,0.5)",
+  amber: "#F0AE4D",
+  amberSoft: "rgba(240,174,77,0.18)",
+  green: "#3AD6A0",
+  greenSoft: "rgba(58,214,160,0.16)",
+  red: "#FF5D6C",
+  redSoft: "rgba(255,93,108,0.16)",
 };
 
-const FONT_DISPLAY = "'Manrope', sans-serif";
+const FONT_DISPLAY = "'Inter', sans-serif";
 const FONT_BODY = "'Inter', sans-serif";
 const FONT_MONO = "'JetBrains Mono', monospace";
 
 const FontImports = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
     html, body {
       touch-action: pan-x pan-y;
       overscroll-behavior: none;
@@ -89,6 +91,7 @@ const Card = ({ children, style, ...rest }) => (
       border: `1px solid ${C.cardBorder}`,
       borderRadius: 20,
       padding: 16,
+      boxShadow: "0 0 0 1px rgba(0,178,255,0.2), 0 0 20px rgba(0,178,255,0.25), 0 4px 24px rgba(30,86,201,0.15)",
       ...style,
     }}
     {...rest}
@@ -386,17 +389,17 @@ const BottomNav = ({ active, setActive }) => (
       transform: "translateX(-50%)",
       width: "calc(100% - 28px)",
       maxWidth: 440,
-      background: "rgba(255,255,255,0.7)",
+      background: "rgba(30,86,201,0.55)",
       backdropFilter: "blur(18px)",
       WebkitBackdropFilter: "blur(18px)",
-      border: `1px solid rgba(31,163,192,0.22)`,
+      border: `1px solid ${C.cardBorder}`,
       borderRadius: 24,
       padding: "10px 8px",
       display: "flex",
       justifyContent: "space-around",
       alignItems: "center",
       zIndex: 50,
-      boxShadow: "0 10px 40px rgba(22,52,69,0.12)",
+      boxShadow: "0 8px 28px rgba(10,30,70,0.3)",
     }}
   >
     {NAV_ITEMS.map((item) => {
@@ -1568,8 +1571,8 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       </button>
 
       <div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.text }}>{programme.nom}</div>
-        <div style={{ fontSize: 12, color: C.textMuted }}>{programme.muscle} · {totalSets} séries validées</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>{programme.nom}</div>
+        <div style={{ fontSize: 12, color: C.textOnBgMuted }}>{programme.muscle} · {totalSets} séries validées</div>
       </div>
 
       {/* Chrono */}
@@ -1618,8 +1621,8 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         }}
         disabled={totalSets === 0}
         style={{
-          background: totalSets === 0 ? C.surface : C.text,
-          color: totalSets === 0 ? C.textDim : "#FFFFFF",
+          background: totalSets === 0 ? C.surface : C.blue,
+          color: totalSets === 0 ? C.textDim : "#02071A",
           border: `1px solid ${C.cardBorderLight}`,
           borderRadius: 16,
           padding: "14px",
@@ -1916,7 +1919,7 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
         <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Aujourd'hui</div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.text }}>Nutrition</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Nutrition</div>
       </div>
 
       <Card style={{ background: `radial-gradient(circle at 80% 0%, ${C.blueSoft}, ${C.card} 60%)`, cursor: "pointer" }} onClick={() => setShowNutriDetail(true)}>
@@ -2332,8 +2335,8 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Suivi</div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.text }}>Bilans</div>
+        <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 600 }}>Suivi</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Bilans</div>
       </div>
 
       {/* Courbe de poids */}
@@ -2448,7 +2451,7 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
             </div>
           )}
 
-          <button onClick={submitCheckin} style={{ background: C.text, border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <button onClick={submitCheckin} style={{ background: C.blue, border: "none", color: "#02071A", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Send size={15} /> Envoyer le bilan de semaine
           </button>
         </div>
@@ -2711,6 +2714,8 @@ const inputStyle = {
 function Profil({ user, setUser, fireToast, onSave, documentsRecus, notificationsRecues, onMarquerNotifLue, onChangePhoto, onEnableNotifs }) {
   const set = (k) => (e) => setUser({ ...user, [k]: e.target.value });
   const photoFileRef = useRef(null);
+  const [showPolitique, setShowPolitique] = useState(false);
+  const [showCGU, setShowCGU] = useState(false);
   const [notifPermission, setNotifPermission] = useState(() =>
     (typeof window !== "undefined" && "Notification" in window) ? Notification.permission : "unsupported"
   );
@@ -2847,6 +2852,197 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
       <button onClick={onSave} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14 }}>
         Enregistrer les modifications
       </button>
+
+      <div style={{ display: "flex", gap: 16 }}>
+        <button
+          onClick={() => setShowPolitique(true)}
+          style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12.5, textDecoration: "underline", padding: "6px 0" }}
+        >
+          Politique de confidentialité
+        </button>
+        <button
+          onClick={() => setShowCGU(true)}
+          style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12.5, textDecoration: "underline", padding: "6px 0" }}
+        >
+          CGU
+        </button>
+      </div>
+
+      {showPolitique && <PolitiqueConfidentialiteModal onClose={() => setShowPolitique(false)} />}
+      {showCGU && <CGUModal onClose={() => setShowCGU(false)} />}
+    </div>
+  );
+}
+
+const POLITIQUE_SECTIONS = [
+  {
+    titre: "1. Qui sommes-nous ?",
+    corps: `CoWave est une application de coaching sportif et nutritionnel.
+
+Éditeur : CoWave
+Contact : cowave.contact@gmail.com
+
+CoWave est actuellement édité à titre individuel, en cours de constitution en micro-entreprise (les informations légales complètes — SIRET, adresse du siège — seront ajoutées ici dès leur obtention).
+
+Dans ce document, "nous" désigne l'éditeur de l'application, "vous" désigne toute personne utilisant l'application (coach ou client).`,
+  },
+  {
+    titre: "2. Quelles données collectons-nous ?",
+    corps: `Données de compte : prénom, nom, email, mot de passe (chiffré), âge, taille, rôle (coach ou client).
+
+Données de santé et de suivi : poids et historique, mensurations corporelles, photos corporelles envoyées pour le suivi visuel, données nutritionnelles, bilans hebdomadaires (force, satisfaction, sommeil, motivation, douleurs), check-in quotidien (fatigue, sommeil, énergie).
+
+Données d'activité : séances réalisées, charges et répétitions, objectifs sportifs et nutritionnels, documents partagés par le coach, messages et notifications.
+
+Données techniques : informations de connexion à des fins de sécurité, abonnement aux notifications push si activées.`,
+  },
+  {
+    titre: "3. Pourquoi collectons-nous ces données ?",
+    corps: `Ces données sont utilisées exclusivement pour vous fournir le service de coaching, permettre à votre coach de suivre votre progression, assurer le fonctionnement technique de l'application, et l'améliorer.
+
+Nous ne vendons jamais vos données à des tiers, et ne les utilisons jamais à des fins publicitaires.`,
+  },
+  {
+    titre: "4. Base légale du traitement",
+    corps: `Le traitement de vos données repose sur l'exécution du contrat qui vous lie à votre coach, votre consentement explicite pour les données de santé (que vous pouvez retirer à tout moment), et notre intérêt légitime pour les aspects techniques (sécurité, prévention de la fraude).`,
+  },
+  {
+    titre: "5. Qui a accès à vos données ?",
+    corps: `Vous-même, pour vos propres données. Votre coach, pour les données des clients qu'il suit.
+
+Nos sous-traitants techniques : Supabase (base de données, authentification, fichiers), Vercel (hébergement), Open Food Facts (base publique d'aliments, aucune donnée personnelle ne lui est transmise), les fournisseurs de notifications push de votre navigateur.
+
+Nous ne partageons vos données avec aucun autre tiers, jamais à des fins commerciales ou publicitaires.`,
+  },
+  {
+    titre: "6. Combien de temps conservons-nous vos données ?",
+    corps: `Vos données sont conservées tant que votre compte est actif. En cas de suppression de compte, vos données sont supprimées dans un délai raisonnable, sauf obligation légale de conservation plus longue.`,
+  },
+  {
+    titre: "7. Vos droits",
+    corps: `Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation du traitement, de portabilité et d'opposition sur vos données, notamment vos données de santé.
+
+Pour exercer l'un de ces droits, contactez-nous à : cowave.contact@gmail.com
+
+Vous disposez également du droit d'introduire une réclamation auprès de la CNIL (www.cnil.fr) si vous estimez que vos droits ne sont pas respectés.`,
+  },
+  {
+    titre: "8. Sécurité de vos données",
+    corps: `Chaque utilisateur ne peut accéder qu'à ses propres données, et chaque coach uniquement aux données de ses propres clients. Les mots de passe sont chiffrés, jamais stockés en clair. Les connexions sont sécurisées (HTTPS).`,
+  },
+  {
+    titre: "9. Utilisateurs mineurs",
+    corps: `L'application n'est pas destinée aux personnes de moins de 15 ans. Entre 15 et 18 ans, l'utilisation nécessite l'accord du coach et, le cas échéant, du représentant légal.`,
+  },
+  {
+    titre: "10. Cookies et stockage local",
+    corps: `L'application utilise le stockage local de votre navigateur à des fins strictement techniques : conserver la progression d'une séance en cours (chrono, séries validées). Ces données restent sur votre appareil et ne sont pas transmises à des tiers.`,
+  },
+  {
+    titre: "11. Modification de cette politique",
+    corps: `Cette politique peut être mise à jour. En cas de modification substantielle, vous en serez informé via l'application.`,
+  },
+];
+
+function PolitiqueConfidentialiteModal({ onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>Politique de confidentialité</div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {POLITIQUE_SECTIONS.map((s) => (
+            <div key={s.titre}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 5 }}>{s.titre}</div>
+              <div style={{ fontSize: 12.5, color: C.textMuted, whiteSpace: "pre-line", lineHeight: 1.6 }}>{s.corps}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>
+          Fermer
+        </button>
+      </Card>
+    </div>
+  );
+}
+
+const CGU_SECTIONS = [
+  {
+    titre: "Article 1 — Objet",
+    corps: `Les présentes Conditions Générales d'Utilisation (les « CGU ») définissent les modalités et conditions d'utilisation de l'application CoWave, ainsi que les droits et obligations des utilisateurs.
+
+CoWave permet à un coach sportif de suivre ses clients : programmes d'entraînement personnalisés, suivi nutritionnel, bilans réguliers, suivi de poids et de mensurations, échange de documents et de notifications.
+
+Toute utilisation de l'application implique l'acceptation pleine et entière des présentes CGU.`,
+  },
+  {
+    titre: "Article 2 — Accès à l'application",
+    corps: `L'accès se fait exclusivement par la création d'un compte, à l'initiative du coach (pour lui-même ou pour ses clients). Il n'existe pas d'inscription libre : chaque client reçoit ses identifiants directement de son coach, qui reste responsable de leur bonne transmission.
+
+Chaque utilisateur est responsable de la confidentialité de ses identifiants.`,
+  },
+  {
+    titre: "Article 3 — Rôles et responsabilités",
+    corps: `Le coach est responsable de l'exactitude des informations qu'il renseigne, de la pertinence des programmes et conseils qu'il transmet, de la confidentialité des données de ses clients, et du respect du secret professionnel applicable à son activité.
+
+Le client s'engage à fournir des informations exactes, à utiliser l'application à des fins personnelles, et à informer son coach de toute évolution de son état de santé pouvant affecter la pertinence des recommandations reçues.`,
+  },
+  {
+    titre: "Article 4 — Avertissement santé",
+    corps: `CoWave n'est pas un dispositif médical et ne délivre aucun avis, diagnostic ou traitement médical.
+
+Les programmes et recommandations proposés relèvent de la seule responsabilité du coach, dans le cadre de son activité professionnelle. Il est recommandé à tout utilisateur présentant des antécédents médicaux ou troubles particuliers de consulter un professionnel de santé avant de suivre un programme.
+
+L'éditeur décline toute responsabilité quant aux conséquences résultant du suivi des recommandations formulées par un coach via l'application.`,
+  },
+  {
+    titre: "Article 5 — Disponibilité de l'application",
+    corps: `L'éditeur s'efforce d'assurer une disponibilité continue, sans garantie de fonctionnement ininterrompu. Des interruptions peuvent survenir pour maintenance ou pour des raisons indépendantes de sa volonté.`,
+  },
+  {
+    titre: "Article 6 — Propriété intellectuelle",
+    corps: `L'application, son contenu et son design sont protégés par le droit de la propriété intellectuelle. Les programmes et contenus créés par un coach pour ses clients restent la propriété du coach qui les a créés.`,
+  },
+  {
+    titre: "Article 7 — Suppression de compte",
+    corps: `Un compte peut être supprimé à la demande du client, du coach, ou par l'éditeur en cas de non-respect des présentes CGU. La suppression entraîne l'effacement des données associées, dans les conditions décrites dans la politique de confidentialité.`,
+  },
+  {
+    titre: "Article 8 — Responsabilité de l'éditeur",
+    corps: `L'éditeur met tout en œuvre pour assurer la sécurité et le bon fonctionnement de l'application, sans pouvoir garantir l'absence totale d'erreurs ou d'interruptions.
+
+L'éditeur ne saurait être tenu responsable des contenus ou recommandations transmis par un coach à ses clients, d'une mauvaise utilisation de l'application, ou de dommages indirects résultant de son utilisation.`,
+  },
+  {
+    titre: "Article 9 — Droit applicable",
+    corps: `Les présentes CGU sont soumises au droit français. En cas de litige, et à défaut de résolution amiable, les tribunaux français compétents seront seuls saisis.
+
+Pour toute question : cowave.contact@gmail.com`,
+  },
+];
+
+function CGUModal({ onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>Conditions Générales d'Utilisation</div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {CGU_SECTIONS.map((s) => (
+            <div key={s.titre}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 5 }}>{s.titre}</div>
+              <div style={{ fontSize: 12.5, color: C.textMuted, whiteSpace: "pre-line", lineHeight: 1.6 }}>{s.corps}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>
+          Fermer
+        </button>
+      </Card>
     </div>
   );
 }
@@ -2857,7 +3053,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
 const appShellStyle = {
   minHeight: "100vh",
   width: "100%",
-  background: `linear-gradient(165deg, ${C.bgGradA} 0%, ${C.bg} 62%, ${C.bgGradB} 100%)`,
+  background: C.bg,
   fontFamily: FONT_BODY,
   color: C.text,
   display: "flex",
@@ -3122,10 +3318,13 @@ function LoginScreen({ fireToast }) {
     <div style={appShellStyle}>
       <FontImports />
       <div style={{ width: "100%", maxWidth: 440, padding: "48px 16px" }}>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: C.text, marginBottom: 8 }}>
-          Coach App
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+          <img src="/cowave-icon-transparent.png" alt="CoWave" style={{ width: 220, height: "auto" }} />
         </div>
-        <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 28 }}>Connecte-toi pour continuer</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: C.textOnBg, marginBottom: 8, textAlign: "center" }}>
+          CoWave
+        </div>
+        <div style={{ fontSize: 14, color: C.blue, marginBottom: 28, textAlign: "center" }}>Connecte-toi pour continuer</div>
         <Card>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
@@ -3179,7 +3378,7 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
       const authUserId = signUpData.user?.id;
       if (!authUserId) throw new Error("Compte non créé");
 
-      const { error: profilErr } = await supabase.from("profils").insert({
+      const { data: nouveauProfil, error: profilErr } = await supabase.from("profils").insert({
         prenom: form.prenom,
         nom: form.nom,
         email: form.email,
@@ -3193,8 +3392,17 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
         poids_objectif: 75,
         objectif_principal: "Remise en forme",
         objectif_secondaire: "Santé générale",
-      });
+      }).select("*").single();
       if (profilErr) throw profilErr;
+
+      await supabase.from("notifications").insert({
+        coach_id: coachProfilId,
+        client_id: nouveauProfil.id,
+        titre: "Bienvenue 👋",
+        message: `Bienvenue ${form.prenom} ! Ton coach t'a créé un compte pour suivre tes séances, ta nutrition et tes bilans. Bonne première séance !`,
+        lu: false,
+        type: "bienvenue",
+      });
 
       fireToast("Client ajouté avec succès", "green");
       onCreated();
@@ -4306,6 +4514,8 @@ function NotificationsView({ coachId, clients, fireToast }) {
   const [titre, setTitre] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [mode, setMode] = useState("maintenant"); // "maintenant" | "programmer"
+  const [dateProgrammee, setDateProgrammee] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -4324,32 +4534,40 @@ function NotificationsView({ coachId, clients, fireToast }) {
 
   const send = async () => {
     if (!titre.trim() || !message.trim()) { fireToast("Ajoute un titre et un message"); return; }
+    if (mode === "programmer" && !dateProgrammee) { fireToast("Choisis une date et une heure"); return; }
     setSending(true);
     try {
       const targetIds = targetClientId === "tous" ? clients.map((c) => c.id) : [targetClientId];
-      if (targetClientId === "tous") {
-        const rows = clients.map((c) => ({ coach_id: coachId, client_id: c.id, titre, message, lu: false }));
-        if (rows.length > 0) {
-          const { error } = await supabase.from("notifications").insert(rows);
-          if (error) throw error;
-        }
-      } else {
-        const { error } = await supabase.from("notifications").insert({ coach_id: coachId, client_id: targetClientId, titre, message, lu: false });
+      const programmee = mode === "programmer";
+      const dateISO = programmee ? new Date(dateProgrammee).toISOString() : null;
+
+      const rows = targetIds.map((clientId) => ({
+        coach_id: coachId, client_id: clientId, titre, message, lu: false,
+        date_prevue: dateISO, envoyee: !programmee,
+      }));
+      if (rows.length > 0) {
+        const { error } = await supabase.from("notifications").insert(rows);
         if (error) throw error;
       }
-      // Déclenche l'envoi push réel (silencieux si non configuré ou si le client n'a pas activé les notifications)
-      Promise.allSettled(
-        targetIds.map((clientId) =>
-          fetch("/api/send-push", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ clientId, titre, message }),
-          })
-        )
-      ).catch(() => {});
-      fireToast("Notification envoyée", "green");
+
+      if (!programmee) {
+        // Envoi immédiat : déclenche le push tout de suite
+        Promise.allSettled(
+          targetIds.map((clientId) =>
+            fetch("/api/send-push", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ clientId, titre, message }),
+            })
+          )
+        ).catch(() => {});
+        fireToast("Notification envoyée", "green");
+      } else {
+        fireToast("Notification programmée pour le " + new Date(dateProgrammee).toLocaleString("fr-FR"), "green");
+      }
       setTitre("");
       setMessage("");
+      setDateProgrammee("");
       load();
     } catch (err) {
       console.error(err);
@@ -4362,7 +4580,7 @@ function NotificationsView({ coachId, clients, fireToast }) {
   return (
     <>
       <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
-        Ces notifications s'affichent dans l'app quand le client l'ouvre — ce ne sont pas encore de vraies notifications push sur leur téléphone (ça demande une configuration technique en plus, qu'on pourra mettre en place plus tard si tu veux).
+        Envoie une notification tout de suite, ou programme-la pour qu'elle parte automatiquement à une date et une heure précises (ex : rappel du bilan chaque dimanche soir).
       </div>
       <Card style={{ marginBottom: 20 }}>
         <SectionLabel icon={Bell}>Nouvelle notification</SectionLabel>
@@ -4379,8 +4597,23 @@ function NotificationsView({ coachId, clients, fireToast }) {
           </select>
           <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Titre" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
           <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "none" }} />
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <PillButton active={mode === "maintenant"} onClick={() => setMode("maintenant")} style={{ flex: 1, textAlign: "center" }}>Envoyer maintenant</PillButton>
+            <PillButton active={mode === "programmer"} onClick={() => setMode("programmer")} style={{ flex: 1, textAlign: "center" }}>Programmer</PillButton>
+          </div>
+
+          {mode === "programmer" && (
+            <input
+              type="datetime-local"
+              value={dateProgrammee}
+              onChange={(e) => setDateProgrammee(e.target.value)}
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+            />
+          )}
+
           <button onClick={send} disabled={sending} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: sending ? 0.6 : 1 }}>
-            {sending ? "Envoi..." : "Envoyer"}
+            {sending ? "Envoi..." : mode === "programmer" ? "Programmer l'envoi" : "Envoyer"}
           </button>
         </div>
       </Card>
@@ -4395,7 +4628,12 @@ function NotificationsView({ coachId, clients, fireToast }) {
               <Card key={n.id} style={{ padding: 12 }}>
                 <div style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>{n.titre}</div>
                 <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{n.message}</div>
-                <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 4 }}>{c ? `${c.prenom} ${c.nom}` : "Client"} · {n.lu ? "Lu" : "Non lu"}</div>
+                <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 4 }}>
+                  {c ? `${c.prenom} ${c.nom}` : "Client"} · {n.lu ? "Lu" : "Non lu"}
+                  {!n.envoyee && n.date_prevue && (
+                    <span style={{ color: C.amber }}> · Programmée pour le {new Date(n.date_prevue).toLocaleString("fr-FR")}</span>
+                  )}
+                </div>
               </Card>
             );
           })}
@@ -4737,11 +4975,11 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           <div style={{ width: 48, height: 48, borderRadius: "50%", background: client.photo_url ? `url(${client.photo_url}) center/cover` : C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             {!client.photo_url && <User size={20} color={C.blue} />}
           </div>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.text }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>
             {client.prenom} {client.nom}
           </div>
         </div>
-        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>{client.objectif_principal}</div>
+        <div style={{ fontSize: 12, color: C.textOnBgMuted, marginBottom: 16 }}>{client.objectif_principal}</div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           {detailTabs.map((t) => {
@@ -5231,8 +5469,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
           <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={true} coachTab={coachTab} setCoachTab={setCoachTab} tachesEnAttenteCount={tachesEnAttenteCount} />
           <div>
-            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Espace coach</div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.text }}>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 600 }}>Espace coach</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>
               {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
             </div>
           </div>
