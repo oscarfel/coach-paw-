@@ -4,6 +4,7 @@ import {
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
   Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
+  ShoppingCart, Pill,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,9 +15,9 @@ import { supabase } from "./supabaseClient";
 /*  DESIGN TOKENS                                                      */
 /* ------------------------------------------------------------------ */
 const C = {
-  bg: "#F5F9FF",
-  bgGradA: "#F5F9FF",
-  bgGradB: "#F5F9FF",
+  bg: "#EAF2FE",
+  bgGradA: "#EAF2FE",
+  bgGradB: "#EAF2FE",
   surface: "#3E7DEB",
   card: "#3E7DEB",
   cardBorder: "rgba(0,178,255,0.6)",
@@ -25,7 +26,7 @@ const C = {
   textOnBg: "#132345",
   textOnBgMuted: "#5F7391",
   textMuted: "#DCE9FA",
-  textDim: "#B7CDEE",
+  textDim: "#E4ECFB",
   blue: "#1E56C9",
   blueSoft: "rgba(30,86,201,0.18)",
   blueBorder: "rgba(30,86,201,0.5)",
@@ -91,7 +92,7 @@ const Card = ({ children, style, ...rest }) => (
       border: `1px solid ${C.cardBorder}`,
       borderRadius: 20,
       padding: 16,
-      boxShadow: "0 0 0 1px rgba(0,178,255,0.2), 0 0 20px rgba(0,178,255,0.25), 0 4px 24px rgba(30,86,201,0.15)",
+      boxShadow: "0 0 0 1.5px rgba(0,178,255,0.4), 0 0 26px rgba(0,178,255,0.5), 0 0 10px rgba(0,200,255,0.6), 0 4px 24px rgba(30,86,201,0.2)",
       ...style,
     }}
     {...rest}
@@ -100,7 +101,7 @@ const Card = ({ children, style, ...rest }) => (
   </div>
 );
 
-const SectionLabel = ({ children, icon: Icon }) => (
+const SectionLabel = ({ children, icon: Icon, onBg }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
     {Icon && <Icon size={13} color={C.blue} />}
     <span
@@ -110,7 +111,7 @@ const SectionLabel = ({ children, icon: Icon }) => (
         fontWeight: 700,
         letterSpacing: 1,
         textTransform: "uppercase",
-        color: C.textMuted,
+        color: onBg ? C.textOnBgMuted : C.textMuted,
       }}
     >
       {children}
@@ -380,64 +381,86 @@ const NAV_ITEMS = [
   { key: "profil", label: "Profil", icon: User, n: 5 },
 ];
 
-const BottomNav = ({ active, setActive }) => (
-  <div
-    style={{
-      position: "fixed",
-      bottom: 14,
-      left: "50%",
-      transform: "translateX(-50%)",
-      width: "calc(100% - 28px)",
-      maxWidth: 440,
-      background: "rgba(30,86,201,0.55)",
-      backdropFilter: "blur(18px)",
-      WebkitBackdropFilter: "blur(18px)",
-      border: `1px solid ${C.cardBorder}`,
-      borderRadius: 24,
-      padding: "10px 8px",
-      display: "flex",
-      justifyContent: "space-around",
-      alignItems: "center",
-      zIndex: 50,
-      boxShadow: "0 8px 28px rgba(10,30,70,0.3)",
-    }}
-  >
-    {NAV_ITEMS.map((item) => {
-      const Icon = item.icon;
-      const isActive = active === item.key;
-      return (
-        <button
-          key={item.key}
-          onClick={() => setActive(item.key)}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 3,
-            background: isActive ? C.blueSoft : "transparent",
-            border: "none",
-            borderRadius: 16,
-            padding: "7px 14px",
-            transition: "all .2s ease",
-            position: "relative",
-          }}
-        >
-          <Icon size={20} color={isActive ? C.blue : "rgba(31,163,192,0.5)"} strokeWidth={isActive ? 2.4 : 2} />
-          <span
+const BottomNav = ({ active, setActive }) => {
+  const activeIndex = NAV_ITEMS.findIndex((item) => item.key === active);
+  const itemWidth = 100 / NAV_ITEMS.length;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 14,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "calc(100% - 28px)",
+        maxWidth: 440,
+        background: "rgba(30,86,201,0.5)",
+        backdropFilter: "blur(18px)",
+        WebkitBackdropFilter: "blur(18px)",
+        border: `1px solid ${C.cardBorder}`,
+        borderRadius: 24,
+        padding: "10px 8px",
+        display: "flex",
+        justifyContent: "space-around",
+        alignItems: "center",
+        zIndex: 50,
+        boxShadow: "0 0 22px rgba(0,178,255,0.6), 0 0 8px rgba(0,200,255,0.8), 0 8px 28px rgba(10,30,70,0.3)",
+      }}
+    >
+      {/* Bulle qui glisse d'un onglet à l'autre */}
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          bottom: 8,
+          left: `calc(${itemWidth * activeIndex}% + 6px)`,
+          width: `calc(${itemWidth}% - 12px)`,
+          background: "rgba(255,255,255,0.2)",
+          borderRadius: 16,
+          transition: "left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        }}
+      />
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon;
+        const isActive = active === item.key;
+        return (
+          <button
+            key={item.key}
+            onClick={() => setActive(item.key)}
             style={{
-              fontSize: 9.5,
-              fontWeight: 700,
-              color: isActive ? C.blue : "rgba(139,147,165,0.8)",
-              letterSpacing: 0.3,
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 3,
+              background: "transparent",
+              border: "none",
+              borderRadius: 16,
+              padding: "7px 4px",
+              position: "relative",
+              zIndex: 1,
             }}
           >
-            {item.label}
-          </span>
-        </button>
-      );
-    })}
-  </div>
-);
+            <div style={{ transform: isActive ? "scale(1.18)" : "scale(1)", transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
+              <Icon size={20} color={isActive ? "#FFFFFF" : "rgba(255,255,255,0.55)"} strokeWidth={isActive ? 2.4 : 2} fill={isActive ? "#FFFFFF" : "none"} fillOpacity={isActive ? 0.25 : 0} />
+            </div>
+            <span
+              style={{
+                fontSize: 9.5,
+                fontWeight: 700,
+                color: isActive ? "#FFFFFF" : "rgba(255,255,255,0.55)",
+                letterSpacing: 0.3,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {item.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /*  ENTRAINEMENT — LISTE                                               */
@@ -695,13 +718,13 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       {mode === "accueil" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.text, fontWeight: 600 }}>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBg, fontWeight: 600 }}>
               Bienvenue,
             </div>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, color: C.blue, lineHeight: 1 }}>
               {user.prenom}
             </div>
-            <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, marginTop: 4, textAlign: "left" }}>
+            <div style={{ fontSize: 12, color: C.textOnBgMuted, fontWeight: 600, marginTop: 4, textAlign: "left" }}>
               {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
@@ -917,7 +940,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Flame size={15} color={C.blue} /> Voir mon calendrier de séances
           </button>
           <div style={{ marginTop: 4 }}>
-            <SectionLabel icon={Dumbbell}>Mes séances</SectionLabel>
+            <SectionLabel icon={Dumbbell} onBg>Mes séances</SectionLabel>
             {isCoach && (
               <button onClick={() => setShowSeanceForm(true)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 10 }}>
                 <Plus size={16} /> Créer une séance
@@ -931,7 +954,9 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                   <div>
                     <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{p.nom}</div>
                     <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
-                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{p.exercices.length} exercices · {p.duree}</div>
+                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                      {p.exercices.length} exercices · {p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries · {p.duree}
+                    </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 }}>
@@ -1871,6 +1896,127 @@ function MealCard({ meal, items, onAdd, onRemove }) {
   );
 }
 
+function CoursesEtSupplements({ profilId, fireToast }) {
+  const [listeCourse, setListeCourse] = useState(null);
+  const [supplements, setSupplements] = useState([]);
+  const [showChoix, setShowChoix] = useState(false);
+  const [showCourses, setShowCourses] = useState(false);
+  const [showSupplements, setShowSupplements] = useState(false);
+  const [cochees, setCochees] = useState({});
+
+  useEffect(() => {
+    if (!profilId) return;
+    supabase.from("listes_courses").select("*").order("updated_at", { ascending: false }).limit(1)
+      .then(({ data }) => setListeCourse(data && data[0] ? data[0] : null));
+    supabase.from("listes_supplements").select("*").order("created_at", { ascending: false })
+      .then(({ data }) => setSupplements(data || []));
+  }, [profilId]);
+
+  const toggleCoche = (item) => {
+    setCochees((prev) => ({ ...prev, [item]: !prev[item] }));
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setShowChoix(!showChoix)}
+        style={{
+          width: 38, height: 38, borderRadius: "50%",
+          background: C.blue, border: `2px solid ${C.cardBorderLight}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 0 10px rgba(0,178,255,0.5), 0 4px 12px rgba(10,30,70,0.35)",
+        }}
+      >
+        <ShoppingCart size={17} color="#06171F" />
+      </button>
+
+      {showChoix && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: -1 }} onClick={() => setShowChoix(false)} />
+          <div style={{ position: "absolute", top: 46, right: 0, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: 6, minWidth: 160, boxShadow: "0 8px 24px rgba(10,30,70,0.35)" }}>
+            <button
+              onClick={() => { setShowCourses(true); setShowChoix(false); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", color: C.text, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: "left" }}
+            >
+              <ShoppingCart size={15} color={C.blue} /> Courses
+              {listeCourse && <span style={{ marginLeft: "auto", color: C.textDim, fontSize: 11 }}>{(listeCourse.items || []).length}</span>}
+            </button>
+            <button
+              onClick={() => { setShowSupplements(true); setShowChoix(false); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", color: C.text, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: "left" }}
+            >
+              <Pill size={15} color={C.blue} /> Suppléments
+              {supplements.length > 0 && <span style={{ marginLeft: "auto", color: C.textDim, fontSize: 11 }}>{supplements.length}</span>}
+            </button>
+          </div>
+        </>
+      )}
+
+      {showCourses && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCourses(false)}>
+          <Card style={{ width: "100%", maxWidth: 400, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <SectionLabel icon={ShoppingCart}>Liste de courses</SectionLabel>
+              <button onClick={() => setShowCourses(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            {!listeCourse || (listeCourse.items || []).length === 0 ? (
+              <div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach ne t'a pas encore envoyé de liste de courses</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {listeCourse.items.map((item, i) => (
+                  <div
+                    key={i}
+                    onClick={() => toggleCoche(item)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}
+                  >
+                    <div style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${C.blue}`, background: cochees[item] ? C.blue : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {cochees[item] && <Check size={12} color="#FFFFFF" />}
+                    </div>
+                    <span style={{ fontSize: 13, color: C.text, textDecoration: cochees[item] ? "line-through" : "none", opacity: cochees[item] ? 0.5 : 1 }}>{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {showSupplements && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowSupplements(false)}>
+          <Card style={{ width: "100%", maxWidth: 400, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <SectionLabel icon={Pill}>Suppléments recommandés</SectionLabel>
+              <button onClick={() => setShowSupplements(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            {supplements.length === 0 ? (
+              <div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach n'a pas encore recommandé de supplément</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {supplements.map((s) => (
+                  <a
+                    key={s.id}
+                    href={s.lien || undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, borderRadius: 10, padding: "10px 12px", textDecoration: "none", cursor: s.lien ? "pointer" : "default" }}
+                  >
+                    <Pill size={16} color={C.blue} style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>{s.nom}</div>
+                      {s.note && <div style={{ fontSize: 11, color: C.textDim }}>{s.note}</div>}
+                    </div>
+                    {s.lien && <ChevronRight size={16} color={C.textMuted} />}
+                  </a>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showNutriDetail, setShowNutriDetail] = useState(false);
@@ -1917,9 +2063,13 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div>
-        <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Aujourd'hui</div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Nutrition</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ width: 38, flexShrink: 0 }} />
+        <div style={{ flex: 1, textAlign: "center" }}>
+          <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 700 }}>Aujourd'hui</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Nutrition</div>
+        </div>
+        <CoursesEtSupplements profilId={profilId} fireToast={fireToast} />
       </div>
 
       <Card style={{ background: `radial-gradient(circle at 80% 0%, ${C.blueSoft}, ${C.card} 60%)`, cursor: "pointer" }} onClick={() => setShowNutriDetail(true)}>
@@ -1961,7 +2111,7 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
       </Card>
 
       <div>
-        <SectionLabel icon={Apple}>Repas</SectionLabel>
+        <SectionLabel icon={Apple} onBg>Repas</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {MEAL_DEFS.map((m) => (
             <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} />
@@ -2743,8 +2893,8 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
         </button>
         <input ref={photoFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f && onChangePhoto) onChangePhoto(f); }} />
         <div>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>{user.prenom} {user.nom}</div>
-          <div style={{ fontSize: 12, color: C.textMuted }}>{user.age} ans · {user.taille} cm</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.textOnBg }}>{user.prenom} {user.nom}</div>
+          <div style={{ fontSize: 12, color: C.textOnBgMuted }}>{user.age} ans · {user.taille} cm</div>
         </div>
       </div>
 
@@ -3095,6 +3245,7 @@ function LogoutButton({ onLogout }) {
 function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, setCoachTab, tachesEnAttenteCount = 0 }) {
   const [open, setOpen] = useState(false);
   const [outilsOuvert, setOutilsOuvert] = useState(false);
+  const [alimentationOuvert, setAlimentationOuvert] = useState(false);
   return (
     <>
       <button
@@ -3191,6 +3342,51 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
                   >
                     <Dumbbell size={16} /> Programmes
                   </button>
+                  <button
+                    onClick={() => setAlimentationOuvert(!alimentationOuvert)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
+                      background: (coachTab === "alimentation-recettes" || coachTab === "alimentation-courses" || coachTab === "alimentation-supplements") ? C.blueSoft : "transparent", border: "none",
+                      color: (coachTab === "alimentation-recettes" || coachTab === "alimentation-courses" || coachTab === "alimentation-supplements") ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
+                    }}
+                  >
+                    <Apple size={16} /> Alimentation
+                    <ChevronDown size={14} style={{ marginLeft: "auto", transform: alimentationOuvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  </button>
+                  {alimentationOuvert && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 14, borderLeft: `1px solid ${C.cardBorderLight}`, marginLeft: 12 }}>
+                      <button
+                        onClick={() => { setCoachTab("alimentation-recettes"); setOpen(false); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
+                          background: coachTab === "alimentation-recettes" ? C.blueSoft : "transparent", border: "none",
+                          color: coachTab === "alimentation-recettes" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
+                        }}
+                      >
+                        <ClipboardList size={14} /> Recettes
+                      </button>
+                      <button
+                        onClick={() => { setCoachTab("alimentation-courses"); setOpen(false); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
+                          background: coachTab === "alimentation-courses" ? C.blueSoft : "transparent", border: "none",
+                          color: coachTab === "alimentation-courses" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
+                        }}
+                      >
+                        <ShoppingCart size={14} /> Liste de courses
+                      </button>
+                      <button
+                        onClick={() => { setCoachTab("alimentation-supplements"); setOpen(false); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
+                          background: coachTab === "alimentation-supplements" ? C.blueSoft : "transparent", border: "none",
+                          color: coachTab === "alimentation-supplements" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
+                        }}
+                      >
+                        <Pill size={14} /> Suppléments
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => setOutilsOuvert(!outilsOuvert)}
                     style={{
@@ -3324,8 +3520,11 @@ function LoginScreen({ fireToast }) {
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: C.textOnBg, marginBottom: 8, textAlign: "center" }}>
           CoWave
         </div>
-        <div style={{ fontSize: 14, color: C.blue, marginBottom: 28, textAlign: "center" }}>Connecte-toi pour continuer</div>
-        <Card>
+        <div style={{ fontSize: 14, color: C.blue, marginBottom: 20, textAlign: "center" }}>Connecte-toi pour continuer</div>
+        <div style={{ fontSize: 13, color: C.textOnBgMuted, fontStyle: "italic", textAlign: "center", marginBottom: 20, padding: "0 20px" }}>
+          « Chaque séance te rapproche de la meilleure version de toi-même. »
+        </div>
+        <Card style={{ border: "2px solid rgba(255,180,60,0.85)", boxShadow: "0 0 30px rgba(255,180,60,0.6), 0 0 12px rgba(255,210,80,0.75), 0 0 4px rgba(255,230,120,0.9), 0 8px 28px rgba(10,30,70,0.3)" }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
               <div style={{ fontFamily: FONT_DISPLAY, fontSize: 10.5, color: C.textDim, marginBottom: 5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Email</div>
@@ -3350,7 +3549,7 @@ function LoginScreen({ fireToast }) {
             <button
               type="submit"
               disabled={submitting}
-              style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, opacity: submitting ? 0.6 : 1 }}
+              style={{ background: "#FFFFFF", border: "none", color: C.blue, borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, opacity: submitting ? 0.6 : 1 }}
             >
               {submitting ? "Connexion..." : "Se connecter"}
             </button>
@@ -3519,6 +3718,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   const [newExNom, setNewExNom] = useState("");
   const [newExVideoFile, setNewExVideoFile] = useState(null);
   const [selectedExId, setSelectedExId] = useState("");
+  const [showAjoutExercice, setShowAjoutExercice] = useState(false);
 
   useEffect(() => {
     if (!coachId) return;
@@ -3708,56 +3908,79 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
             Grouper en superset ({selectedForSuperset.length} exercices)
           </button>
         )}
-        {showNewExercice ? (
-          <div style={{ background: C.surface, borderRadius: 10, padding: 10, marginBottom: 8 }}>
-            <input type="text" placeholder="Nom du nouvel exercice" value={newExNom} onChange={(e) => setNewExNom(e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 6 }} />
-            <input type="file" accept="video/*" onChange={(e) => setNewExVideoFile(e.target.files[0])} style={{ width: "100%", marginBottom: 8, fontSize: 12, color: C.textMuted }} />
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => setShowNewExercice(false)} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 8, padding: "8px", fontSize: 12 }}>Annuler</button>
-              <button onClick={createExercice} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "8px", fontSize: 12, fontWeight: 700 }}>Ajouter</button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            <select value={selectedExId} onChange={(e) => setSelectedExId(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }}>
-              <option value="">Choisir un exercice...</option>
-              {GROUPES_MUSCULAIRES.filter((g) => bibliotheque.some((ex) => (ex.groupe_musculaire || "Autre") === g)).map((g) => (
-                <optgroup key={g} label={g}>
-                  {bibliotheque.filter((ex) => (ex.groupe_musculaire || "Autre") === g).map((ex) => (
-                    <option key={ex.id} value={ex.id}>{ex.nom}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <button onClick={() => setShowNewExercice(true)} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}><Plus size={14} /></button>
+        <button
+          onClick={() => setShowAjoutExercice(true)}
+          style={{ width: "100%", background: C.amber, border: "none", color: "#3D2600", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+        >
+          <Plus size={16} /> Ajouter un exercice
+        </button>
+
+        {showAjoutExercice && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 160, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowAjoutExercice(false)}>
+            <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto", border: `2px solid ${C.amber}` }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <SectionLabel icon={Plus}>Nouvel exercice</SectionLabel>
+                <button onClick={() => setShowAjoutExercice(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+              </div>
+
+              {showNewExercice ? (
+                <div style={{ background: C.surface, borderRadius: 10, padding: 10, marginBottom: 8 }}>
+                  <input type="text" placeholder="Nom du nouvel exercice" value={newExNom} onChange={(e) => setNewExNom(e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 6 }} />
+                  <input type="file" accept="video/*" onChange={(e) => setNewExVideoFile(e.target.files[0])} style={{ width: "100%", marginBottom: 8, fontSize: 12, color: C.textMuted }} />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setShowNewExercice(false)} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 8, padding: "8px", fontSize: 12 }}>Annuler</button>
+                    <button onClick={createExercice} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "8px", fontSize: 12, fontWeight: 700 }}>Ajouter</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                  <select value={selectedExId} onChange={(e) => setSelectedExId(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }}>
+                    <option value="">Choisir un exercice...</option>
+                    {GROUPES_MUSCULAIRES.filter((g) => bibliotheque.some((ex) => (ex.groupe_musculaire || "Autre") === g)).map((g) => (
+                      <optgroup key={g} label={g}>
+                        {bibliotheque.filter((ex) => (ex.groupe_musculaire || "Autre") === g).map((ex) => (
+                          <option key={ex.id} value={ex.id}>{ex.nom}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <button onClick={() => setShowNewExercice(true)} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}><Plus size={14} /></button>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+              </div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                {exRepsParSerie.map((r, i) => (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    <span style={{ fontSize: 10, color: C.textMuted }}>Série {i + 1}</span>
+                    <input
+                      type="number"
+                      value={r}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setExRepsParSerie((prev) => prev.map((x, idx) => (idx === i ? val : x)));
+                      }}
+                      style={{ width: 50, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input type="text" placeholder="Tempo (e: 3-1-1-0)" value={exTempo} onChange={(e) => setExTempo(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                <input type="number" placeholder="RPE" value={exRpe} onChange={(e) => setExRpe(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+              </div>
+              <textarea placeholder="Note spéciale (optionnel)" value={exNote} onChange={(e) => setExNote(e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 12, resize: "none" }} />
+              <button
+                onClick={() => { addExercice(); setShowAjoutExercice(false); }}
+                style={{ width: "100%", background: C.amber, border: "none", color: "#3D2600", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 800 }}
+              >
+                + Ajouter cet exercice à la séance
+              </button>
+            </Card>
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-          <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-          <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-        </div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-          {exRepsParSerie.map((r, i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 10, color: C.textMuted }}>Série {i + 1}</span>
-              <input
-                type="number"
-                value={r}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value) || 0;
-                  setExRepsParSerie((prev) => prev.map((x, idx) => (idx === i ? val : x)));
-                }}
-                style={{ width: 50, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
-              />
-            </div>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-          <input type="text" placeholder="Tempo (e: 3-1-1-0)" value={exTempo} onChange={(e) => setExTempo(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-          <input type="number" placeholder="RPE" value={exRpe} onChange={(e) => setExRpe(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-        </div>
-        <textarea placeholder="Note spéciale (optionnel)" value={exNote} onChange={(e) => setExNote(e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
-        <button onClick={addExercice} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 10, padding: "10px", fontSize:13, fontWeight: 700, marginBottom: 16 }}>+ Ajouter exercice</button>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14 }}>Annuler</button>
           <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : "Créer"}</button>
@@ -4163,6 +4386,277 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
                 <button onClick={() => { setEditingModele(m); setFormMode("pickClient"); }} style={{ flex: 1, background: C.blueSoft, border: "none", borderRadius: 10, padding: "8px 0", color: C.blue, fontSize: 12.5, fontWeight: 700 }}>Assigner</button>
                 <button onClick={() => remove(m.id)} style={{ background: "transparent", border: "none", color: C.red, padding: "0 8px" }}><Trash2 size={16} /></button>
               </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function AlimentationView({ coachId, clients, fireToast, section }) {
+  const [targetClientId, setTargetClientId] = useState("tous");
+  const [loading, setLoading] = useState(true);
+
+  // --- Recettes ---
+  const [recettes, setRecettes] = useState([]);
+  const [nomRecette, setNomRecette] = useState("");
+  const [descRecette, setDescRecette] = useState("");
+  const [ingredients, setIngredients] = useState("");
+  const [instructions, setInstructions] = useState("");
+
+  // --- Liste de courses ---
+  const [listesCourses, setListesCourses] = useState([]);
+  const [nouvelItem, setNouvelItem] = useState("");
+  const [itemsCourse, setItemsCourse] = useState([]);
+
+  // --- Suppléments ---
+  const [supplements, setSupplements] = useState([]);
+  const [nomSupplement, setNomSupplement] = useState("");
+  const [lienSupplement, setLienSupplement] = useState("");
+  const [noteSupplement, setNoteSupplement] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      if (section === "recettes") {
+        const { data } = await supabase.from("recettes").select("*").eq("coach_id", coachId).order("created_at", { ascending: false });
+        setRecettes(data || []);
+      } else if (section === "courses") {
+        const { data } = await supabase.from("listes_courses").select("*").eq("coach_id", coachId).order("updated_at", { ascending: false });
+        setListesCourses(data || []);
+      } else if (section === "supplements") {
+        const { data } = await supabase.from("listes_supplements").select("*").eq("coach_id", coachId).order("created_at", { ascending: false });
+        setSupplements(data || []);
+      }
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur chargement");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [coachId, section]);
+
+  const cibleActuelle = targetClientId === "tous" ? null : targetClientId;
+
+  const creerRecette = async () => {
+    if (!nomRecette.trim()) { fireToast("Donne un nom à la recette"); return; }
+    try {
+      const { error } = await supabase.from("recettes").insert({
+        coach_id: coachId, client_id: cibleActuelle, nom: nomRecette,
+        description: descRecette, ingredients, instructions,
+      });
+      if (error) throw error;
+      fireToast("Recette créée", "green");
+      setNomRecette(""); setDescRecette(""); setIngredients(""); setInstructions("");
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur création recette");
+    }
+  };
+
+  const supprimerRecette = async (id) => {
+    if (!confirm("Supprimer cette recette ?")) return;
+    await supabase.from("recettes").delete().eq("id", id);
+    setRecettes((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const ajouterItemCourse = () => {
+    if (!nouvelItem.trim()) return;
+    setItemsCourse((prev) => [...prev, nouvelItem.trim()]);
+    setNouvelItem("");
+  };
+
+  const retirerItemCourse = (idx) => {
+    setItemsCourse((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const enregistrerListeCourses = async () => {
+    if (itemsCourse.length === 0) { fireToast("Ajoute au moins un article"); return; }
+    try {
+      const { error } = await supabase.from("listes_courses").insert({
+        coach_id: coachId, client_id: cibleActuelle, items: itemsCourse,
+      });
+      if (error) throw error;
+      fireToast("Liste de courses envoyée", "green");
+      setItemsCourse([]);
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi liste");
+    }
+  };
+
+  const supprimerListeCourses = async (id) => {
+    if (!confirm("Supprimer cette liste ?")) return;
+    await supabase.from("listes_courses").delete().eq("id", id);
+    setListesCourses((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  const ajouterSupplement = async () => {
+    if (!nomSupplement.trim()) { fireToast("Donne un nom au supplément"); return; }
+    try {
+      const { error } = await supabase.from("listes_supplements").insert({
+        coach_id: coachId, client_id: cibleActuelle, nom: nomSupplement, lien: lienSupplement, note: noteSupplement,
+      });
+      if (error) throw error;
+      fireToast("Supplément ajouté", "green");
+      setNomSupplement(""); setLienSupplement(""); setNoteSupplement("");
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur ajout supplément");
+    }
+  };
+
+  const supprimerSupplement = async (id) => {
+    if (!confirm("Supprimer ce supplément ?")) return;
+    await supabase.from("listes_supplements").delete().eq("id", id);
+    setSupplements((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const nomClient = (clientId) => {
+    if (!clientId) return "Tous les clients";
+    const c = clients.find((cl) => cl.id === clientId);
+    return c ? `${c.prenom} ${c.nom}` : "Client";
+  };
+
+  const selecteurClient = (
+    <select
+      value={targetClientId}
+      onChange={(e) => setTargetClientId(e.target.value)}
+      style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}
+    >
+      <option value="tous">Tous mes clients</option>
+      {clients.map((c) => (
+        <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+      ))}
+    </select>
+  );
+
+  if (section === "recettes") {
+    return (
+      <>
+        <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+          Crée des recettes à envoyer à un client précis ou à tous.
+        </div>
+        <Card style={{ marginBottom: 20 }}>
+          <SectionLabel icon={ClipboardList}>Nouvelle recette</SectionLabel>
+          {selecteurClient}
+          <input type="text" value={nomRecette} onChange={(e) => setNomRecette(e.target.value)} placeholder="Nom de la recette" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+          <textarea value={descRecette} onChange={(e) => setDescRecette(e.target.value)} placeholder="Description (optionnel)" rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
+          <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} placeholder="Ingrédients (un par ligne)" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
+          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions de préparation" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10, resize: "none" }} />
+          <button onClick={creerRecette} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>Créer la recette</button>
+        </Card>
+
+        {loading ? (
+          <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+        ) : recettes.length === 0 ? (
+          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune recette pour le moment</div></Card>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {recettes.map((r) => (
+              <Card key={r.id} style={{ padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.nom}</div>
+                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{nomClient(r.client_id)}</div>
+                  </div>
+                  <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+                </div>
+                {r.description && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 6 }}>{r.description}</div>}
+              </Card>
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  if (section === "courses") {
+    return (
+      <>
+        <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+          Envoie une liste de courses à un client précis ou à tous. Il la retrouve dans son onglet Nutrition.
+        </div>
+        <Card style={{ marginBottom: 20 }}>
+          <SectionLabel icon={ShoppingCart}>Nouvelle liste de courses</SectionLabel>
+          {selecteurClient}
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <input
+              type="text" value={nouvelItem} onChange={(e) => setNouvelItem(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") ajouterItemCourse(); }}
+              placeholder="Ajouter un article (ex : yaourts nature)"
+              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+            />
+            <button onClick={ajouterItemCourse} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px" }}><Plus size={14} /></button>
+          </div>
+          {itemsCourse.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+              {itemsCourse.map((item, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 8, padding: "7px 10px" }}>
+                  <span style={{ fontSize: 13, color: C.text }}>{item}</span>
+                  <button onClick={() => retirerItemCourse(i)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={enregistrerListeCourses} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>Envoyer la liste</button>
+        </Card>
+
+        {loading ? (
+          <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+        ) : listesCourses.length === 0 ? (
+          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune liste envoyée pour le moment</div></Card>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {listesCourses.map((l) => (
+              <Card key={l.id} style={{ padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{nomClient(l.client_id)}</div>
+                  <button onClick={() => supprimerListeCourses(l.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+                </div>
+                <div style={{ fontSize: 12, color: C.textMuted }}>{(l.items || []).join(" · ")}</div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // section === "supplements"
+  return (
+    <>
+      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>
+        Ajoute des suppléments recommandés avec un lien direct (ex : lien Amazon), visibles par le client dans son onglet Nutrition.
+      </div>
+      <Card style={{ marginBottom: 20 }}>
+        <SectionLabel icon={Pill}>Nouveau supplément</SectionLabel>
+        {selecteurClient}
+        <input type="text" value={nomSupplement} onChange={(e) => setNomSupplement(e.target.value)} placeholder="Nom du supplément (ex : Whey protéine)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+        <input type="text" value={lienSupplement} onChange={(e) => setLienSupplement(e.target.value)} placeholder="Lien (ex : https://amazon.fr/...)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+        <input type="text" value={noteSupplement} onChange={(e) => setNoteSupplement(e.target.value)} placeholder="Note (ex : 1 dose après l'entraînement)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }} />
+        <button onClick={ajouterSupplement} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>Ajouter le supplément</button>
+      </Card>
+
+      {loading ? (
+        <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+      ) : supplements.length === 0 ? (
+        <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun supplément pour le moment</div></Card>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {supplements.map((s) => (
+            <Card key={s.id} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10 }}>
+              <Pill size={18} color={C.blue} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{s.nom}</div>
+                <div style={{ fontSize: 11, color: C.textDim }}>{nomClient(s.client_id)}{s.note ? ` · ${s.note}` : ""}</div>
+              </div>
+              <button onClick={() => supprimerSupplement(s.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
             </Card>
           ))}
         </div>
@@ -5471,7 +5965,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <div>
             <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 600 }}>Espace coach</div>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>
-              {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
+              {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes" : coachTab === "alimentation-recettes" ? "Recettes" : coachTab === "alimentation-courses" ? "Liste de courses" : coachTab === "alimentation-supplements" ? "Suppléments" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
             </div>
           </div>
         </div>
@@ -5482,6 +5976,12 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <TachesView coachId={coachProfil.id} fireToast={fireToast} />
         ) : coachTab === "programmes" ? (
           <ProgrammesModelesView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
+        ) : coachTab === "alimentation-recettes" ? (
+          <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="recettes" />
+        ) : coachTab === "alimentation-courses" ? (
+          <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="courses" />
+        ) : coachTab === "alimentation-supplements" ? (
+          <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="supplements" />
         ) : coachTab === "outils-drive" ? (
           <OutilsView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="drive" />
         ) : coachTab === "outils-automatisation" ? (
