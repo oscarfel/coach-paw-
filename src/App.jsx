@@ -5124,6 +5124,8 @@ function NotificationsView({ coachId, clients, fireToast }) {
                 <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{n.message}</div>
                 <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 4 }}>
                   {c ? `${c.prenom} ${c.nom}` : "Client"} · {n.lu ? "Lu" : "Non lu"}
+                  {n.type === "relance_inactif" && <span style={{ color: C.amber }}> · Relance auto</span>}
+                  {n.type === "rapport_hebdo" && <span style={{ color: C.green }}> · Rapport hebdo</span>}
                   {!n.envoyee && n.date_prevue && (
                     <span style={{ color: C.amber }}> · Programmée pour le {new Date(n.date_prevue).toLocaleString("fr-FR")}</span>
                   )}
