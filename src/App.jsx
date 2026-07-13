@@ -85,8 +85,9 @@ const FontImports = () => (
 /* ------------------------------------------------------------------ */
 /*  SMALL UI PRIMITIVES                                                */
 /* ------------------------------------------------------------------ */
-const Card = ({ children, style, ...rest }) => (
+const Card = React.forwardRef(({ children, style, ...rest }, ref) => (
   <div
+    ref={ref}
     style={{
       background: C.card,
       border: `1px solid ${C.cardBorder}`,
@@ -99,7 +100,7 @@ const Card = ({ children, style, ...rest }) => (
   >
     {children}
   </div>
-);
+));
 
 const SectionLabel = ({ children, icon: Icon, onBg }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -580,15 +581,17 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
   const [showSeanceForm, setShowSeanceForm] = useState(false);
   const [draggedProgIdx, setDraggedProgIdx] = useState(null);
   const [dragOverProgIdx, setDragOverProgIdx] = useState(null);
+  const progCardRefs = useRef([]);
 
-  const handleReorderDrop = async (dropIdx) => {
-    if (draggedProgIdx === null || draggedProgIdx === dropIdx) {
+  const handleReorderDrop = async (dropIdx, explicitFromIdx = null) => {
+    const fromIdx = explicitFromIdx !== null ? explicitFromIdx : draggedProgIdx;
+    if (fromIdx === null || fromIdx === dropIdx) {
       setDraggedProgIdx(null);
       setDragOverProgIdx(null);
       return;
     }
-    const reordered = [...customProgrammes];
-    const [moved] = reordered.splice(draggedProgIdx, 1);
+    const reordered = [...programmesCycle];
+    const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(dropIdx, 0, moved);
     setDraggedProgIdx(null);
     setDragOverProgIdx(null);
@@ -600,6 +603,49 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       fireToast("Erreur réorganisation des séances");
     }
   };
+
+  const dragOverProgIdxRef = useRef(null);
+
+  // Glisser tactile (fonctionne à la souris ET au doigt, contrairement au glisser HTML natif)
+  useEffect(() => {
+    if (draggedProgIdx === null) return;
+    const handleMove = (e) => {
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      let overIdx = null;
+      for (let i = 0; i < progCardRefs.current.length; i++) {
+        const el = progCardRefs.current[i];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (y >= rect.top && y <= rect.bottom) { overIdx = i; break; }
+      }
+      if (overIdx !== null) {
+        dragOverProgIdxRef.current = overIdx;
+        setDragOverProgIdx(overIdx);
+      }
+    };
+    const handleUp = () => {
+      const finalOver = dragOverProgIdxRef.current;
+      const finalFrom = draggedProgIdx;
+      dragOverProgIdxRef.current = null;
+      if (finalOver !== null) handleReorderDrop(finalOver, finalFrom);
+      else { setDraggedProgIdx(null); setDragOverProgIdx(null); }
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("touchmove", handleMove, { passive: true });
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchend", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchend", handleUp);
+    };
+  }, [draggedProgIdx]);
+  const JOURS_ORDRE = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+  const programmesJourFixe = useMemo(() => customProgrammes.filter((p) => p.jourFixe), [customProgrammes]);
+  const programmesCycle = useMemo(() => customProgrammes.filter((p) => !p.jourFixe), [customProgrammes]);
+  const jourAujourdhui = JOURS_ORDRE[(new Date().getDay() + 6) % 7];
+
   const poidsEvol7j = useMemo(() => {
     if (!weightHistory || weightHistory.length < 2) return null;
     const last = weightHistory[weightHistory.length - 1].poids;
@@ -962,32 +1008,89 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Flame size={15} color={C.blue} /> Voir mon calendrier de séances
           </button>
           <div style={{ marginTop: 4 }}>
-            <SectionLabel icon={Dumbbell} onBg>Mes séances</SectionLabel>
+            {programmesJourFixe.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <SectionLabel icon={Calendar} onBg>Semaine type</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {JOURS_ORDRE.map((jour) => {
+                    const p = programmesJourFixe.find((prog) => prog.jourFixe === jour);
+                    const estAujourdhui = jour === jourAujourdhui;
+                    return (
+                      <Card
+                        key={jour}
+                        style={{
+                          display: "flex", justifyContent: "space-between", alignItems: "center",
+                          border: estAujourdhui ? `2px solid ${C.amber}` : `1px solid ${C.cardBorder}`,
+                          boxShadow: estAujourdhui ? "0 0 14px rgba(240,178,92,0.5)" : undefined,
+                          userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: estAujourdhui ? C.amber : C.textMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                              {jour}{estAujourdhui && " · Aujourd'hui"}
+                            </span>
+                          </div>
+                          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: p ? C.text : C.textDim }}>
+                            {p ? p.nom : "Repos"}
+                          </div>
+                          {p && (
+                            <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                              {p.exercices.length} exercices · {p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
+                            </div>
+                          )}
+                        </div>
+                        {p && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 }}>
+                              <Play size={14} fill="#06171F" /> Démarrer
+                            </button>
+                            {isCoach && (
+                              <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+                            )}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <SectionLabel icon={Dumbbell} onBg>{programmesJourFixe.length > 0 ? "Autres séances (cycle)" : "Mes séances"}</SectionLabel>
             {isCoach && (
               <button onClick={() => setShowSeanceForm(true)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 10 }}>
                 <Plus size={16} /> Créer une séance
               </button>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {customProgrammes.length === 0 ? (
-                <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach ne t'a pas encore assigné de séance</div></Card>
-              ) : customProgrammes.map((p, pIdx) => (
+              {programmesCycle.length === 0 ? (
+                <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>{programmesJourFixe.length > 0 ? "Aucune autre séance" : "Ton coach ne t'a pas encore assigné de séance"}</div></Card>
+              ) : programmesCycle.map((p, pIdx) => (
                 <Card
                   key={p.id}
-                  draggable={isCoach}
-                  onDragStart={() => isCoach && setDraggedProgIdx(pIdx)}
-                  onDragOver={(e) => { if (isCoach) { e.preventDefault(); setDragOverProgIdx(pIdx); } }}
-                  onDrop={() => isCoach && handleReorderDrop(pIdx)}
-                  onDragEnd={() => { setDraggedProgIdx(null); setDragOverProgIdx(null); }}
+                  ref={(el) => { progCardRefs.current[pIdx] = el; }}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     opacity: draggedProgIdx === pIdx ? 0.4 : 1,
                     border: dragOverProgIdx === pIdx && draggedProgIdx !== pIdx ? `2px dashed ${C.blue}` : `1px solid ${C.cardBorder}`,
-                    cursor: isCoach ? "grab" : "default",
+                    userSelect: isCoach ? "none" : "auto",
+                    WebkitUserSelect: isCoach ? "none" : "auto",
+                    WebkitTouchCallout: isCoach ? "none" : "default",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {isCoach && <span style={{ color: C.textDim, fontSize: 16, lineHeight: 1 }}>⠿</span>}
+                    {isCoach && (
+                      <div
+                        onMouseDown={() => setDraggedProgIdx(pIdx)}
+                        onTouchStart={() => setDraggedProgIdx(pIdx)}
+                        style={{
+                          color: C.textDim, fontSize: 20, lineHeight: 1, padding: 6, cursor: "grab", touchAction: "none",
+                          userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",
+                        }}
+                      >
+                        ⠿
+                      </div>
+                    )}
                     <div>
                       <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{p.nom}</div>
                       <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
@@ -3766,6 +3869,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   };
   const [nom, setNom] = useState(editingProgramme?.nom || "");
   const [muscle, setMuscle] = useState(editingProgramme?.muscle || "");
+  const [jourFixe, setJourFixe] = useState(editingProgramme?.jour_fixe || "");
   const [expandedIdx, setExpandedIdx] = useState(null);
   const [draggedIdx, setDraggedIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
@@ -3924,7 +4028,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       if (editingProgramme?.id) {
         const { error: updateErr } = await supabase
           .from("programmes")
-          .update({ nom, muscle })
+          .update({ nom, muscle, jour_fixe: jourFixe || null })
           .eq("id", editingProgramme.id);
         if (updateErr) throw updateErr;
         progId = editingProgramme.id;
@@ -3932,7 +4036,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       } else {
         const { data: prog, error: progErr } = await supabase
           .from("programmes")
-          .insert({ profil_id: clientId, nom, muscle })
+          .insert({ profil_id: clientId, nom, muscle, jour_fixe: jourFixe || null })
           .select()
           .single();
         if (progErr) throw progErr;
@@ -3972,6 +4076,25 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
         <SectionLabel icon={Dumbbell}>{estModele ? (editingProgramme?.id ? "Modifier le modèle" : "Nouveau modèle") : (editingProgramme?.id ? "Modifier la séance" : "Nouvelle séance")}</SectionLabel>
         <input type="text" placeholder="Nom (ex: Push)" value={nom} onChange={(e) => setNom(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 8 }} />
         <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
+        {!estModele && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Type de programme</div>
+            <select
+              value={jourFixe}
+              onChange={(e) => setJourFixe(e.target.value)}
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14 }}
+            >
+              <option value="">Cycle (le client fait les séances dans l'ordre, sans jour fixe)</option>
+              <option value="lundi">Jour fixe — Lundi</option>
+              <option value="mardi">Jour fixe — Mardi</option>
+              <option value="mercredi">Jour fixe — Mercredi</option>
+              <option value="jeudi">Jour fixe — Jeudi</option>
+              <option value="vendredi">Jour fixe — Vendredi</option>
+              <option value="samedi">Jour fixe — Samedi</option>
+              <option value="dimanche">Jour fixe — Dimanche</option>
+            </select>
+          </div>
+        )}
         <SectionLabel icon={Plus}>Exercices</SectionLabel>
         {exercices.map((ex, i) => (
           <div key={i} draggable onDragStart={() => setDraggedIdx(i)} onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }} onDrop={() => handleDrop(i)} onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }} style={{ background: ex.groupeSuperset ? C.blueSoft : C.surface, border: dragOverIdx === i && draggedIdx !== i ? `2px dashed ${C.blue}` : `1.5px solid ${ex.groupeSuperset ? C.blue : C.blueBorder}`, borderRadius: 10, padding: "8px 10px", marginBottom: 8, opacity: draggedIdx === i ? 0.4 : 1, cursor: "grab" }}>
@@ -6382,6 +6505,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           muscle: p.muscle,
           duree: "",
           ordre: p.ordre || 0,
+          jourFixe: p.jour_fixe || null,
           exercices: (p.programme_exercices || [])
             .sort((a, b) => a.ordre - b.ordre)
             .map((ex) => ({
@@ -7004,10 +7128,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
           )}
           {tab === "seances" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
           )}
           {activeProgramme && (
             <SessionView
