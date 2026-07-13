@@ -1248,6 +1248,9 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   const currentSetIndex = log.sets.length; // 0-indexée : la prochaine série à faire
   const rappelSerieActuelle = historique?.sets?.[currentSetIndex];
   const derniereSerieGlobale = historique?.sets?.[historique.sets.length - 1];
+  const progressionPct = ex.type === "cardio"
+    ? (log.sets.length > 0 ? 100 : 0)
+    : Math.min(100, Math.round((log.sets.length / ex.sets) * 100));
 
   const submit = () => {
     if (ex.type === "cardio") {
@@ -1261,7 +1264,16 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   };
 
   return (
-    <Card style={{ padding: 0, overflow: "hidden" }}>
+    <Card
+      style={{
+        padding: 0,
+        overflow: "hidden",
+        background: progressionPct > 0
+          ? `linear-gradient(to right, ${C.green} 0%, ${C.green} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
+          : C.card,
+        transition: "background 0.4s ease",
+      }}
+    >
       <button
         onClick={() => setOpen(true)}
         style={{
@@ -1275,12 +1287,26 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}>
-          <div style={{ width: 52, height: 52, borderRadius: 12, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-            {ex.imageUrl ? (
-              <img src={ex.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              <Dumbbell size={22} color={C.textDim} />
-            )}
+          <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
+            <svg width="56" height="56" viewBox="0 0 56 56" style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
+              <circle cx="28" cy="28" r="26" fill="none" stroke={C.cardBorderLight} strokeWidth="3" />
+              <circle
+                cx="28" cy="28" r="26" fill="none"
+                stroke={progressionPct >= 100 ? C.green : C.blue}
+                strokeWidth="3"
+                strokeDasharray={2 * Math.PI * 26}
+                strokeDashoffset={2 * Math.PI * 26 * (1 - progressionPct / 100)}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dashoffset 0.4s ease" }}
+              />
+            </svg>
+            <div style={{ position: "absolute", top: 2, left: 2, width: 52, height: 52, borderRadius: 12, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {ex.imageUrl ? (
+                <img src={ex.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <Dumbbell size={22} color={C.textDim} />
+              )}
+            </div>
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ex.nom}</div>
@@ -1737,6 +1763,14 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       const left = rest.total - Math.floor((Date.now() - rest.startedAt) / 1000);
       if (left <= 0) {
         playBeep();
+        if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+        if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) {
+          try {
+            new Notification("Temps de repos terminé ⏱️", { body: "C'est reparti pour la prochaine série !", icon: "/pwa-192x192.png" });
+          } catch (err) {
+            console.error("Erreur notification locale:", err);
+          }
+        }
         localStorage.removeItem(restKey);
         setRest(null);
         return;
@@ -1784,16 +1818,60 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     fireToast("Vidéo attachée à " + ex.nom);
   };
 
+  const recapStats = useMemo(() => {
+    const nbExercices = Object.values(logs).filter((l) => l.sets.length > 0).length;
+    let recordsBattus = 0;
+    for (const ex of programme.exercices) {
+      const log = logs[ex.id];
+      if (!log || log.sets.length === 0) continue;
+      const maxAujourdhui = Math.max(...log.sets.map((s) => Number(s.poids) || 0));
+      const histo = history[ex.nom];
+      if (histo && histo.sets && histo.sets.length > 0) {
+        const maxHistorique = Math.max(...histo.sets.map((s) => Number(s.poids) || 0));
+        if (maxAujourdhui > maxHistorique) recordsBattus++;
+      }
+    }
+    return { nbExercices, recordsBattus };
+  }, [logs, programme, history]);
+
   if (finished) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16, textAlign: "center" }}>
         <div style={{ width: 72, height: 72, borderRadius: "50%", background: C.greenSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Send size={30} color={C.green} />
         </div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.text }}>Séance envoyée à ton coach</div>
-        <div style={{ fontSize: 13, color: C.textMuted, maxWidth: 260 }}>
-          {totalSets} séries loggées en {fmtTime(seconds)}. Ton coach va pouvoir analyser tes vidéos et ajuster ton programme.
-        </div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.textOnBg }}>Séance envoyée à ton coach</div>
+        <div style={{ fontSize: 13, color: C.textOnBgMuted, maxWidth: 280 }}>{programme.nom}</div>
+
+        <Card style={{ width: "100%", maxWidth: 320 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{fmtTime(seconds)}</div>
+              <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>Durée</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{recapStats.nbExercices}</div>
+              <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>Exercices</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{totalSets}</div>
+              <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>Séries</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: recapStats.recordsBattus > 0 ? C.amber : C.text, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                {recapStats.recordsBattus > 0 && "🏆"} {recapStats.recordsBattus}
+              </div>
+              <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>Records battus</div>
+            </div>
+          </div>
+        </Card>
+
+        {recapStats.recordsBattus > 0 && (
+          <div style={{ fontSize: 12.5, color: C.amber, fontWeight: 700, maxWidth: 280 }}>
+            🎉 Bravo, tu as progressé sur {recapStats.recordsBattus} exercice{recapStats.recordsBattus > 1 ? "s" : ""} par rapport à la dernière fois !
+          </div>
+        )}
+
         <button
           onClick={onFinish}
           style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "12px 24px", fontWeight: 800 }}
