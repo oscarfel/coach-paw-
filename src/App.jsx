@@ -52,19 +52,22 @@ const FontImports = () => (
       text-size-adjust: 100%;
       height: 100%;
       overflow-x: hidden;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      -webkit-touch-callout: none !important;
     }
-    * {
+    *, *::before, *::after {
       box-sizing: border-box;
       min-width: 0;
       touch-action: manipulation;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
     }
     input, textarea {
-      -webkit-user-select: text;
-      user-select: text;
-      -webkit-touch-callout: default;
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      -webkit-touch-callout: default !important;
     }
     ::-webkit-scrollbar { width: 0px; height: 0px; }
     input, select, textarea { font-family: ${FONT_BODY}; outline: none; }
@@ -5687,12 +5690,12 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
           </button>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.text }}>{selectedProgramme.nom}</div>
-              <div style={{ fontSize: 12, color: C.textMuted }}>{selectedProgramme.muscle}</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.textOnBg }}>{selectedProgramme.nom}</div>
+              <div style={{ fontSize: 12, color: C.textOnBgMuted }}>{selectedProgramme.muscle}</div>
             </div>
             <button onClick={() => { setEditingProgramme(selectedProgramme); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "10px 14px", fontWeight: 700, fontSize: 13 }}>Modifier</button>
           </div>
-          <SectionLabel icon={TrendingUp}>Historique des performances</SectionLabel>
+          <SectionLabel icon={TrendingUp} onBg>Historique des performances</SectionLabel>
           <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
             <LegendDot color={C.green} label="Progrès" />
             <LegendDot color={C.amber} label="Stagnation" />
