@@ -3738,17 +3738,17 @@ function LoginScreen({ fireToast }) {
   };
 
   return (
-    <div style={appShellStyle}>
+    <div style={{ ...appShellStyle, background: "#0B1A3D" }}>
       <FontImports />
       <div style={{ width: "100%", maxWidth: 440, padding: "48px 16px" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
           <img src="/cowave-icon-transparent.png" alt="CoWave" style={{ width: 220, height: "auto" }} />
         </div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: C.textOnBg, marginBottom: 8, textAlign: "center" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: "#FFFFFF", marginBottom: 8, textAlign: "center" }}>
           CoWave
         </div>
-        <div style={{ fontSize: 14, color: C.blue, marginBottom: 20, textAlign: "center" }}>Connecte-toi pour continuer</div>
-        <div style={{ fontSize: 13, color: C.textOnBgMuted, fontStyle: "italic", textAlign: "center", marginBottom: 20, padding: "0 20px" }}>
+        <div style={{ fontSize: 14, color: "#8FC4FF", marginBottom: 20, textAlign: "center" }}>Connecte-toi pour continuer</div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", fontStyle: "italic", textAlign: "center", marginBottom: 20, padding: "0 20px" }}>
           « Chaque séance te rapproche de la meilleure version de toi-même. »
         </div>
         <Card style={{ border: "2px solid rgba(255,180,60,0.85)", boxShadow: "0 0 30px rgba(255,180,60,0.6), 0 0 12px rgba(255,210,80,0.75), 0 0 4px rgba(255,230,120,0.9), 0 8px 28px rgba(10,30,70,0.3)" }}>
@@ -4299,7 +4299,7 @@ const MedalBadge = ({ color, size = 36 }) => {
 const LegendDot = ({ color, label }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
     <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-    <span style={{ fontSize: 11, color: C.textMuted }}>{label}</span>
+    <span style={{ fontSize: 11, color: C.textOnBgMuted, fontWeight: 600 }}>{label}</span>
   </div>
 );
 
