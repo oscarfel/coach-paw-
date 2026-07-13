@@ -53,7 +53,19 @@ const FontImports = () => (
       height: 100%;
       overflow-x: hidden;
     }
-    * { box-sizing: border-box; min-width: 0; touch-action: manipulation; }
+    * {
+      box-sizing: border-box;
+      min-width: 0;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    input, textarea {
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
     ::-webkit-scrollbar { width: 0px; height: 0px; }
     input, select, textarea { font-family: ${FONT_BODY}; outline: none; }
     select {
