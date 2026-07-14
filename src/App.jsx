@@ -1587,20 +1587,23 @@ function playBeep() {
       const gain = ctx.createGain();
       oscillator.connect(gain);
       gain.connect(ctx.destination);
-      oscillator.type = "sine";
+      oscillator.type = "triangle";
       oscillator.frequency.value = freq;
       gain.gain.setValueAtTime(0.001, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.4, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.9, startTime + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
       oscillator.start(startTime);
       oscillator.stop(startTime + duration + 0.02);
     };
 
     const now = ctx.currentTime;
-    // Petite sonnerie à 3 notes montantes, plus reconnaissable qu'un simple bip
+    // Sonnerie forte à 3 notes montantes, répétée deux fois pour bien se faire remarquer
     playTone(784, now, 0.16);
     playTone(988, now + 0.18, 0.16);
     playTone(1318, now + 0.36, 0.4);
+    playTone(784, now + 1.0, 0.16);
+    playTone(988, now + 1.18, 0.16);
+    playTone(1318, now + 1.36, 0.4);
   } catch (err) {
     console.error("Erreur son:", err);
   }
@@ -1656,21 +1659,31 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
       )}
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
-        <div style={{ position: "relative", width: 220, height: 220 }}>
-          <svg width="220" height="220" viewBox="0 0 220 220">
-            <circle cx="110" cy="110" r={ringRadius} fill="none" stroke={C.cardBorderLight} strokeWidth="14" />
-            <circle
-              cx="110" cy="110" r={ringRadius} fill="none" stroke={C.amber} strokeWidth="14"
-              strokeDasharray={ringCirc} strokeDashoffset={ringOffset}
-              strokeLinecap="round" transform="rotate(-90 110 110)"
-              style={{ transition: "stroke-dashoffset 1s linear" }}
-            />
-          </svg>
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 48, color: C.textOnBg, fontWeight: 700 }}>{rest.left}</div>
-            <div style={{ fontSize: 12, color: C.textOnBgMuted, fontWeight: 600 }}>secondes</div>
+        {rest.termine ? (
+          <div style={{ textAlign: "center", animation: "pulseGlow 1s infinite" }}>
+            <div style={{ width: 140, height: 140, borderRadius: "50%", background: C.amber, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: "0 0 40px rgba(240,178,92,0.8)" }}>
+              <Clock size={56} color="#3D2600" />
+            </div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.textOnBg }}>Temps écoulé !</div>
+            <div style={{ fontSize: 13, color: C.textOnBgMuted, marginTop: 4 }}>C'est reparti 💪</div>
           </div>
-        </div>
+        ) : (
+          <div style={{ position: "relative", width: 220, height: 220 }}>
+            <svg width="220" height="220" viewBox="0 0 220 220">
+              <circle cx="110" cy="110" r={ringRadius} fill="none" stroke={C.cardBorderLight} strokeWidth="14" />
+              <circle
+                cx="110" cy="110" r={ringRadius} fill="none" stroke={C.amber} strokeWidth="14"
+                strokeDasharray={ringCirc} strokeDashoffset={ringOffset}
+                strokeLinecap="round" transform="rotate(-90 110 110)"
+                style={{ transition: "stroke-dashoffset 1s linear" }}
+              />
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 48, color: C.textOnBg, fontWeight: 700 }}>{rest.left}</div>
+              <div style={{ fontSize: 12, color: C.textOnBgMuted, fontWeight: 600 }}>secondes</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
@@ -1695,9 +1708,13 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
 
       <button
         onClick={() => { onUpdateSet(poids, reps); onSkip(); }}
-        style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15 }}
+        style={{
+          width: "100%", border: "none", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15,
+          background: rest.termine ? C.amber : C.blue,
+          color: rest.termine ? "#3D2600" : "#06171F",
+        }}
       >
-        Terminer le repos
+        {rest.termine ? "Continuer la séance" : "Terminer le repos"}
       </button>
     </div>
   );
@@ -1728,8 +1745,9 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     if (!saved) return null;
     try {
       const parsed = JSON.parse(saved);
+      if (parsed.termine) return { ...parsed, left: 0 };
       const left = parsed.total - Math.floor((Date.now() - parsed.startedAt) / 1000);
-      if (left <= 0) { localStorage.removeItem(restKey); return null; }
+      if (left <= 0) return { ...parsed, left: 0, termine: true };
       return { ...parsed, left };
     } catch {
       return null;
@@ -1757,29 +1775,56 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 
   // Chrono de repos basé sur une horloge réelle (timestamp) : reste juste même si l'écran
   // s'éteint ou que l'app passe en arrière-plan, contrairement à un simple compteur.
+  const declencherAlerteFinRepos = () => {
+    playBeep();
+    if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400, 150, 400]);
+    if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) {
+      try {
+        new Notification("Temps de repos terminé ⏱️", { body: "Reviens sur l'app pour continuer ta séance !", icon: "/pwa-192x192.png", requireInteraction: true });
+      } catch (err) {
+        console.error("Erreur notification locale:", err);
+      }
+    }
+  };
+
   useEffect(() => {
-    if (!rest) return;
+    if (!rest || rest.termine) return;
     const tick = () => {
       const left = rest.total - Math.floor((Date.now() - rest.startedAt) / 1000);
       if (left <= 0) {
-        playBeep();
-        if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
-        if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) {
-          try {
-            new Notification("Temps de repos terminé ⏱️", { body: "C'est reparti pour la prochaine série !", icon: "/pwa-192x192.png" });
-          } catch (err) {
-            console.error("Erreur notification locale:", err);
-          }
-        }
-        localStorage.removeItem(restKey);
-        setRest(null);
+        declencherAlerteFinRepos();
+        const termine = { ...rest, left: 0, termine: true };
+        localStorage.setItem(restKey, JSON.stringify(termine));
+        setRest(termine);
         return;
       }
       setRest((r) => (r ? { ...r, left } : r));
     };
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [rest?.startedAt]);
+  }, [rest?.startedAt, rest?.termine]);
+
+  // Si l'utilisateur revient sur l'app alors que le repos est déjà fini (il était ailleurs),
+  // on relance l'alerte pour être sûr qu'il ne la manque pas.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && rest?.termine) {
+        declencherAlerteFinRepos();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [rest?.termine]);
+
+  const arreterAlerteRepos = () => {
+    localStorage.removeItem(restKey);
+    setRest(null);
+  };
+
+  useEffect(() => {
+    if (rest?.termine) declencherAlerteFinRepos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalSets = Object.values(logs).reduce((a, l) => a + l.sets.length, 0);
 
@@ -1888,7 +1933,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         rest={rest}
         programme={programme}
         history={history}
-        onSkip={() => setRest(null)}
+        onSkip={arreterAlerteRepos}
         onUpdateSet={(poids, reps) => updateLastSet(rest.exId, poids, reps)}
       />
     );
