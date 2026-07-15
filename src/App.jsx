@@ -3919,39 +3919,19 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
+      const res = await fetch("/api/create-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prenom: form.prenom,
+          nom: form.nom,
+          email: form.email,
+          password: form.password,
+          coachId: coachProfilId,
+        }),
       });
-      if (signUpErr) throw signUpErr;
-      const authUserId = signUpData.user?.id;
-      if (!authUserId) throw new Error("Compte non créé");
-
-      const { data: nouveauProfil, error: profilErr } = await supabase.from("profils").insert({
-        prenom: form.prenom,
-        nom: form.nom,
-        email: form.email,
-        auth_user_id: authUserId,
-        role: "client",
-        coach_id: coachProfilId,
-        age: 25,
-        taille: 170,
-        poids_depart: 80,
-        poids_actuel: 80,
-        poids_objectif: 75,
-        objectif_principal: "Remise en forme",
-        objectif_secondaire: "Santé générale",
-      }).select("*").single();
-      if (profilErr) throw profilErr;
-
-      await supabase.from("notifications").insert({
-        coach_id: coachProfilId,
-        client_id: nouveauProfil.id,
-        titre: "Bienvenue 👋",
-        message: `Bienvenue ${form.prenom} ! Ton coach t'a créé un compte pour suivre tes séances, ta nutrition et tes bilans. Bonne première séance !`,
-        lu: false,
-        type: "bienvenue",
-      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur création client");
 
       fireToast("Client ajouté avec succès", "green");
       onCreated();
