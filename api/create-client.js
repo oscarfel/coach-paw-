@@ -35,13 +35,6 @@ export default async function handler(req, res) {
         auth_user_id: authUserId,
         role: 'client',
         coach_id: coachId,
-        age: 25,
-        taille: 170,
-        poids_depart: 80,
-        poids_actuel: 80,
-        poids_objectif: 75,
-        objectif_principal: 'Remise en forme',
-        objectif_secondaire: 'Santé générale',
       })
       .select('*')
       .single();

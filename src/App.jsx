@@ -1252,6 +1252,37 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
     ? (log.sets.length > 0 ? 100 : 0)
     : Math.min(100, Math.round((log.sets.length / ex.sets) * 100));
 
+  // Compare une série validée à la même série (même position) de la dernière séance
+  const compareSetColor = (setIdx, setPoids, setReps) => {
+    const histoSet = historique?.sets?.[setIdx];
+    if (!histoSet) return C.blue; // pas d'historique pour cette série -> couleur neutre
+    const p = Number(setPoids), hp = Number(histoSet.poids);
+    const r = Number(setReps), hr = Number(histoSet.reps);
+    if (p > hp || (p === hp && r > hr)) return C.green;
+    if (p === hp && r === hr) return C.amber;
+    return C.red;
+  };
+
+  // Remplissage segmenté : chaque série validée colore sa portion de la carte
+  // selon sa propre comparaison (vert/orange/rouge), pas une seule couleur uniforme.
+  const cardFillGradient = () => {
+    if (log.sets.length === 0 || ex.type === "cardio") {
+      return progressionPct > 0
+        ? `linear-gradient(to right, ${C.green} 0%, ${C.green} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
+        : C.card;
+    }
+    const segWidth = 100 / ex.sets;
+    const stops = [];
+    let cursor = 0;
+    log.sets.forEach((s, i) => {
+      const color = compareSetColor(i, s.poids, s.reps);
+      stops.push(`${color} ${cursor}%`, `${color} ${cursor + segWidth}%`);
+      cursor += segWidth;
+    });
+    stops.push(`${C.card} ${cursor}%`, `${C.card} 100%`);
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  };
+
   const submit = () => {
     if (ex.type === "cardio") {
       onValidate(ex, { poids: 0, reps: ex.dureeMinutes || 0, tempo: "", rpe: rpe || "8" });
@@ -1268,9 +1299,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
       style={{
         padding: 0,
         overflow: "hidden",
-        background: progressionPct > 0
-          ? `linear-gradient(to right, ${C.green} 0%, ${C.green} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
-          : C.card,
+        background: cardFillGradient(),
         transition: "background 0.4s ease",
       }}
     >
@@ -1391,23 +1420,38 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
           )}
 
           {log.sets.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {log.sets.map((s, i) => (
-                <div
-                  key={i}
-                  style={{
-                    fontSize: 11.5,
-                    color: C.text,
-                    background: C.surface,
-                    border: `1px solid ${C.cardBorderLight}`,
-                    borderRadius: 8,
-                    padding: "5px 9px",
-                    fontFamily: FONT_MONO,
-                  }}
-                >
-                  {s.poids}kg×{s.reps} <span style={{ color: C.amber }}>RPE{s.rpe}</span>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {[[C.green, "Progrès"], [C.amber, "Pareil qu'avant"], [C.red, "Moins bien"]].map(([color, label]) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{label}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {log.sets.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {log.sets.map((s, i) => {
+                const couleur = compareSetColor(i, s.poids, s.reps);
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      fontSize: 11.5,
+                      color: "#FFFFFF",
+                      background: couleur,
+                      border: `1px solid ${couleur}`,
+                      borderRadius: 8,
+                      padding: "5px 9px",
+                      fontFamily: FONT_MONO,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {s.poids}kg×{s.reps} <span style={{ opacity: 0.85 }}>RPE{s.rpe}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -1941,10 +1985,6 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <button onClick={onCancel} style={{ alignSelf: "flex-start", background: "transparent", border: "none", color: C.textOnBg, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
-      </button>
-
       <div>
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>{programme.nom}</div>
         <div style={{ fontSize: 12, color: C.textOnBgMuted }}>{programme.muscle} · {totalSets} séries validées</div>
