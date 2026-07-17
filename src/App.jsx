@@ -209,6 +209,16 @@ function useToast() {
   return [node, fire];
 }
 
+// Formate le temps écoulé depuis la première séance d'un client, pour son badge de suivi
+function formatDureeSuivi(dateDebutIso) {
+  const jours = Math.floor((new Date(todayIso()) - new Date(dateDebutIso)) / 86400000);
+  if (jours < 1) return "Jour 1";
+  if (jours < 14) return `${jours} j`;
+  if (jours < 60) return `${Math.floor(jours / 7)} sem.`;
+  if (jours < 365) return `${Math.floor(jours / 30)} mois`;
+  return `${Math.floor(jours / 365)} an${jours >= 730 ? "s" : ""}`;
+}
+
 const fmtTime = (s) => {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -3950,8 +3960,8 @@ function LoginScreen({ fireToast }) {
   );
 }
 
-function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
-  const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "" });
+function AddClientForm({ coachProfilId, onClose, onCreated, fireToast, groupesDisponibles }) {
+  const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "", groupe: "" });
   const [submitting, setSubmitting] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -3968,6 +3978,7 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
           email: form.email,
           password: form.password,
           coachId: coachProfilId,
+          groupe: form.groupe || null,
         }),
       });
       const data = await res.json();
@@ -3997,6 +4008,12 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast }) {
         </div>
         <Field label="Email"><input type="email" style={inputStyle} required value={form.email} onChange={set("email")} /></Field>
         <Field label="Mot de passe"><input type="password" style={inputStyle} required minLength={6} value={form.password} onChange={set("password")} /></Field>
+        <Field label="Dossier (optionnel)">
+          <input style={inputStyle} list="dossiers-existants" placeholder="ex : Perte de poids" value={form.groupe} onChange={set("groupe")} />
+          <datalist id="dossiers-existants">
+            {(groupesDisponibles || []).map((g) => <option key={g} value={g} />)}
+          </datalist>
+        </Field>
         <button type="submit" disabled={submitting} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: submitting ? 0.6 : 1 }}>
           {submitting ? "Création..." : "Créer le client"}
         </button>
@@ -4031,16 +4048,19 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   const [expandedIdx, setExpandedIdx] = useState(null);
   const [draggedIdx, setDraggedIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
+  const exCardRefs = useRef([]);
+  const dragOverIdxRef = useRef(null);
 
-  const handleDrop = (targetIdx) => {
-    if (draggedIdx === null || draggedIdx === targetIdx) {
+  const handleDrop = (targetIdx, explicitFromIdx = null) => {
+    const fromIdx = explicitFromIdx !== null ? explicitFromIdx : draggedIdx;
+    if (fromIdx === null || fromIdx === targetIdx) {
       setDraggedIdx(null);
       setDragOverIdx(null);
       return;
     }
     setExercices((prev) => {
       const arr = [...prev];
-      const [moved] = arr.splice(draggedIdx, 1);
+      const [moved] = arr.splice(fromIdx, 1);
       arr.splice(targetIdx, 0, moved);
       return arr.map((ex, i) => ({ ...ex, ordre: i }));
     });
@@ -4050,6 +4070,42 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   const updateExercice = (idx, field, value) => {
     setExercices((prev) => prev.map((ex, i) => (i === idx ? { ...ex, [field]: value } : ex)));
   };
+
+  // Glisser tactile (fonctionne au doigt ET à la souris) pour réordonner les exercices
+  useEffect(() => {
+    if (draggedIdx === null) return;
+    const handleMove = (e) => {
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      let overIdx = null;
+      for (let i = 0; i < exCardRefs.current.length; i++) {
+        const el = exCardRefs.current[i];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (y >= rect.top && y <= rect.bottom) { overIdx = i; break; }
+      }
+      if (overIdx !== null) {
+        dragOverIdxRef.current = overIdx;
+        setDragOverIdx(overIdx);
+      }
+    };
+    const handleUp = () => {
+      const finalOver = dragOverIdxRef.current;
+      const finalFrom = draggedIdx;
+      dragOverIdxRef.current = null;
+      if (finalOver !== null) handleDrop(finalOver, finalFrom);
+      else { setDraggedIdx(null); setDragOverIdx(null); }
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("touchmove", handleMove, { passive: true });
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchend", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchend", handleUp);
+    };
+  }, [draggedIdx]);
   const [exercices, setExercices] = useState(() => {
     const rawList = editingProgramme?.programme_exercices || editingProgramme?.exercices || [];
     return [...rawList].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)).map((ex) => ({
@@ -4253,18 +4309,39 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
             </select>
           </div>
         )}
-        <SectionLabel icon={Plus}>Exercices</SectionLabel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <SectionLabel icon={Plus}>Exercices</SectionLabel>
+          {exercices.length > 0 && (
+            <button
+              onClick={() => { if (confirm("Vider tous les exercices de cette séance ?")) setExercices([]); }}
+              style={{ background: "transparent", border: "none", color: C.red, fontSize: 11.5, fontWeight: 700, marginBottom: 10 }}
+            >
+              Tout vider
+            </button>
+          )}
+        </div>
         {exercices.map((ex, i) => (
-          <div key={i} draggable onDragStart={() => setDraggedIdx(i)} onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }} onDrop={() => handleDrop(i)} onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }} style={{ background: ex.groupeSuperset ? C.blueSoft : C.surface, border: dragOverIdx === i && draggedIdx !== i ? `2px dashed ${C.blue}` : `1.5px solid ${ex.groupeSuperset ? C.blue : C.blueBorder}`, borderRadius: 10, padding: "8px 10px", marginBottom: 8, opacity: draggedIdx === i ? 0.4 : 1, cursor: "grab" }}>
+          <div
+            key={i}
+            ref={(el) => { exCardRefs.current[i] = el; }}
+            style={{ background: ex.groupeSuperset ? C.blueSoft : C.surface, border: dragOverIdx === i && draggedIdx !== i ? `2px dashed ${C.blue}` : `1.5px solid ${ex.groupeSuperset ? C.blue : C.blueBorder}`, borderRadius: 10, padding: "8px 10px", marginBottom: 8, opacity: draggedIdx === i ? 0.4 : 1 }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, cursor: "pointer" }} onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                <div
+                  onMouseDown={() => setDraggedIdx(i)}
+                  onTouchStart={() => setDraggedIdx(i)}
+                  style={{ color: C.textMuted, fontSize: 16, lineHeight: 1, padding: "4px 2px", cursor: "grab", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+                >
+                  ⠿
+                </div>
                 <input type="checkbox" checked={selectedForSuperset.includes(i)} onChange={(e) => { e.stopPropagation(); toggleSelectForSuperset(i); }} onClick={(e) => e.stopPropagation()} />
-                <div style={{ fontSize: 13, color: C.text }}>
+                <div style={{ fontSize: 13, color: C.text, cursor: "pointer" }} onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}>
                   {ex.groupeSuperset && <span style={{ color: C.blue, fontWeight: 700 }}>[Superset] </span>}
                   {ex.nom} — {ex.sets} séries · {ex.rest}s
                 </div>
               </div>            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <ChevronDown size={16} color={C.textMuted} style={{ transform: expandedIdx === i ? "rotate(180deg)" : "none" }} />
+                <ChevronDown size={16} color={C.textMuted} style={{ transform: expandedIdx === i ? "rotate(180deg)" : "none" }} onClick={() => setExpandedIdx(expandedIdx === i ? null : i)} />
                 <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
               </div>
             </div>
@@ -5722,7 +5799,7 @@ function ResetPasswordCard({ client, fireToast }) {
   );
 }
 
-function ClientDetailView({ client, onBack, onLogout, fireToast }) {
+function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [tab, setTab] = useState("programme");
   const [loading, setLoading] = useState(true);
   const [seances, setSeances] = useState([]);
@@ -5740,6 +5817,59 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
   const [photosHistoryCoach, setPhotosHistoryCoach] = useState([]);
   const [mensurationsCoach, setMensurationsCoach] = useState([]);
   const [notifActivees, setNotifActivees] = useState(null); // null = en cours de vérification
+  const [notePrivee, setNotePrivee] = useState(client.note_privee || "");
+  const [savingNote, setSavingNote] = useState(false);
+  const [masque, setMasque] = useState(client.masque || false);
+  const [deleting, setDeleting] = useState(false);
+
+  const enregistrerNote = async () => {
+    setSavingNote(true);
+    try {
+      const { error } = await supabase.from("profils").update({ note_privee: notePrivee }).eq("id", client.id);
+      if (error) throw error;
+      fireToast("Note enregistrée", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement note");
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const toggleMasque = async () => {
+    const nouveauMasque = !masque;
+    setMasque(nouveauMasque);
+    try {
+      const { error } = await supabase.from("profils").update({ masque: nouveauMasque }).eq("id", client.id);
+      if (error) throw error;
+      fireToast(nouveauMasque ? "Client masqué de la liste principale" : "Client de nouveau visible", "green");
+    } catch (err) {
+      console.error(err);
+      setMasque(!nouveauMasque);
+      fireToast("Erreur");
+    }
+  };
+
+  const supprimerClient = async () => {
+    if (!confirm(`Supprimer définitivement le profil de ${client.prenom} ${client.nom} ? Toutes ses données (séances, nutrition, bilans, photos) seront perdues. Cette action est irréversible.`)) return;
+    if (!confirm("Vraiment sûr(e) ? Cette action ne peut pas être annulée.")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/delete-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profilId: client.id, authUserId: client.auth_user_id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur suppression");
+      fireToast("Client supprimé", "green");
+      onDeleted?.();
+    } catch (err) {
+      console.error(err);
+      fireToast(err.message || "Erreur suppression client");
+      setDeleting(false);
+    }
+  };
   const [showPlanEditor, setShowPlanEditor] = useState(false);
   const [planAlimentaire, setPlanAlimentaire] = useState(() => {
     const kcal = client.objectif_calories || 2400;
@@ -6159,6 +6289,48 @@ function ClientDetailView({ client, onBack, onLogout, fireToast }) {
               )}
             </Card>
             <ResetPasswordCard client={client} fireToast={fireToast} />
+
+            <Card>
+              <SectionLabel icon={ClipboardList}>Note privée</SectionLabel>
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
+                Visible uniquement par toi — le client n'y a jamais accès.
+              </div>
+              <textarea
+                value={notePrivee}
+                onChange={(e) => setNotePrivee(e.target.value)}
+                placeholder="Ex : sensible au genou droit, préfère s'entraîner le matin..."
+                rows={4}
+                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, resize: "none", marginBottom: 10 }}
+              />
+              <button onClick={enregistrerNote} disabled={savingNote} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "11px", fontWeight: 800, fontSize: 13, opacity: savingNote ? 0.6 : 1 }}>
+                {savingNote ? "Enregistrement..." : "Enregistrer la note"}
+              </button>
+            </Card>
+
+            <Card>
+              <SectionLabel icon={Folder}>Visibilité</SectionLabel>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 12.5, color: C.textMuted, maxWidth: 240 }}>
+                  {masque ? "Ce client est masqué de ta liste principale (visible dans \"Archivés\")." : "Ce client apparaît dans ta liste principale de clients."}
+                </div>
+                <button
+                  onClick={toggleMasque}
+                  style={{ background: masque ? C.amber : C.surface, border: `1px solid ${masque ? C.amber : C.cardBorderLight}`, color: masque ? "#3D2600" : C.blue, borderRadius: 10, padding: "9px 12px", fontWeight: 700, fontSize: 12, flexShrink: 0 }}
+                >
+                  {masque ? "Réafficher" : "Masquer"}
+                </button>
+              </div>
+            </Card>
+
+            <Card style={{ border: `1px solid ${C.red}` }}>
+              <SectionLabel icon={Trash2}>Zone dangereuse</SectionLabel>
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
+                Supprime définitivement ce client et toutes ses données (séances, nutrition, bilans, photos). À utiliser quand le suivi est terminé.
+              </div>
+              <button onClick={supprimerClient} disabled={deleting} style={{ width: "100%", background: C.red, border: "none", color: "#FFFFFF", borderRadius: 12, padding: "11px", fontWeight: 800, fontSize: 13, opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? "Suppression..." : "Supprimer ce client"}
+              </button>
+            </Card>
           </div>
         )}
       </div>
@@ -6221,6 +6393,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
   const [tachesEnAttenteCount, setTachesEnAttenteCount] = useState(0);
   const [tachesApercu, setTachesApercu] = useState([]);
   const [dernierSeanceParClient, setDernierSeanceParClient] = useState({});
+  const [premiereSeanceParClient, setPremiereSeanceParClient] = useState({});
   const [tendancePoidsParClient, setTendancePoidsParClient] = useState({});
 
   useEffect(() => {
@@ -6261,10 +6434,13 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         setTachesApercu(tachesRes.data || []);
 
         const dernierSeance = {};
+        const premiereSeance = {};
         for (const s of allSeancesRes.data || []) {
           if (!dernierSeance[s.profil_id]) dernierSeance[s.profil_id] = s.date;
+          if (!premiereSeance[s.profil_id] || s.date < premiereSeance[s.profil_id]) premiereSeance[s.profil_id] = s.date;
         }
         setDernierSeanceParClient(dernierSeance);
+        setPremiereSeanceParClient(premiereSeance);
 
         const poidsParClient = {};
         for (const p of poidsRes.data || []) {
@@ -6306,6 +6482,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         setSeancesEnAttente([]);
         setTachesApercu([]);
         setDernierSeanceParClient({});
+        setPremiereSeanceParClient({});
         setTendancePoidsParClient({});
       }
     } catch (err) {
@@ -6363,11 +6540,15 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
   }, [clients]);
 
   const clientsFiltres = useMemo(() => {
-    return clients.filter((c) => {
-      const matchSearch = `${c.prenom} ${c.nom}`.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchGroupe = selectedGroupe === "Tous" || (selectedGroupe === "Sans dossier" ? !c.groupe : c.groupe === selectedGroupe);
-      return matchSearch && matchGroupe;
-    });
+    return clients
+      .filter((c) => {
+        const matchSearch = `${c.prenom} ${c.nom}`.toLowerCase().includes(searchQuery.toLowerCase());
+        if (selectedGroupe === "Archivés") return matchSearch && c.masque;
+        if (c.masque) return false; // les clients masqués n'apparaissent que dans "Archivés"
+        const matchGroupe = selectedGroupe === "Tous" || (selectedGroupe === "Sans dossier" ? !c.groupe : c.groupe === selectedGroupe);
+        return matchSearch && matchGroupe;
+      })
+      .sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, "fr"));
   }, [clients, searchQuery, selectedGroupe]);
 
   if (selectedClient) {
@@ -6377,6 +6558,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         onBack={() => setSelectedClient(null)}
         onLogout={onLogout}
         fireToast={fireToast}
+        onDeleted={() => { setSelectedClient(null); loadClients(); }}
       />
     );
   }
@@ -6539,6 +6721,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                 onClose={() => setShowAddForm(false)}
                 onCreated={loadClients}
                 fireToast={fireToast}
+                groupesDisponibles={groupesDisponibles}
               />
             )}
 
@@ -6553,15 +6736,13 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
               />
             </div>
 
-            {groupesDisponibles.length > 0 && (
-              <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 14, paddingBottom: 2 }}>
-                {["Tous", ...groupesDisponibles, "Sans dossier"].map((g) => (
-                  <PillButton key={g} active={selectedGroupe === g} onClick={() => setSelectedGroupe(g)} style={{ whiteSpace: "nowrap" }}>
-                    {g}
-                  </PillButton>
-                ))}
-              </div>
-            )}
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 14, paddingBottom: 2 }}>
+              {["Tous", ...groupesDisponibles, "Sans dossier", "Archivés"].map((g) => (
+                <PillButton key={g} active={selectedGroupe === g} onClick={() => setSelectedGroupe(g)} onBg style={{ whiteSpace: "nowrap" }}>
+                  {g}
+                </PillButton>
+              ))}
+            </div>
 
             {clientsFiltres.length === 0 ? (
               <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client trouvé</div></Card>
@@ -6575,7 +6756,14 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                           {!c.photo_url && <User size={18} color={C.blue} />}
                         </div>
                         <div>
-                          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{c.prenom} {c.nom}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{c.prenom} {c.nom}</div>
+                            {premiereSeanceParClient[c.id] && (
+                              <span style={{ fontSize: 10, color: C.blue, background: C.blueSoft, border: `1px solid ${C.blueBorder}`, borderRadius: 999, padding: "2px 7px", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                {formatDureeSuivi(premiereSeanceParClient[c.id])}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{c.objectif_principal}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
                             {(() => {

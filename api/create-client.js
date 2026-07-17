@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Méthode non autorisée' });
   }
 
-  const { prenom, nom, email, password, coachId } = req.body;
+  const { prenom, nom, email, password, coachId, groupe } = req.body;
 
   if (!prenom || !nom || !email || !password || !coachId) {
     return res.status(400).json({ error: 'Champs manquants' });
@@ -29,12 +29,13 @@ export default async function handler(req, res) {
     const authUserId = authData.user.id;
 
     const { data: nouveauProfil, error: profilErr } = await supabaseAdmin
-      .from('profils')
+   .from('profils')
       .insert({
         prenom, nom, email,
         auth_user_id: authUserId,
         role: 'client',
         coach_id: coachId,
+        groupe: groupe || null,
       })
       .select('*')
       .single();
