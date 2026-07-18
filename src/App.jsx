@@ -4161,8 +4161,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
     try {
       let videoUrl = null;
       if (newExVideoFile) {
-        if (newExVideoFile.size > 50 * 1024 * 1024) {
-          fireToast("Vidéo trop lourde (max 50 Mo) — essaie une vidéo plus courte ou compressée");
+        if (newExVideoFile.size > 150 * 1024 * 1024) {
+          fireToast("Vidéo trop lourde (max 150 Mo) — essaie une vidéo plus courte ou compressée");
           return;
         }
         const nomPropre = newExVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
@@ -4327,12 +4327,36 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
             </button>
           )}
         </div>
-        {exercices.map((ex, i) => (
+        {exercices.map((ex, i) => {
+          const estDebutSuperset = ex.groupeSuperset && exercices[i - 1]?.groupeSuperset !== ex.groupeSuperset;
+          const estFinSuperset = ex.groupeSuperset && exercices[i + 1]?.groupeSuperset !== ex.groupeSuperset;
+          return (
           <div
             key={i}
             ref={(el) => { exCardRefs.current[i] = el; }}
-            style={{ background: ex.groupeSuperset ? C.blueSoft : C.surface, border: dragOverIdx === i && draggedIdx !== i ? `2px dashed ${C.blue}` : `1.5px solid ${ex.groupeSuperset ? C.blue : C.blueBorder}`, borderRadius: 10, padding: "8px 10px", marginBottom: 8, opacity: draggedIdx === i ? 0.4 : 1 }}
+            style={{
+              background: ex.groupeSuperset ? C.blueSoft : C.surface,
+              border: dragOverIdx === i && draggedIdx !== i
+                ? `2px dashed ${C.blue}`
+                : ex.groupeSuperset
+                  ? `3px solid ${C.blue}`
+                  : `1.5px solid ${C.blueBorder}`,
+              borderTopLeftRadius: !ex.groupeSuperset || estDebutSuperset ? 10 : 0,
+              borderTopRightRadius: !ex.groupeSuperset || estDebutSuperset ? 10 : 0,
+              borderBottomLeftRadius: !ex.groupeSuperset || estFinSuperset ? 10 : 0,
+              borderBottomRightRadius: !ex.groupeSuperset || estFinSuperset ? 10 : 0,
+              borderTop: ex.groupeSuperset && !estDebutSuperset ? "none" : undefined,
+              padding: "8px 10px",
+              marginBottom: estFinSuperset || !ex.groupeSuperset ? 8 : 0,
+              opacity: draggedIdx === i ? 0.4 : 1,
+            }}
           >
+            {estDebutSuperset && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+                <Zap size={13} color={C.blue} />
+                <span style={{ fontSize: 10.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset</span>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
                 <div
@@ -4391,7 +4415,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
         {selectedForSuperset.length >= 2 && (       <button onClick={groupSuperset} style={{ width: "100%", background: C.blueSoft, border: `1px solid ${C.blue}`, color: C.blue, borderRadius: 10, padding: "8px", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
             Grouper en superset ({selectedForSuperset.length} exercices)
           </button>
@@ -5330,8 +5355,8 @@ function VODView({ coachId, fireToast }) {
 
   const upload = async (file) => {
     if (!nomExercice.trim()) { fireToast("Donne un nom à l'exercice avant de l'envoyer"); return; }
-    if (file && file.size > 50 * 1024 * 1024) {
-      fireToast("Vidéo trop lourde (max 50 Mo) — essaie une vidéo plus courte ou compressée");
+    if (file && file.size > 150 * 1024 * 1024) {
+      fireToast("Vidéo trop lourde (max 150 Mo) — essaie une vidéo plus courte ou compressée");
       return;
     }
     setUploading(true);
@@ -5376,8 +5401,8 @@ function VODView({ coachId, fireToast }) {
 
   const replaceVideo = async (id, file) => {
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      fireToast("Vidéo trop lourde (max 50 Mo) — essaie une vidéo plus courte ou compressée");
+    if (file.size > 150 * 1024 * 1024) {
+      fireToast("Vidéo trop lourde (max 150 Mo) — essaie une vidéo plus courte ou compressée");
       return;
     }
     try {
@@ -6065,23 +6090,58 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             <button onClick={() => { console.log("CLIC DETECTE, showSeanceForm avant:", showSeanceForm); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Plus size={16} /> Créer une séance
             </button>
-            {customProgrammes.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <SectionLabel icon={Dumbbell} onBg>Séances personnalisées</SectionLabel>
-                {customProgrammes.map((p) => (
-                  <Card key={p.id} onClick={() => setSelectedProgramme(p)} style={{ cursor: "pointer" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            {customProgrammes.length > 0 && (() => {
+              const JOURS_ORDRE = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+              const avecJour = customProgrammes.filter((p) => p.jour_fixe);
+              const sansJour = customProgrammes.filter((p) => !p.jour_fixe);
+              const renderProgCard = (p) => (
+                <Card key={p.id} onClick={() => setSelectedProgramme(p)} style={{ cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      {p.jour_fixe && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{p.jour_fixe}</div>
+                      )}
                       <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{p.nom}</div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
-                        <button onClick={async (e) => { e.stopPropagation(); if (!confirm("Supprimer cette séance ?")) return; await supabase.from("programmes").delete().eq("id", p.id); setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
-                      </div>
                     </div>
-                    <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>{p.muscle}</div>
-                  </Card>
-                ))}
-              </div>
-            )}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+                      <button onClick={async (e) => { e.stopPropagation(); if (!confirm("Supprimer cette séance ?")) return; await supabase.from("programmes").delete().eq("id", p.id); setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>{p.muscle}</div>
+                  <div style={{ fontSize: 11, color: C.textDim }}>
+                    {(p.programme_exercices || []).length} exercices · {(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
+                  </div>
+                </Card>
+              );
+              return (
+                <>
+                  {avecJour.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 6 }}>
+                      <SectionLabel icon={Calendar} onBg>Semaine type</SectionLabel>
+                      {JOURS_ORDRE.map((jour) => {
+                        const p = avecJour.find((prog) => prog.jour_fixe === jour);
+                        return (
+                          <Card key={jour} onClick={() => p && setSelectedProgramme(p)} style={{ cursor: p ? "pointer" : "default" }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{jour}</div>
+                            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: p ? C.text : C.textDim }}>{p ? p.nom : "Repos"}</div>
+                            {p && (
+                              <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                                {(p.programme_exercices || []).length} exercices · {(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <SectionLabel icon={Dumbbell} onBg>{avecJour.length > 0 ? "Autres séances (cycle)" : "Séances personnalisées"}</SectionLabel>
+                    {sansJour.map(renderProgCard)}
+                  </div>
+                </>
+              );
+            })()}
             {seances.length === 0 ? (
               <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucune séance enregistrée</div></Card>
             ) : seances.map((s, sIdx) => (
