@@ -4161,7 +4161,12 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
     try {
       let videoUrl = null;
       if (newExVideoFile) {
-        const fileName = `${Date.now()}_${newExVideoFile.name}`;
+        if (newExVideoFile.size > 50 * 1024 * 1024) {
+          fireToast("Vidéo trop lourde (max 50 Mo) — essaie une vidéo plus courte ou compressée");
+          return;
+        }
+        const nomPropre = newExVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+        const fileName = `${Date.now()}_${nomPropre}`;
         const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, newExVideoFile);
         if (uploadErr) throw uploadErr;
         const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
@@ -4181,7 +4186,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       fireToast("Exercice ajouté à la bibliothèque", "green");
     } catch (err) {
       console.error(err);
-      fireToast("Erreur création exercice");
+      fireToast("Erreur : " + (err.message || "création exercice"));
     }
   };
 
@@ -4208,6 +4213,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   };
 
   const removeExercice = (idx) => {
+    const nomEx = exercices[idx]?.nom || "cet exercice";
+    if (!confirm(`Supprimer "${nomEx}" de la séance ?`)) return;
     setExercices((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -5323,11 +5330,16 @@ function VODView({ coachId, fireToast }) {
 
   const upload = async (file) => {
     if (!nomExercice.trim()) { fireToast("Donne un nom à l'exercice avant de l'envoyer"); return; }
+    if (file && file.size > 50 * 1024 * 1024) {
+      fireToast("Vidéo trop lourde (max 50 Mo) — essaie une vidéo plus courte ou compressée");
+      return;
+    }
     setUploading(true);
     try {
       let videoUrl = null;
       if (file) {
-        const fileName = `bibliotheque/${coachId}/${Date.now()}_${file.name}`;
+        const nomPropre = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+        const fileName = `bibliotheque/${coachId}/${Date.now()}_${nomPropre}`;
         const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, file);
         if (uploadErr) throw uploadErr;
         const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
@@ -5340,7 +5352,7 @@ function VODView({ coachId, fireToast }) {
       load();
     } catch (err) {
       console.error(err);
-      fireToast("Erreur création exercice");
+      fireToast("Erreur : " + (err.message || "création exercice"));
     } finally {
       setUploading(false);
     }
@@ -5364,8 +5376,13 @@ function VODView({ coachId, fireToast }) {
 
   const replaceVideo = async (id, file) => {
     if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      fireToast("Vidéo trop lourde (max 50 Mo) — essaie une vidéo plus courte ou compressée");
+      return;
+    }
     try {
-      const fileName = `bibliotheque/${coachId}/${Date.now()}_${file.name}`;
+      const nomPropre = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+      const fileName = `bibliotheque/${coachId}/${Date.now()}_${nomPropre}`;
       const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, file);
       if (uploadErr) throw uploadErr;
       const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
@@ -5375,7 +5392,7 @@ function VODView({ coachId, fireToast }) {
       fireToast("Vidéo mise à jour", "green");
     } catch (err) {
       console.error(err);
-      fireToast("Erreur envoi vidéo");
+      fireToast("Erreur : " + (err.message || "envoi vidéo"));
     }
   };
 
