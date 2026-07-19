@@ -210,6 +210,22 @@ function useToast() {
 }
 
 // Formate le temps écoulé depuis la première séance d'un client, pour son badge de suivi
+// Formate une date de connexion en temps relatif ("à l'instant", "il y a 2h", "il y a 3 j")
+function formatDerniereConnexion(dateIso) {
+  const diffMs = Date.now() - new Date(dateIso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const heures = Math.floor(minutes / 60);
+  if (heures < 24) return `il y a ${heures}h`;
+  const jours = Math.floor(heures / 24);
+  if (jours === 1) return "hier";
+  if (jours < 7) return `il y a ${jours} j`;
+  const semaines = Math.floor(jours / 7);
+  if (semaines < 5) return `il y a ${semaines} sem.`;
+  return `il y a ${Math.floor(jours / 30)} mois`;
+}
+
 function formatDureeSuivi(dateDebutIso) {
   const jours = Math.floor((new Date(todayIso()) - new Date(dateDebutIso)) / 86400000);
   if (jours < 1) return "Jour 1";
@@ -5902,6 +5918,12 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [mensurationsCoach, setMensurationsCoach] = useState([]);
   const [notifActivees, setNotifActivees] = useState(null); // null = en cours de vérification
   const [notePrivee, setNotePrivee] = useState(client.note_privee || "");
+  const [connexionsRecentes, setConnexionsRecentes] = useState([]);
+
+  useEffect(() => {
+    supabase.from("connexions_log").select("connected_at").eq("profil_id", client.id).order("connected_at", { ascending: false }).limit(15)
+      .then(({ data }) => setConnexionsRecentes(data || []));
+  }, [client.id]);
   const [savingNote, setSavingNote] = useState(false);
   const [masque, setMasque] = useState(client.masque || false);
   const [deleting, setDeleting] = useState(false);
@@ -6410,6 +6432,22 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             <ResetPasswordCard client={client} fireToast={fireToast} />
 
             <Card>
+              <SectionLabel icon={Clock}>Connexions récentes</SectionLabel>
+              {connexionsRecentes.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: C.textMuted }}>Aucune connexion enregistrée pour le moment.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {connexionsRecentes.map((c, i) => (
+                    <div key={i} style={{ fontSize: 12.5, color: C.text, display: "flex", justifyContent: "space-between" }}>
+                      <span>{i === 0 ? "Dernière connexion" : "Connexion"}</span>
+                      <span style={{ color: C.textMuted }}>{new Date(c.connected_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card>
               <SectionLabel icon={ClipboardList}>Note privée</SectionLabel>
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
                 Visible uniquement par toi — le client n'y a jamais accès.
@@ -6513,6 +6551,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
   const [tachesApercu, setTachesApercu] = useState([]);
   const [dernierSeanceParClient, setDernierSeanceParClient] = useState({});
   const [premiereSeanceParClient, setPremiereSeanceParClient] = useState({});
+  const [derniereConnexionParClient, setDerniereConnexionParClient] = useState({});
   const [tendancePoidsParClient, setTendancePoidsParClient] = useState({});
 
   useEffect(() => {
@@ -6540,7 +6579,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
       if (clientsData.length > 0) {
         const ids = clientsData.map((c) => c.id);
         const today = todayIso();
-        const [seancesRes, bilansRes, programmesRes, seancesAujourdhuiRes, allSeancesRes, poidsRes, tachesRes] = await Promise.all([
+        const [seancesRes, bilansRes, programmesRes, seancesAujourdhuiRes, allSeancesRes, poidsRes, tachesRes, connexionsRes] = await Promise.all([
           supabase.from("seances").select("id, profil_id, nom_programme, date").in("profil_id", ids).order("date", { ascending: false }).limit(8),
           supabase.from("bilans_semaine").select("id, profil_id, date").in("profil_id", ids).limit(150),
           supabase.from("programmes").select("id, profil_id, nom").in("profil_id", ids).order("created_at", { ascending: true }),
@@ -6548,9 +6587,16 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           supabase.from("seances").select("profil_id, date").in("profil_id", ids).order("date", { ascending: false }).limit(500),
           supabase.from("poids_historique").select("profil_id, poids, date").in("profil_id", ids).order("date", { ascending: false }).limit(300),
           supabase.from("taches").select("*").eq("coach_id", coachProfil.id).eq("statut", "a_faire").order("date_echeance", { ascending: true }).limit(5),
+          supabase.from("connexions_log").select("profil_id, connected_at").in("profil_id", ids).order("connected_at", { ascending: false }).limit(500),
         ]);
         setRecentSeances(seancesRes.data || []);
         setTachesApercu(tachesRes.data || []);
+
+        const derniereConnexion = {};
+        for (const c of connexionsRes.data || []) {
+          if (!derniereConnexion[c.profil_id]) derniereConnexion[c.profil_id] = c.connected_at;
+        }
+        setDerniereConnexionParClient(derniereConnexion);
 
         const dernierSeance = {};
         const premiereSeance = {};
@@ -6907,6 +6953,11 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                                 </span>
                               );
                             })()}
+                            {derniereConnexionParClient[c.id] && (
+                              <span style={{ fontSize: 10.5, color: C.textDim, fontWeight: 600 }}>
+                                · Connecté {formatDerniereConnexion(derniereConnexionParClient[c.id])}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -6955,6 +7006,15 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const [user, setUser] = useState(() => profilToUser(profilRow));
   const [stats, setStats] = useState({ seancesRealisees: 0, pasJour: 6420, pasMoyenneSemaine: 8150 });
   const [customProgrammes, setCustomProgrammes] = useState([]);
+
+  // Enregistre une connexion (pour que le coach voie la dernière activité de ses clients)
+  useEffect(() => {
+    if (!profilId) return;
+    supabase.from("connexions_log").insert({ profil_id: profilId }).then(({ error }) => {
+      if (error) console.error("Erreur log connexion:", error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilId]);
 
   useEffect(() => {
     if (!profilId) return;
