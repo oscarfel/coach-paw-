@@ -2195,6 +2195,70 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
   const [showScanner, setShowScanner] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showSaveRecette, setShowSaveRecette] = useState(false);
+  const [nomRecette, setNomRecette] = useState("");
+  const [savingRecette, setSavingRecette] = useState(false);
+  const [showUseRecette, setShowUseRecette] = useState(false);
+  const [mesRecettes, setMesRecettes] = useState([]);
+  const [loadingRecettes, setLoadingRecettes] = useState(false);
+
+  const enregistrerCommeRecette = async () => {
+    if (!nomRecette.trim() || !profilId) return;
+    setSavingRecette(true);
+    try {
+      const { error } = await supabase.from("recettes_personnelles").insert({
+        profil_id: profilId,
+        nom: nomRecette,
+        type_repas: meal.key,
+        items: items.map((it) => ({
+          nom: it.nom, grams: it.grams, kcal: it.kcal, prot: it.prot, gluc: it.gluc, lip: it.lip,
+          fibres: it.fibres || 0, sucres: it.sucres || 0, sodium: it.sodium || 0,
+          potassium: it.potassium || 0, calcium: it.calcium || 0, fer: it.fer || 0,
+          magnesium: it.magnesium || 0, vitamineD: it.vitamineD || 0,
+        })),
+      });
+      if (error) throw error;
+      fireToast("Recette enregistrée", "green");
+      setShowSaveRecette(false);
+      setNomRecette("");
+    } catch (err) {
+      console.error("Erreur enregistrement recette:", err);
+      fireToast("Erreur lors de l'enregistrement");
+    } finally {
+      setSavingRecette(false);
+    }
+  };
+
+  const ouvrirMesRecettes = async () => {
+    setShowUseRecette(true);
+    setLoadingRecettes(true);
+    try {
+      const { data, error } = await supabase
+        .from("recettes_personnelles")
+        .select("*")
+        .eq("profil_id", profilId)
+        .eq("type_repas", meal.key)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setMesRecettes(data || []);
+    } catch (err) {
+      console.error("Erreur chargement recettes:", err);
+    } finally {
+      setLoadingRecettes(false);
+    }
+  };
+
+  const utiliserRecette = (recette) => {
+    for (const it of recette.items) onAdd(meal.key, it);
+    fireToast(`"${recette.nom}" ajoutée`, "green");
+    setShowUseRecette(false);
+  };
+
+  const supprimerRecette = async (id) => {
+    if (!confirm("Supprimer cette recette ?")) return;
+    await supabase.from("recettes_personnelles").delete().eq("id", id);
+    setMesRecettes((prev) => prev.filter((r) => r.id !== id));
+  };
   const [copiantHier, setCopiantHier] = useState(false);
   const [showCopieModal, setShowCopieModal] = useState(false);
   const [dateACopier, setDateACopier] = useState(() => {
@@ -2423,7 +2487,7 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
   };
 
   return (
-    <Card style={{ padding: 0, overflow: "hidden" }}>
+    <Card style={{ padding: 0 }}>
       <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14 }}>
         <button onClick={() => setOpen(!open)} style={{ flex: 1, background: "transparent", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
           <div>
@@ -2439,12 +2503,25 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
             {showMenu && (
               <>
                 <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowMenu(false)} />
-                <div style={{ position: "absolute", top: 32, right: 0, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: 6, minWidth: 220, zIndex: 50, boxShadow: "0 8px 24px rgba(10,30,70,0.35)" }}>
+                <div style={{ position: "absolute", top: 32, right: 0, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: 6, minWidth: 240, zIndex: 50, boxShadow: "0 8px 24px rgba(10,30,70,0.35)" }}>
                   <button
                     onClick={() => { setShowMenu(false); setShowCopieModal(true); }}
                     style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", color: C.text, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: "left" }}
                   >
                     <Download size={15} color={C.blue} /> Copier un repas d'un autre jour
+                  </button>
+                  <button
+                    onClick={() => { setShowMenu(false); setShowSaveRecette(true); }}
+                    disabled={items.length === 0}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", color: items.length === 0 ? C.textDim : C.text, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: "left" }}
+                  >
+                    <ClipboardList size={15} color={C.blue} /> Enregistrer comme recette
+                  </button>
+                  <button
+                    onClick={() => { setShowMenu(false); ouvrirMesRecettes(); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", color: C.text, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: "left" }}
+                  >
+                    <Plus size={15} color={C.blue} /> Ajouter une recette
                   </button>
                 </div>
               </>
@@ -2617,6 +2694,62 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
             >
               {copiantHier ? "Copie en cours..." : `Copier ${meal.nom} du ${new Date(dateACopier).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
             </button>
+          </Card>
+        </div>
+      )}
+      {showSaveRecette && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowSaveRecette(false)}>
+          <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <SectionLabel icon={ClipboardList}>Enregistrer comme recette</SectionLabel>
+              <button onClick={() => setShowSaveRecette(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 12 }}>
+              Les {items.length} aliment(s) de ce repas seront enregistrés sous ce nom, pour les réutiliser en un clic plus tard.
+            </div>
+            <input
+              type="text"
+              value={nomRecette}
+              onChange={(e) => setNomRecette(e.target.value)}
+              placeholder="ex : Mon petit-déj protéiné"
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 14 }}
+            />
+            <button
+              onClick={enregistrerCommeRecette}
+              disabled={savingRecette || !nomRecette.trim()}
+              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
+            >
+              {savingRecette ? "Enregistrement..." : "Enregistrer"}
+            </button>
+          </Card>
+        </div>
+      )}
+      {showUseRecette && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowUseRecette(false)}>
+          <Card style={{ width: "100%", maxWidth: 380, maxHeight: "75vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <SectionLabel icon={ClipboardList}>Mes recettes · {meal.nom}</SectionLabel>
+              <button onClick={() => setShowUseRecette(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            {loadingRecettes ? (
+              <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
+            ) : mesRecettes.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: 10 }}>
+                Aucune recette enregistrée pour ce repas. Utilise "Enregistrer comme recette" une fois que tu as ajouté des aliments.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {mesRecettes.map((r) => (
+                  <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <button onClick={() => utiliserRecette(r)} style={{ flex: 1, background: "transparent", border: "none", textAlign: "left" }}>
+                      <div style={{ fontSize: 13.5, color: C.text, fontWeight: 700 }}>{r.nom}</div>
+                      <div style={{ fontSize: 11, color: C.textDim }}>{r.items.length} aliment(s) · {r.items.reduce((s, it) => s + it.kcal, 0)} kcal</div>
+                    </button>
+                    <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
       )}
