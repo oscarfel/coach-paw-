@@ -1262,7 +1262,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
 /* ------------------------------------------------------------------ */
 /*  ENTRAINEMENT — SESSION EN COURS                                    */
 /* ------------------------------------------------------------------ */
-function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
+function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const [open, setOpen] = useState(false);
   const [poids, setPoids] = useState("");
   const [reps, setReps] = useState("");
@@ -1270,7 +1270,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
   const [rpe, setRpe] = useState("8");
   const fileRef = useRef(null);
   const hasVideo = !!log.video;
-  const historique = history[ex.nom]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
+  const historique = history[`${programmeNom}::${ex.nom}`]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
   const currentSetIndex = log.sets.length; // 0-indexée : la prochaine série à faire
   const rappelSerieActuelle = historique?.sets?.[currentSetIndex];
   const derniereSerieGlobale = historique?.sets?.[historique.sets.length - 1];
@@ -1694,9 +1694,9 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
 
   const nextInfo = estDerniereSerieDeLExercice
     ? (prochainExercice
-        ? { label: "Prochain exercice", nom: prochainExercice.nom, last: history[prochainExercice.nom]?.sets?.[0] }
+        ? { label: "Prochain exercice", nom: prochainExercice.nom, last: history[`${programme.nom}::${prochainExercice.nom}`]?.sets?.[0] }
         : null)
-    : { label: `Prochaine série · ${rest.setNumber + 1}/${ex.sets}`, nom: ex.nom, last: history[ex.nom]?.sets?.[rest.setNumber] };
+    : { label: `Prochaine série · ${rest.setNumber + 1}/${ex.sets}`, nom: ex.nom, last: history[`${programme.nom}::${ex.nom}`]?.sets?.[rest.setNumber] };
 
   const [poids, setPoids] = useState(rest.poids != null ? String(rest.poids) : "");
   const [reps, setReps] = useState(rest.reps != null ? String(rest.reps) : "");
@@ -1948,7 +1948,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       const log = logs[ex.id];
       if (!log || log.sets.length === 0) continue;
       const maxAujourdhui = Math.max(...log.sets.map((s) => Number(s.poids) || 0));
-      const histo = history[ex.nom];
+      const histo = history[`${programme.nom}::${ex.nom}`];
       if (histo && histo.sets && histo.sets.length > 0) {
         const maxHistorique = Math.max(...histo.sets.map((s) => Number(s.poids) || 0));
         if (maxAujourdhui > maxHistorique) recordsBattus++;
@@ -2059,6 +2059,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
             log={logs[ex.id]}
             onValidate={validateSet}
             onVideo={attachVideo}
+            programmeNom={programme.nom}
           />
         ))}
       </div>
@@ -7398,28 +7399,30 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           if (!active) return;
 
           if (seriesData) {
+            const programmeBySeance = Object.fromEntries(seances.map((s) => [s.id, s.nom_programme || ""]));
+            const cle = (row) => `${programmeBySeance[row.seance_id]}::${row.exercice_nom}`;
             const dernieresSeanceDateParEx = {};
             for (const row of seriesData) {
-              const exNom = row.exercice_nom;
+              const k = cle(row);
               const seanceDate = dateBySeance[row.seance_id];
-              if (!dernieresSeanceDateParEx[exNom] || seanceDate > dernieresSeanceDateParEx[exNom]) {
-                dernieresSeanceDateParEx[exNom] = seanceDate;
+              if (!dernieresSeanceDateParEx[k] || seanceDate > dernieresSeanceDateParEx[k]) {
+                dernieresSeanceDateParEx[k] = seanceDate;
               }
             }
             const history = {};
             for (const row of seriesData) {
-              const exNom = row.exercice_nom;
+              const k = cle(row);
               const seanceDate = dateBySeance[row.seance_id];
-              if (seanceDate !== dernieresSeanceDateParEx[exNom]) continue;
-              if (!history[exNom]) history[exNom] = { date: formatDateDisplay(seanceDate), sets: [] };
-              history[exNom].sets.push({
+              if (seanceDate !== dernieresSeanceDateParEx[k]) continue;
+              if (!history[k]) history[k] = { date: formatDateDisplay(seanceDate), sets: [] };
+              history[k].sets.push({
                 poids: Number(row.poids),
                 reps: Number(row.reps),
-                numeroSerie: row.numero_serie || (history[exNom].sets.length + 1),
+                numeroSerie: row.numero_serie || (history[k].sets.length + 1),
               });
             }
-            for (const exNom of Object.keys(history)) {
-              history[exNom].sets.sort((a, b) => a.numeroSerie - b.numeroSerie);
+            for (const k of Object.keys(history)) {
+              history[k].sets.sort((a, b) => a.numeroSerie - b.numeroSerie);
             }
             setExerciseHistory(history);
           }
