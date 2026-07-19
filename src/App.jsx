@@ -1312,12 +1312,14 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const submit = () => {
     if (ex.type === "cardio") {
       onValidate(ex, { poids: 0, reps: ex.dureeMinutes || 0, tempo: "", rpe: rpe || "8" });
+      setOpen(false);
       return;
     }
     if (!poids || !reps) return;
     onValidate(ex, { poids: parseFloat(poids), reps: parseInt(reps), tempo, rpe });
     setPoids("");
     setReps("");
+    setOpen(false);
   };
 
   return (
@@ -1916,6 +1918,15 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         [ex.id]: { ...prev[ex.id], sets: [...prev[ex.id].sets, set] },
       };
     });
+
+    // Dans un superset, on n'active le repos que quand TOUS les exercices du groupe
+    // ont fait cette même série — sinon on enchaîne directement sur le suivant.
+    if (ex.groupeSuperset) {
+      const partenaires = programme.exercices.filter((e) => e.groupeSuperset === ex.groupeSuperset && e.id !== ex.id);
+      const unPartenaireEnRetard = partenaires.some((p) => (logs[p.id]?.sets.length || 0) < setNumber);
+      if (unPartenaireEnRetard) return; // pas de repos, on passe directement au prochain exo du superset
+    }
+
     const nouveauRest = { total: ex.rest, startedAt: Date.now(), left: ex.rest, exId: ex.id, setNumber, poids: set.poids, reps: set.reps };
     localStorage.setItem(restKey, JSON.stringify(nouveauRest));
     setRest(nouveauRest);
@@ -2051,17 +2062,58 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       </Card>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {programme.exercices.map((ex) => (
-          <ExerciceCard
-            key={ex.id}
-            ex={ex}
-            history={history}
-            log={logs[ex.id]}
-            onValidate={validateSet}
-            onVideo={attachVideo}
-            programmeNom={programme.nom}
-          />
-        ))}
+        {(() => {
+          const exs = programme.exercices;
+          const blocks = [];
+          let i = 0;
+          while (i < exs.length) {
+            const ex = exs[i];
+            if (ex.groupeSuperset) {
+              const groupe = [ex];
+              let j = i + 1;
+              while (j < exs.length && exs[j].groupeSuperset === ex.groupeSuperset) {
+                groupe.push(exs[j]);
+                j++;
+              }
+              blocks.push({ type: "superset", exs: groupe });
+              i = j;
+            } else {
+              blocks.push({ type: "single", exs: [ex] });
+              i++;
+            }
+          }
+          return blocks.map((block, bi) =>
+            block.type === "superset" ? (
+              <div key={bi} style={{ border: `3px solid ${C.blue}`, borderRadius: 16, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <Zap size={13} color={C.blue} />
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset · {block.exs.length} exercices</span>
+                </div>
+                {block.exs.map((ex) => (
+                  <ExerciceCard
+                    key={ex.id}
+                    ex={ex}
+                    history={history}
+                    log={logs[ex.id]}
+                    onValidate={validateSet}
+                    onVideo={attachVideo}
+                    programmeNom={programme.nom}
+                  />
+                ))}
+              </div>
+            ) : (
+              <ExerciceCard
+                key={block.exs[0].id}
+                ex={block.exs[0]}
+                history={history}
+                log={logs[block.exs[0].id]}
+                onValidate={validateSet}
+                onVideo={attachVideo}
+                programmeNom={programme.nom}
+              />
+            )
+          );
+        })()}
       </div>
       <button
         onClick={() => {
@@ -7046,6 +7098,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               videoDemoUrl: ex.video_demo_url,
               type: ex.type_exercice || "muscu",
               dureeMinutes: ex.duree_minutes,
+              groupeSuperset: ex.groupe_superset,
             })),
         }));
         setCustomProgrammes(formatted);
@@ -7656,10 +7709,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
           )}
           {tab === "seances" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
           )}
           {activeProgramme && (
             <SessionView
