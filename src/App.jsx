@@ -2460,6 +2460,7 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
     setPoidsPortion("");
     setSelectedFood(null);
     setSearchQuery("");
+    setShowAddForm(false);
   };
 
   const addManual = () => {
@@ -2484,6 +2485,7 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
     });
     setManualNom(""); setManualGrams(""); setManualKcal(""); setManualProt(""); setManualGluc(""); setManualLip("");
     setManualMode(false);
+    setShowAddForm(false);
   };
 
   return (
@@ -2547,15 +2549,23 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
             </div>
           ))}
 
-          {!showAddForm ? (
-            <button
-              onClick={() => setShowAddForm(true)}
-              style={{ background: "transparent", border: "none", color: C.blue, fontSize: 13.5, fontWeight: 700, textAlign: "left", padding: "4px 0" }}
-            >
-              + Ajouter un aliment
-            </button>
-          ) : (
-          !manualMode ? (
+          <button
+            onClick={() => setShowAddForm(true)}
+            style={{ background: "transparent", border: "none", color: C.blue, fontSize: 13.5, fontWeight: 700, textAlign: "left", padding: "4px 0" }}
+          >
+            + Ajouter un aliment
+          </button>
+        </div>
+      )}
+      {showAddForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => { setShowAddForm(false); setManualMode(false); setSelectedFood(null); setSearchQuery(""); }}>
+          <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <SectionLabel icon={Plus}>Ajouter à {meal.nom}</SectionLabel>
+              <button onClick={() => { setShowAddForm(false); setManualMode(false); setSelectedFood(null); setSearchQuery(""); }} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {!manualMode ? (
             <>
               <div style={{ position: "relative" }}>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -2660,13 +2670,9 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
                 </button>
               </div>
             </div>
-          )
           )}
-          {showAddForm && (
-            <button onClick={() => { setShowAddForm(false); setManualMode(false); setSelectedFood(null); setSearchQuery(""); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, textAlign: "left", padding: "2px 0" }}>
-              Annuler
-            </button>
-          )}
+            </div>
+          </Card>
         </div>
       )}
       {showCopieModal && (
@@ -8144,7 +8150,7 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [myProfil, setMyProfil] = useState(null);
   const [profilLoading, setProfilLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("coach");
+  const [viewMode, setViewMode] = useState("client");
   const [toastNode, fireToast] = useToast();
 
   useEffect(() => {
