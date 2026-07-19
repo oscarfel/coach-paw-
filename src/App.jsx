@@ -4,11 +4,12 @@ import {
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
   Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
-  ShoppingCart, Pill,
+  ShoppingCart, Pill, ScanLine,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "./supabaseClient";
 
 /* ------------------------------------------------------------------ */
@@ -2145,7 +2146,91 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 /* ------------------------------------------------------------------ */
 /*  NUTRITION                                                          */
 /* ------------------------------------------------------------------ */
-function MealCard({ meal, items, onAdd, onRemove }) {
+function ScannerCodeBarres({ onClose, onScan }) {
+  const scannerRef = useRef(null);
+  const [erreur, setErreur] = useState(null);
+
+  useEffect(() => {
+    const html5Qrcode = new Html5Qrcode("scanner-zone-cowave");
+    scannerRef.current = html5Qrcode;
+    html5Qrcode
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 260, height: 160 } },
+        (decodedText) => {
+          if (scannerRef.current && scannerRef.current.isScanning) {
+            scannerRef.current.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
+          }
+        },
+        () => {} // erreur de lecture image par image, ignorée : le scan continue
+      )
+      .catch((err) => {
+        console.error("Erreur démarrage caméra:", err);
+        setErreur("Impossible d'accéder à la caméra. Vérifie que tu as autorisé l'accès dans les réglages.");
+      });
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(() => {});
+      }
+    };
+  }, []);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, background: "transparent", border: "none", color: "#FFFFFF" }}><X size={26} /></button>
+      <div style={{ fontSize: 14, color: "#FFFFFF", marginBottom: 16, fontWeight: 700, textAlign: "center" }}>
+        Scanne le code-barres de l'emballage
+      </div>
+      {erreur ? (
+        <div style={{ color: "#FF5D6C", fontSize: 13, textAlign: "center", maxWidth: 280 }}>{erreur}</div>
+      ) : (
+        <div id="scanner-zone-cowave" style={{ width: "100%", maxWidth: 340, borderRadius: 16, overflow: "hidden" }} />
+      )}
+    </div>
+  );
+}
+
+function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
+  const [showScanner, setShowScanner] = useState(false);
+
+  const handleScan = async (barcode) => {
+    setShowScanner(false);
+    setSearching(true);
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+      const data = await res.json();
+      if (data.status !== 1 || !data.product) {
+        fireToast("Produit non reconnu — essaie la recherche manuelle");
+        return;
+      }
+      const p = data.product;
+      const n = p.nutriments || {};
+      const found = {
+        nom: p.product_name || "Produit scanné",
+        source: p.brands || "Open Food Facts",
+        kcal: n["energy-kcal_100g"] || 0,
+        prot: n["proteins_100g"] || 0,
+        gluc: n["carbohydrates_100g"] || 0,
+        lip: n["fat_100g"] || 0,
+        fibres: n["fiber_100g"] || 0,
+        sucres: n["sugars_100g"] || 0,
+        sodium: n["sodium_100g"] || 0,
+        potassium: n["potassium_100g"] || 0,
+        calcium: n["calcium_100g"] || 0,
+        fer: n["iron_100g"] || 0,
+        magnesium: n["magnesium_100g"] || 0,
+        vitamineD: n["vitamin-d_100g"] || 0,
+      };
+      setSelectedFood(found);
+      setSearchQuery(found.nom);
+      fireToast("Produit trouvé", "green");
+    } catch (err) {
+      console.error("Erreur scan code-barres:", err);
+      fireToast("Erreur lors de la recherche du produit");
+    } finally {
+      setSearching(false);
+    }
+  };
   const [open, setOpen] = useState(false);
   const [grams, setGrams] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -2302,13 +2387,21 @@ function MealCard({ meal, items, onAdd, onRemove }) {
           {!manualMode ? (
             <>
               <div style={{ position: "relative" }}>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedFood(null); }}
-                  placeholder="🔍 Rechercher un aliment (ex : yaourt nature, whey...)"
-                  style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 12.5 }}
-                />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setSelectedFood(null); }}
+                    placeholder="🔍 Rechercher un aliment (ex : yaourt nature, whey...)"
+                    style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 12.5 }}
+                  />
+                  <button
+                    onClick={() => setShowScanner(true)}
+                    style={{ background: C.blue, border: "none", borderRadius: 10, padding: "0 12px", color: "#06171F", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                  >
+                    <ScanLine size={18} />
+                  </button>
+                </div>
                 {searching && <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Recherche...</div>}
                 {searchResults.length > 0 && !selectedFood && (
                   <div style={{ marginTop: 4, maxHeight: 170, overflowY: "auto", border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, background: C.surface }}>
@@ -2369,6 +2462,7 @@ function MealCard({ meal, items, onAdd, onRemove }) {
           )}
         </div>
       )}
+      {showScanner && <ScannerCodeBarres onClose={() => setShowScanner(false)} onScan={handleScan} />}
     </Card>
   );
 }
@@ -2591,7 +2685,7 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
         <SectionLabel icon={Apple} onBg>Repas</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {MEAL_DEFS.map((m) => (
-            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} />
+            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} fireToast={fireToast} />
           ))}
         </div>
       </div>
