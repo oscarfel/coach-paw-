@@ -4,7 +4,7 @@ import {
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
   Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
-  ShoppingCart, Pill, ScanLine,
+  ShoppingCart, Pill, ScanLine, MoreVertical,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -160,13 +160,14 @@ const PillButton = ({ children, onClick, active, color = C.blue, style, disabled
     style={{
       padding: "8px 14px",
       borderRadius: 999,
-      border: `1px solid ${active ? color : C.cardBorderLight}`,
-      background: active ? `${color}22` : "transparent",
-      color: active ? color : (onBg ? C.textOnBgMuted : C.textMuted),
+      border: `2px solid ${active ? "#00B2FF" : C.cardBorderLight}`,
+      background: active ? "#1E56C9" : "transparent",
+      color: active ? "#FFFFFF" : (onBg ? C.textOnBgMuted : C.textMuted),
       fontSize: 13,
-      fontWeight: 600,
+      fontWeight: 700,
       opacity: disabled ? 0.4 : 1,
       transition: "all .15s ease",
+      boxShadow: active ? "0 0 12px rgba(0,178,255,0.7)" : "none",
       ...style,
     }}
   >
@@ -2190,8 +2191,60 @@ function ScannerCodeBarres({ onClose, onScan }) {
   );
 }
 
-function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
+function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
   const [showScanner, setShowScanner] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [copiantHier, setCopiantHier] = useState(false);
+  const [showCopieModal, setShowCopieModal] = useState(false);
+  const [dateACopier, setDateACopier] = useState(() => {
+    const hier = new Date();
+    hier.setDate(hier.getDate() - 1);
+    return hier.toISOString().slice(0, 10);
+  });
+
+  const copierDepuisDate = async () => {
+    if (!profilId) return;
+    setCopiantHier(true);
+    try {
+      const { data, error } = await supabase
+        .from("repas")
+        .select("*")
+        .eq("profil_id", profilId)
+        .eq("type_repas", meal.key)
+        .eq("date", dateACopier);
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        fireToast("Aucun repas trouvé à cette date pour ce moment de la journée");
+        return;
+      }
+      for (const row of data) {
+        onAdd(meal.key, {
+          nom: row.aliment,
+          grams: row.grammes,
+          kcal: row.kcal,
+          prot: row.prot,
+          gluc: row.gluc,
+          lip: row.lip,
+          fibres: row.fibres || 0,
+          sucres: row.sucres || 0,
+          sodium: row.sodium || 0,
+          potassium: row.potassium || 0,
+          calcium: row.calcium || 0,
+          fer: row.fer || 0,
+          magnesium: row.magnesium || 0,
+          vitamineD: row.vitamine_d || 0,
+        });
+      }
+      fireToast(`${data.length} aliment(s) copié(s)`, "green");
+      setShowCopieModal(false);
+    } catch (err) {
+      console.error("Erreur copie repas:", err);
+      fireToast("Erreur lors de la copie");
+    } finally {
+      setCopiantHier(false);
+    }
+  };
 
   const handleScan = async (barcode) => {
     setShowScanner(false);
@@ -2220,9 +2273,11 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
         fer: n["iron_100g"] || 0,
         magnesium: n["magnesium_100g"] || 0,
         vitamineD: n["vitamin-d_100g"] || 0,
+        poidsPortionSuggere: p.serving_quantity ? Math.round(p.serving_quantity) : null,
       };
       setSelectedFood(found);
       setSearchQuery(found.nom);
+      if (found.poidsPortionSuggere) setPoidsPortion(String(found.poidsPortionSuggere));
       fireToast("Produit trouvé", "green");
     } catch (err) {
       console.error("Erreur scan code-barres:", err);
@@ -2233,6 +2288,9 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
   };
   const [open, setOpen] = useState(false);
   const [grams, setGrams] = useState("");
+  const [modeQuantite, setModeQuantite] = useState("grammes");
+  const [nbPortions, setNbPortions] = useState("");
+  const [poidsPortion, setPoidsPortion] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -2296,6 +2354,7 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
             fer: p.nutriments["iron_100g"] || 0,
             magnesium: p.nutriments["magnesium_100g"] || 0,
             vitamineD: p.nutriments["vitamin-d_100g"] || 0,
+            poidsPortionSuggere: p.serving_quantity ? Math.round(p.serving_quantity) : null,
           }));
 
         // CIQUAL (aliments bruts, référence officielle) en premier, puis Open Food Facts (produits transformés/marques)
@@ -2312,12 +2371,12 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
 
   const add = () => {
     const f = selectedFood;
-    const g = parseFloat(grams);
+    const g = modeQuantite === "portion" ? parseFloat(nbPortions) * parseFloat(poidsPortion) : parseFloat(grams);
     if (!f || !g) return;
     const ratio = g / 100;
     onAdd(meal.key, {
       id: Date.now(),
-      nom: f.nom,
+      nom: modeQuantite === "portion" ? `${f.nom} (${nbPortions} portion${parseFloat(nbPortions) > 1 ? "s" : ""})` : f.nom,
       grams: g,
       kcal: Math.round(f.kcal * ratio),
       prot: +(f.prot * ratio).toFixed(1),
@@ -2333,6 +2392,8 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
       vitamineD: +((f.vitamineD || 0) * ratio).toFixed(6),
     });
     setGrams("");
+    setNbPortions("");
+    setPoidsPortion("");
     setSelectedFood(null);
     setSearchQuery("");
   };
@@ -2363,28 +2424,61 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
 
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
-      <button onClick={() => setOpen(!open)} style={{ width: "100%", background: "transparent", border: "none", padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ textAlign: "left" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{meal.emoji} {meal.nom}</div>
-          <div style={{ fontSize: 12, color: C.textMuted }}>{items.length} aliment(s) · {totalKcal} kcal</div>
+      <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14 }}>
+        <button onClick={() => setOpen(!open)} style={{ flex: 1, background: "transparent", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{meal.emoji} {meal.nom}</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>{items.length} aliment(s) · {totalKcal} kcal</div>
+          </div>
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setShowMenu(!showMenu)} style={{ background: "transparent", border: "none", color: C.textMuted, padding: 6 }}>
+              <MoreVertical size={18} />
+            </button>
+            {showMenu && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setShowMenu(false)} />
+                <div style={{ position: "absolute", top: 32, right: 0, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: 6, minWidth: 220, zIndex: 50, boxShadow: "0 8px 24px rgba(10,30,70,0.35)" }}>
+                  <button
+                    onClick={() => { setShowMenu(false); setShowCopieModal(true); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", color: C.text, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: "left" }}
+                  >
+                    <Download size={15} color={C.blue} /> Copier un repas d'un autre jour
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <ChevronDown size={18} color={C.textMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} onClick={() => setOpen(!open)} />
         </div>
-        <ChevronDown size={18} color={C.textMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
-      </button>
+      </div>
       {open && (
         <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((it) => (
-            <div key={it.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px" }}>
+            <div key={it.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px" }}>
               <div>
-                <div style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{it.nom} <span style={{ color: C.textMuted, fontWeight: 400 }}>· {it.grams}g</span></div>
-                <div style={{ fontSize: 11, color: C.textDim, fontFamily: FONT_MONO }}>{it.kcal} kcal · P{it.prot} G{it.gluc} L{it.lip}</div>
+                <div style={{ fontSize: 13.5, color: C.text, fontWeight: 700 }}>{it.nom}</div>
+                <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 1 }}>{it.grams}g</div>
               </div>
-              <button onClick={() => onRemove(meal.key, it.id)} style={{ background: "transparent", border: "none", color: C.red }}>
-                <Trash2 size={15} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 14, color: C.text, fontFamily: FONT_MONO, fontWeight: 700 }}>{it.kcal}</span>
+                <button onClick={() => onRemove(meal.key, it.id)} style={{ background: "transparent", border: "none", color: C.red }}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           ))}
 
-          {!manualMode ? (
+          {!showAddForm ? (
+            <button
+              onClick={() => setShowAddForm(true)}
+              style={{ background: "transparent", border: "none", color: C.blue, fontSize: 13.5, fontWeight: 700, textAlign: "left", padding: "4px 0" }}
+            >
+              + Ajouter un aliment
+            </button>
+          ) : (
+          !manualMode ? (
             <>
               <div style={{ position: "relative" }}>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -2408,7 +2502,7 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
                     {searchResults.map((r, i) => (
                       <button
                         key={i}
-                        onClick={() => { setSelectedFood(r); setSearchResults([]); setSearchQuery(r.nom); }}
+                        onClick={() => { setSelectedFood(r); setSearchResults([]); setSearchQuery(r.nom); if (r.poidsPortionSuggere) setPoidsPortion(String(r.poidsPortionSuggere)); }}
                         style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderBottom: i < searchResults.length - 1 ? `1px solid ${C.cardBorderLight}` : "none", padding: "8px 10px" }}
                       >
                         <div style={{ fontSize: 12.5, color: C.text, fontWeight: 600 }}>{r.nom}</div>
@@ -2428,12 +2522,42 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <input type="number" placeholder="Quantité en grammes" value={grams} onChange={(e) => setGrams(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
-                <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : C.surface, border: "none", borderRadius: 10, padding: "0 12px", color: selectedFood ? "#06171F" : C.textDim }}>
-                  <Plus size={16} />
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <button onClick={() => setModeQuantite("grammes")} style={{ flex: 1, background: modeQuantite === "grammes" ? "#1E56C9" : "transparent", border: `2px solid ${modeQuantite === "grammes" ? "#00B2FF" : C.cardBorderLight}`, color: modeQuantite === "grammes" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "grammes" ? "0 0 12px rgba(0,178,255,0.7)" : "none" }}>
+                  Grammes
+                </button>
+                <button onClick={() => setModeQuantite("portion")} style={{ flex: 1, background: modeQuantite === "portion" ? "#1E56C9" : "transparent", border: `2px solid ${modeQuantite === "portion" ? "#00B2FF" : C.cardBorderLight}`, color: modeQuantite === "portion" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "portion" ? "0 0 12px rgba(0,178,255,0.7)" : "none" }}>
+                  Par portion (tranche, unité...)
                 </button>
               </div>
+
+              {modeQuantite === "grammes" ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input type="number" placeholder="Quantité en grammes" value={grams} onChange={(e) => setGrams(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+                  <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : C.surface, border: "none", borderRadius: 10, padding: "0 12px", color: selectedFood ? "#06171F" : C.textDim }}>
+                    <Plus size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3 }}>NOMBRE DE PORTIONS</div>
+                      <input type="number" placeholder="ex : 2" value={nbPortions} onChange={(e) => setNbPortions(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3 }}>POIDS D'UNE PORTION (G)</div>
+                      <input type="number" placeholder="ex : 25" value={poidsPortion} onChange={(e) => setPoidsPortion(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+                    </div>
+                  </div>
+                  {nbPortions && poidsPortion && (
+                    <div style={{ fontSize: 11, color: C.textDim }}>= {(parseFloat(nbPortions) * parseFloat(poidsPortion)).toFixed(0)}g au total</div>
+                  )}
+                  <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : C.surface, border: "none", borderRadius: 10, padding: "9px", color: selectedFood ? "#06171F" : C.textDim, fontWeight: 700, fontSize: 13 }}>
+                    Ajouter
+                  </button>
+                </div>
+              )}
 
               <button onClick={() => setManualMode(true)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11.5, textDecoration: "underline", textAlign: "left", padding: 0 }}>
                 Aliment non trouvé ? Ajouter manuellement
@@ -2459,7 +2583,41 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast }) {
                 </button>
               </div>
             </div>
+          )
           )}
+          {showAddForm && (
+            <button onClick={() => { setShowAddForm(false); setManualMode(false); setSelectedFood(null); setSearchQuery(""); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, textAlign: "left", padding: "2px 0" }}>
+              Annuler
+            </button>
+          )}
+        </div>
+      )}
+      {showCopieModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCopieModal(false)}>
+          <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <SectionLabel icon={Download}>Copier {meal.emoji} {meal.nom}</SectionLabel>
+              <button onClick={() => setShowCopieModal(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 12 }}>
+              Choisis le jour à copier — tout ce qui a été mangé à ce repas ce jour-là sera ajouté à aujourd'hui.
+            </div>
+            <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>DATE À COPIER</div>
+            <input
+              type="date"
+              value={dateACopier}
+              max={todayIso()}
+              onChange={(e) => setDateACopier(e.target.value)}
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 14 }}
+            />
+            <button
+              onClick={copierDepuisDate}
+              disabled={copiantHier}
+              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: copiantHier ? 0.6 : 1 }}
+            >
+              {copiantHier ? "Copie en cours..." : `Copier ${meal.nom} du ${new Date(dateACopier).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
+            </button>
+          </Card>
         </div>
       )}
       {showScanner && <ScannerCodeBarres onClose={() => setShowScanner(false)} onScan={handleScan} />}
@@ -2685,7 +2843,7 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
         <SectionLabel icon={Apple} onBg>Repas</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {MEAL_DEFS.map((m) => (
-            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} fireToast={fireToast} />
+            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} fireToast={fireToast} profilId={profilId} />
           ))}
         </div>
       </div>
