@@ -1340,8 +1340,8 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
               />
             </svg>
             <div style={{ position: "absolute", top: 2, left: 2, width: 52, height: 52, borderRadius: 12, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-              {ex.imageUrl ? (
-                <img src={ex.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              {ex.videoDemoUrl ? (
+                <video src={ex.videoDemoUrl} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <Dumbbell size={22} color={C.textDim} />
               )}
@@ -1376,8 +1376,8 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0 12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-              {ex.imageUrl ? (
-                <img src={ex.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              {ex.videoDemoUrl ? (
+                <video src={ex.videoDemoUrl} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <Dumbbell size={18} color={C.textDim} />
               )}
@@ -1387,6 +1387,14 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo }) {
           <button onClick={() => setOpen(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {ex.videoDemoUrl && (
+            <video
+              src={ex.videoDemoUrl}
+              controls
+              playsInline
+              style={{ width: "100%", borderRadius: 12, background: "#000", maxHeight: 240 }}
+            />
+          )}
           {ex.note && (
             <div style={{ background: C.amberSoft, border: `1px solid ${C.amber}`, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: C.textOnBg }}>
               💬 <strong>Note de ton coach :</strong> {ex.note}
@@ -4285,7 +4293,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       onClose();
     } catch (err) {
       console.error(err);
-      fireToast("Erreur création séance");
+      fireToast("Erreur : " + (err.message || "création séance"));
     } finally {
       setSaving(false);
     }
@@ -5335,6 +5343,8 @@ function VODView({ coachId, fireToast }) {
   const [editingId, setEditingId] = useState(null);
   const [editingNom, setEditingNom] = useState("");
   const [editingGroupe, setEditingGroupe] = useState(GROUPES_MUSCULAIRES[0]);
+  const [selectedGroupeVOD, setSelectedGroupeVOD] = useState(null);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
   const fileRef = useRef(null);
   const editFileRef = useRef(null);
 
@@ -5463,11 +5473,16 @@ function VODView({ coachId, fireToast }) {
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {ex.video_demo_url ? (
-            <VideoIcon size={18} color={C.blue} style={{ flexShrink: 0 }} />
-          ) : (
-            <Dumbbell size={18} color={C.textDim} style={{ flexShrink: 0 }} />
-          )}
+          <div
+            onClick={() => ex.video_demo_url && setPreviewVideoUrl(ex.video_demo_url)}
+            style={{ width: 36, height: 36, borderRadius: 8, background: C.card, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: ex.video_demo_url ? "pointer" : "default" }}
+          >
+            {ex.video_demo_url ? (
+              <video src={ex.video_demo_url} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <Dumbbell size={16} color={C.textDim} />
+            )}
+          </div>
           <div style={{ flex: 1, fontSize: 13, color: C.text, fontWeight: 600 }}>{ex.nom}</div>
           <button onClick={() => editFileRef.current && (editFileRef.current.dataset.exId = ex.id, editFileRef.current.click())} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11 }}>
             {ex.video_demo_url ? "Changer vidéo" : "+ Vidéo"}
@@ -5516,15 +5531,32 @@ function VODView({ coachId, fireToast }) {
         <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
       ) : exercices.length === 0 ? (
         <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun exercice pour le moment</div></Card>
+      ) : selectedGroupeVOD ? (
+        <div>
+          <button
+            onClick={() => setSelectedGroupeVOD(null)}
+            style={{ background: "transparent", border: "none", color: C.textOnBg, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}
+          >
+            <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour aux groupes
+          </button>
+          <SectionLabel icon={Dumbbell} onBg>{selectedGroupeVOD}</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(groupes.find(([g]) => g === selectedGroupeVOD)?.[1] || []).map(renderExerciceRow)}
+          </div>
+        </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {groupes.map(([groupe, exs]) => (
-            <div key={groupe}>
-              <SectionLabel icon={Dumbbell} onBg>{groupe}</SectionLabel>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {exs.map(renderExerciceRow)}
+            <Card key={groupe} onClick={() => setSelectedGroupeVOD(groupe)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Dumbbell size={18} color={C.blue} />
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: C.text }}>{groupe}</div>
               </div>
-            </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: C.textDim }}>{exs.length} exercice{exs.length > 1 ? "s" : ""}</span>
+                <ChevronRight size={16} color={C.textMuted} />
+              </div>
+            </Card>
           ))}
         </div>
       )}
@@ -5539,6 +5571,16 @@ function VODView({ coachId, fireToast }) {
           if (id && file) replaceVideo(id, file);
         }}
       />
+      {previewVideoUrl && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPreviewVideoUrl(null)}>
+          <div style={{ width: "100%", maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+              <button onClick={() => setPreviewVideoUrl(null)} style={{ background: "transparent", border: "none", color: "#FFFFFF" }}><X size={22} /></button>
+            </div>
+            <video src={previewVideoUrl} controls autoPlay playsInline style={{ width: "100%", borderRadius: 12, background: "#000" }} />
+          </div>
+        </div>
+      )}
     </>
   );
 }
