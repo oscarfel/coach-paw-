@@ -5879,6 +5879,7 @@ function VODView({ coachId, fireToast }) {
       return;
     }
     try {
+      const exerciceConcerne = exercices.find((ex) => ex.id === id);
       const nomPropre = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
       const fileName = `bibliotheque/${coachId}/${Date.now()}_${nomPropre}`;
       const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, file);
@@ -5887,7 +5888,18 @@ function VODView({ coachId, fireToast }) {
       const { error } = await supabase.from("exercices_bibliotheque").update({ video_demo_url: urlData.publicUrl }).eq("id", id);
       if (error) throw error;
       setExercices((prev) => prev.map((ex) => (ex.id === id ? { ...ex, video_demo_url: urlData.publicUrl } : ex)));
-      fireToast("Vidéo mise à jour", "green");
+
+      // Propage aussi vers toutes les séances déjà créées avec cet exercice (sinon les clients
+      // qui l'avaient déjà dans leur programme gardent l'ancienne version, sans vidéo)
+      if (exerciceConcerne) {
+        const { error: propagErr } = await supabase
+          .from("programme_exercices")
+          .update({ video_demo_url: urlData.publicUrl })
+          .eq("nom", exerciceConcerne.nom);
+        if (propagErr) console.error("Erreur propagation vidéo:", propagErr);
+      }
+
+      fireToast("Vidéo mise à jour partout où l'exercice est utilisé", "green");
     } catch (err) {
       console.error(err);
       fireToast("Erreur : " + (err.message || "envoi vidéo"));
@@ -6346,11 +6358,106 @@ function ResetPasswordCard({ client, fireToast }) {
   );
 }
 
+function CalendrierNutritionCoach({ repas }) {
+  const [viewDate, setViewDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(todayIso());
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const isoFor = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  const datesAvecRepas = useMemo(() => new Set(repas.map((r) => r.date)), [repas]);
+  const repasDuJour = useMemo(() => repas.filter((r) => r.date === selectedDate), [repas, selectedDate]);
+  const totalKcalJour = repasDuJour.reduce((sum, r) => sum + (r.kcal || 0), 0);
+
+  return (
+    <>
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <button onClick={() => setViewDate(new Date(year, month - 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+            <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
+          </button>
+          <div style={{ fontWeight: 700, fontSize: 14, color: C.text, textTransform: "capitalize" }}>
+            {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+          </div>
+          <button onClick={() => setViewDate(new Date(year, month + 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+          {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+            <div key={i} style={{ textAlign: "center", fontSize: 10, color: C.textDim, fontWeight: 700 }}>{d}</div>
+          ))}
+          {cells.map((d, i) => {
+            if (d === null) return <div key={i} />;
+            const iso = isoFor(d);
+            const hasRepas = datesAvecRepas.has(iso);
+            const estSelectionne = iso === selectedDate;
+            return (
+              <button
+                key={i}
+                onClick={() => setSelectedDate(iso)}
+                style={{
+                  aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  borderRadius: 8, background: estSelectionne ? C.blue : (hasRepas ? C.surface : "transparent"),
+                  border: estSelectionne ? "none" : "1px solid transparent",
+                }}
+              >
+                <div style={{ fontSize: 10.5, color: estSelectionne ? "#FFFFFF" : C.text, fontWeight: estSelectionne ? 700 : 400 }}>{d}</div>
+                {hasRepas && <div style={{ width: 4, height: 4, borderRadius: "50%", background: estSelectionne ? "#FFFFFF" : C.green, marginTop: 2 }} />}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <div style={{ fontSize: 12, color: C.textMuted, margin: "10px 0 6px", fontWeight: 700 }}>
+        {formatDateDisplay(selectedDate)} · {totalKcalJour} kcal
+      </div>
+      {repasDuJour.length === 0 ? (
+        <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucun repas enregistré ce jour-là</div></Card>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {MEAL_DEFS.map((m) => {
+            const items = repasDuJour.filter((r) => r.type_repas === m.key);
+            if (items.length === 0) return null;
+            const totalKcalRepas = items.reduce((sum, r) => sum + (r.kcal || 0), 0);
+            return (
+              <div key={m.key}>
+                <div style={{ fontSize: 12.5, color: C.text, fontWeight: 700, marginBottom: 6 }}>
+                  {m.emoji} {m.nom} <span style={{ color: C.textDim, fontWeight: 400 }}>· {totalKcalRepas} kcal</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {items.map((r) => (
+                    <Card key={r.id} style={{ padding: 12 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.aliment}</div>
+                      <div style={{ fontSize: 12, color: C.textMuted }}>{r.grammes}g · {r.kcal} kcal</div>
+                      <div style={{ fontSize: 11, color: C.textDim, fontFamily: FONT_MONO, marginTop: 4 }}>
+                        P{r.prot} G{r.gluc} L{r.lip}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
 function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [tab, setTab] = useState("programme");
   const [loading, setLoading] = useState(true);
   const [seances, setSeances] = useState([]);
   const [seriesBySeance, setSeriesBySeance] = useState({});
+  const [previewClientVideo, setPreviewClientVideo] = useState(null);
   const [weightHistory, setWeightHistory] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [repas, setRepas] = useState([]);
@@ -6531,19 +6638,110 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Le client n'a pas encore réalisé cette séance</div></Card>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {historiqueFiltré.map((s, sIdx) => (
-                <Card key={s.id}>
-                  <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 8 }}>{formatDateDisplay(s.date)} · {fmtTime(s.duree_secondes || 0)}</div>
-                  {(seriesBySeance[s.id] || []).map((sr, i) => {
-                    const couleur = getProgressionColor(historiqueFiltré, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
-                    return (
-                      <div key={i} style={{ fontSize: 12, color: couleur, background: C.surface, borderRadius: 8, padding: "6px 10px", marginTop: 4, fontFamily: FONT_MONO, fontWeight: 600 }}>
-                        {sr.exercice_nom} — {sr.poids}kg × {sr.reps} <span style={{ color: C.amber }}>RPE{sr.rpe}</span>
+              {historiqueFiltré.map((s, sIdx) => {
+                // Regroupe les séries par exercice (dans l'ordre d'apparition), et détermine
+                // les groupes superset à partir de la définition du programme.
+                const seriesDeLaSeance = seriesBySeance[s.id] || [];
+                const groupeSupersetParNom = {};
+                for (const pe of selectedProgramme.programme_exercices || []) {
+                  if (pe.groupe_superset) groupeSupersetParNom[pe.nom] = pe.groupe_superset;
+                }
+                const parExercice = [];
+                for (const sr of seriesDeLaSeance) {
+                  let entry = parExercice.find((e) => e.nom === sr.exercice_nom);
+                  if (!entry) {
+                    entry = { nom: sr.exercice_nom, series: [], groupeSuperset: groupeSupersetParNom[sr.exercice_nom] || null };
+                    parExercice.push(entry);
+                  }
+                  entry.series.push(sr);
+                }
+                // Regroupe les blocs consécutifs de même superset
+                const blocs = [];
+                let bi = 0;
+                while (bi < parExercice.length) {
+                  const ex = parExercice[bi];
+                  if (ex.groupeSuperset) {
+                    const groupe = [ex];
+                    let bj = bi + 1;
+                    while (bj < parExercice.length && parExercice[bj].groupeSuperset === ex.groupeSuperset) {
+                      groupe.push(parExercice[bj]);
+                      bj++;
+                    }
+                    blocs.push({ type: "superset", exs: groupe });
+                    bi = bj;
+                  } else {
+                    blocs.push({ type: "single", exs: [ex] });
+                    bi++;
+                  }
+                }
+
+                const renderExercice = (ex) => {
+                  const videoDeLExercice = ex.series.find((sr) => sr.video_url)?.video_url || null;
+                  return (
+                  <div key={ex.nom} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", gap: 10 }}>
+                    <button
+                      onClick={() => videoDeLExercice && setPreviewClientVideo(videoDeLExercice)}
+                      style={{
+                        width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+                        background: C.card, border: `1px solid ${C.cardBorderLight}`,
+                        display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+                        cursor: videoDeLExercice ? "pointer" : "default",
+                      }}
+                    >
+                      {videoDeLExercice ? (
+                        <video src={`${videoDeLExercice}#t=0.1`} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <VideoIcon size={18} color={C.textDim} />
+                      )}
+                    </button>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>{ex.nom}</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {ex.series.map((sr, i) => {
+                          const couleur = getProgressionColor(historiqueFiltré, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
+                          return (
+                            <span key={i} style={{ fontSize: 11.5, color: "#FFFFFF", background: couleur, borderRadius: 8, padding: "5px 9px", fontFamily: FONT_MONO, fontWeight: 700 }}>
+                              {sr.poids}kg × {sr.reps} <span style={{ opacity: 0.85 }}>RPE{sr.rpe}</span>
+                            </span>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </Card>
-              ))}
+                    </div>
+                  </div>
+                  );
+                };
+
+                return (
+                  <Card key={s.id}>
+                    <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 10 }}>{formatDateDisplay(s.date)} · {fmtTime(s.duree_secondes || 0)}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {blocs.map((bloc, bidx) =>
+                        bloc.type === "superset" ? (
+                          <div key={bidx} style={{ border: `3px solid ${C.blue}`, borderRadius: 14, padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <Zap size={12} color={C.blue} />
+                              <span style={{ fontSize: 10, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset</span>
+                            </div>
+                            {bloc.exs.map(renderExercice)}
+                          </div>
+                        ) : (
+                          renderExercice(bloc.exs[0])
+                        )
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+          {previewClientVideo && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPreviewClientVideo(null)}>
+              <div style={{ width: "100%", maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                  <button onClick={() => setPreviewClientVideo(null)} style={{ background: "transparent", border: "none", color: "#FFFFFF" }}><X size={22} /></button>
+                </div>
+                <video src={previewClientVideo} controls autoPlay playsInline style={{ width: "100%", borderRadius: 12, background: "#000" }} />
+              </div>
             </div>
           )}
           {showSeanceForm && (
@@ -6788,7 +6986,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               )}
             </Card>
           </div>
-        ) : (
+        ) : tab === "nutrition" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -6806,19 +7004,11 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             </Card>
             {repas.length === 0 ? (
               <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucun repas enregistré</div></Card>
-            ) : repas.map((r) => (
-              <Card key={r.id} style={{ padding: 12 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.aliment}</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>
-                  {r.type_repas} · {formatDateDisplay(r.date)} · {r.grammes}g · {r.kcal} kcal
-                </div>
-                <div style={{ fontSize: 11, color: C.textDim, fontFamily: FONT_MONO, marginTop: 4 }}>
-                  P{r.prot} G{r.gluc} L{r.lip}
-                </div>
-              </Card>
-            ))}
+            ) : (
+              <CalendrierNutritionCoach repas={repas} />
+            )}
           </div>
-        )}
+        ) : null}
         {showPlanEditor && (
           <PlanAlimentaireModal
             planActuel={planAlimentaire}
@@ -6855,7 +7045,8 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Nom: {client.nom}</div>
               <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Âge: {client.age || "-"} ans</div>
               <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Taille: {client.taille || "-"} cm</div>
-              <div style={{ fontSize: 14, color: C.text }}>Poids actuel: {client.poids_actuel || "-"} kg</div>
+              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Poids actuel: {client.poids_actuel || "-"} kg</div>
+              <div style={{ fontSize: 14, color: C.text }}>Objectif de poids: {client.poids_objectif || "-"} kg</div>
             </Card>
             <Card>
               <SectionLabel icon={Target}>Objectifs</SectionLabel>
@@ -6969,7 +7160,7 @@ function getProgressionColor(seancesTriees, seriesBySeance, index, exerciceNom, 
       return C.red;
     }
   }
-  return C.text;
+  return C.blue;
 }
 
 const parseFrDate = (str) => {
