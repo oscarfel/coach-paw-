@@ -754,8 +754,11 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
   const seancesCetteSemaine = useMemo(() => {
     if (!recentSeances) return 0;
     const now = new Date();
+    const jourSemaine = now.getDay(); // 0 = dimanche, 1 = lundi, ...
+    const decalageDepuisLundi = jourSemaine === 0 ? 6 : jourSemaine - 1;
     const debutSemaine = new Date(now);
-    debutSemaine.setDate(now.getDate() - 7);
+    debutSemaine.setDate(now.getDate() - decalageDepuisLundi);
+    debutSemaine.setHours(0, 0, 0, 0);
     return recentSeances.filter((s) => new Date(s.date) >= debutSemaine).length;
   }, [recentSeances]);
 
@@ -3147,7 +3150,7 @@ function PhotoTile({ cat, url, onChange, uploading }) {
         )}
       </button>
       <input
-        ref={ref} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+        ref={ref} type="file" accept="image/*" style={{ display: "none" }}
         onChange={(e) => {
           const f = e.target.files[0];
           if (f) {
@@ -3212,7 +3215,7 @@ function PhotoProfilObligatoireModal({ onUpload }) {
           {!preview && <Camera size={30} color={C.textDim} />}
         </button>
         <input
-          ref={fileRef} type="file" accept="image/*" capture="user" style={{ display: "none" }}
+          ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
           onChange={(e) => handleFile(e.target.files[0])}
         />
         <button
