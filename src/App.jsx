@@ -689,6 +689,25 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
   const programmesCycle = useMemo(() => customProgrammes.filter((p) => !p.jourFixe), [customProgrammes]);
   const jourAujourdhui = JOURS_ORDRE[(new Date().getDay() + 6) % 7];
 
+  // Jours de la semaine en cours (lundi -> dimanche) déjà validés, pour le suivi vert hebdomadaire.
+  // Se réinitialise naturellement chaque semaine puisqu'on ne regarde que les dates de CETTE semaine.
+  const joursValidesCetteSemaine = useMemo(() => {
+    if (!recentSeances || recentSeances.length === 0) return new Set();
+    const now = new Date();
+    const decalage = (now.getDay() + 6) % 7;
+    const lundi = new Date(now);
+    lundi.setDate(now.getDate() - decalage);
+    const lundiIso = `${lundi.getFullYear()}-${String(lundi.getMonth() + 1).padStart(2, "0")}-${String(lundi.getDate()).padStart(2, "0")}`;
+    const valides = new Set();
+    for (const s of recentSeances) {
+      const dateSeanceIso = String(s.date).slice(0, 10); // compare des chaînes "AAAA-MM-JJ", évite tout souci de fuseau horaire
+      if (dateSeanceIso < lundiIso) continue;
+      const p = programmesJourFixe.find((prog) => prog.id === s.programme_id) || programmesJourFixe.find((prog) => prog.nom === s.nom_programme);
+      if (p) valides.add(p.jourFixe);
+    }
+    return valides;
+  }, [recentSeances, programmesJourFixe]);
+
   const poidsEvol7j = useMemo(() => {
     if (!weightHistory || weightHistory.length < 2) return null;
     const last = weightHistory[weightHistory.length - 1].poids;
@@ -1061,20 +1080,21 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                   {JOURS_ORDRE.map((jour) => {
                     const p = programmesJourFixe.find((prog) => prog.jourFixe === jour);
                     const estAujourdhui = jour === jourAujourdhui;
+                    const estValide = joursValidesCetteSemaine.has(jour);
                     return (
                       <Card
                         key={jour}
                         style={{
                           display: "flex", justifyContent: "space-between", alignItems: "center",
-                          border: estAujourdhui ? `2px solid ${C.amber}` : `1px solid ${C.cardBorder}`,
-                          boxShadow: estAujourdhui ? "0 0 14px rgba(240,178,92,0.5)" : undefined,
+                          border: estValide ? `2px solid ${C.green}` : (estAujourdhui ? `2px solid ${C.amber}` : `1px solid ${C.cardBorder}`),
+                          boxShadow: estValide ? "0 0 14px rgba(34,168,118,0.5)" : (estAujourdhui ? "0 0 14px rgba(240,178,92,0.5)" : undefined),
                           userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",
                         }}
                       >
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: estAujourdhui ? C.amber : C.textMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                              {jour}{estAujourdhui && " · Aujourd'hui"}
+                            <span style={{ fontSize: 11, fontWeight: 700, color: estValide ? C.green : (estAujourdhui ? C.amber : C.textMuted), textTransform: "uppercase", letterSpacing: 0.5 }}>
+                              {jour}{estAujourdhui && " · Aujourd'hui"}{estValide && " · Validé ✓"}
                             </span>
                           </div>
                           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: p ? C.text : C.textDim }}>
@@ -1279,9 +1299,11 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const currentSetIndex = log.sets.length; // 0-indexée : la prochaine série à faire
   const rappelSerieActuelle = historique?.sets?.[currentSetIndex];
   const derniereSerieGlobale = historique?.sets?.[historique.sets.length - 1];
+  const nbEchauffement = ex.echauffement || 0;
+  const seriesEffectivesValidees = Math.max(0, log.sets.length - nbEchauffement);
   const progressionPct = ex.type === "cardio"
     ? (log.sets.length > 0 ? 100 : 0)
-    : Math.min(100, Math.round((log.sets.length / ex.sets) * 100));
+    : Math.min(100, Math.round((seriesEffectivesValidees / ex.sets) * 100));
 
   // Compare une série validée à la même série (même position) de la dernière séance
   const compareSetColor = (setIdx, setPoids, setReps) => {
@@ -1294,10 +1316,9 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
     return C.red;
   };
 
-  // Remplissage segmenté : chaque série validée colore sa portion de la carte
-  // selon sa propre comparaison (vert/orange/rouge), pas une seule couleur uniforme.
+  // Remplissage segmenté : chaque série effective (hors échauffement) colore sa portion de la carte
   const cardFillGradient = () => {
-    if (log.sets.length === 0 || ex.type === "cardio") {
+    if (seriesEffectivesValidees === 0 || ex.type === "cardio") {
       return progressionPct > 0
         ? `linear-gradient(to right, ${C.green} 0%, ${C.green} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
         : C.card;
@@ -1305,7 +1326,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
     const segWidth = 100 / ex.sets;
     const stops = [];
     let cursor = 0;
-    log.sets.forEach((s, i) => {
+    log.sets.slice(nbEchauffement).forEach((s, i) => {
       const color = compareSetColor(i, s.poids, s.reps);
       stops.push(`${color} ${cursor}%`, `${color} ${cursor + segWidth}%`);
       cursor += segWidth;
@@ -1377,7 +1398,8 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                 <>🏃 {ex.dureeMinutes} min {log.sets.length > 0 && "· Fait ✓"}</>
               ) : (
                 <>
-                  {log.sets.length}/{ex.sets} séries
+                  {seriesEffectivesValidees}/{ex.sets} séries
+                  {nbEchauffement > 0 && <span style={{ color: C.amber }}> · {Math.min(log.sets.length, nbEchauffement)}/{nbEchauffement} échauffement</span>}
                   {derniereSerieGlobale && (
                     <span style={{ color: C.blue }}> · dernière fois {derniereSerieGlobale.poids}kg × {derniereSerieGlobale.reps}</span>
                   )}
@@ -1474,7 +1496,28 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
           {log.sets.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {log.sets.map((s, i) => {
-                const couleur = compareSetColor(i, s.poids, s.reps);
+                const estEchauffement = i < nbEchauffement;
+                if (estEchauffement) {
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        fontSize: 10,
+                        color: C.amber,
+                        background: "transparent",
+                        border: `1px dashed ${C.amber}`,
+                        borderRadius: 6,
+                        padding: "3px 7px",
+                        fontFamily: FONT_MONO,
+                        fontWeight: 600,
+                        opacity: 0.85,
+                      }}
+                    >
+                      🔥 Éch. {s.poids}kg×{s.reps}
+                    </div>
+                  );
+                }
+                const couleur = compareSetColor(i - nbEchauffement, s.poids, s.reps);
                 return (
                   <div
                     key={i}
@@ -1493,6 +1536,17 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {ex.type !== "cardio" && log.sets.length < nbEchauffement && (
+            <div style={{ background: C.amberSoft, border: `1px solid ${C.amber}`, borderRadius: 10, padding: "10px 12px", marginBottom: 4 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: C.amber, marginBottom: 2 }}>
+                🔥 Série d'échauffement {log.sets.length + 1}/{nbEchauffement}
+              </div>
+              <div style={{ fontSize: 11.5, color: C.textOnBg }}>
+                Charge légère, environ 5 répétitions — ne compte pas dans tes séries effectives.
+              </div>
             </div>
           )}
 
@@ -2039,6 +2093,16 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>{programme.nom}</div>
         <div style={{ fontSize: 12, color: C.textOnBgMuted }}>{programme.muscle} · {totalSets} séries validées</div>
       </div>
+
+      {programme.echauffementGeneral && (
+        <div style={{ background: C.amberSoft, border: `1px solid ${C.amber}`, borderRadius: 12, padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <Flame size={15} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, color: C.amber, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Échauffement</div>
+            <div style={{ fontSize: 12.5, color: C.textOnBg }}>{programme.echauffementGeneral}</div>
+          </div>
+        </div>
+      )}
 
       {/* Chrono */}
       <Card
@@ -4516,6 +4580,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   const [nom, setNom] = useState(editingProgramme?.nom || "");
   const [muscle, setMuscle] = useState(editingProgramme?.muscle || "");
   const [jourFixe, setJourFixe] = useState(editingProgramme?.jour_fixe || "");
+  const [echauffementGeneral, setEchauffementGeneral] = useState(editingProgramme?.echauffement_general || "");
   const [expandedIdx, setExpandedIdx] = useState(null);
   const [draggedIdx, setDraggedIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
@@ -4593,6 +4658,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       ordre: ex.ordre,
       type: ex.type || ex.type_exercice || "muscu",
       dureeMinutes: ex.dureeMinutes ?? ex.duree_minutes ?? null,
+      echauffement: ex.echauffement ?? ex.series_echauffement ?? 0,
     }));
   });
   const [exNom, setExNom] = useState("");
@@ -4601,6 +4667,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   const [saving, setSaving] = useState(false);
   const [exRepsParSerie, setExRepsParSerie] = useState([10, 10, 10]);
   const [exType, setExType] = useState("muscu");
+  const [exEchauffement, setExEchauffement] = useState(0);
   const [exDureeMinutes, setExDureeMinutes] = useState(15);
 
   useEffect(() => {
@@ -4671,6 +4738,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       repsParSerie: exType === "cardio" ? [0] : exRepsParSerie,
       rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length,
       type: exType, dureeMinutes: exType === "cardio" ? exDureeMinutes : null,
+      echauffement: exType === "cardio" ? 0 : (parseInt(exEchauffement) || 0),
     }]);
     setSelectedExId("");
     setExSets(3);
@@ -4681,6 +4749,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
     setExNote("");
     setExType("muscu");
     setExDureeMinutes(15);
+    setExEchauffement(0);
   };
 
   const removeExercice = (idx) => {
@@ -4720,7 +4789,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       if (editingProgramme?.id) {
         const { error: updateErr } = await supabase
           .from("programmes")
-          .update({ nom, muscle, jour_fixe: jourFixe || null })
+          .update({ nom, muscle, jour_fixe: jourFixe || null, echauffement_general: echauffementGeneral || null })
           .eq("id", editingProgramme.id);
         if (updateErr) throw updateErr;
         progId = editingProgramme.id;
@@ -4728,7 +4797,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       } else {
         const { data: prog, error: progErr } = await supabase
           .from("programmes")
-          .insert({ profil_id: clientId, nom, muscle, jour_fixe: jourFixe || null })
+          .insert({ profil_id: clientId, nom, muscle, jour_fixe: jourFixe || null, echauffement_general: echauffementGeneral || null })
           .select()
           .single();
         if (progErr) throw progErr;
@@ -4748,6 +4817,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
         groupe_superset: ex.groupeSuperset || null,
         type_exercice: ex.type || "muscu",
         duree_minutes: ex.dureeMinutes || null,
+        series_echauffement: ex.echauffement || 0,
       }));
       const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
       if (exErr) throw exErr;
@@ -4787,6 +4857,16 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
             </select>
           </div>
         )}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Échauffement général (optionnel)</div>
+          <textarea
+            value={echauffementGeneral}
+            onChange={(e) => setEchauffementGeneral(e.target.value)}
+            placeholder="ex : 5 min de vélo + rotations articulaires (épaules, hanches, chevilles)"
+            rows={2}
+            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "none" }}
+          />
+        </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionLabel icon={Plus}>Exercices</SectionLabel>
           {exercices.length > 0 && (
@@ -4858,6 +4938,23 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                   updateExercice(i, "sets", n);
                   updateExercice(i, "repsParSerie", arr);
                 }} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+                <div style={{ fontSize: 11, color: C.amber, marginBottom: 4, fontWeight: 700 }}>🔥 Séries d'échauffement (0 si aucune)</div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                  {[0, 1, 2, 3].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => updateExercice(i, "echauffement", n)}
+                      style={{
+                        flex: 1, padding: "6px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                        background: (ex.echauffement || 0) === n ? C.amber : C.card,
+                        color: (ex.echauffement || 0) === n ? "#3D2600" : C.textMuted,
+                        border: `1px solid ${(ex.echauffement || 0) === n ? C.amber : C.cardBorderLight}`,
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Répétitions par série</div>
                 <div style={{ display: "flex", gap: 6, Wrap: "wrap", marginBottom: 8 }}>
                   {(ex.repsParSerie || []).map((r, si) => (
@@ -4951,6 +5048,10 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
                     <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>SÉRIES D'ÉCHAUFFEMENT (0 SI AUCUNE)</div>
+                    <input type="number" min="0" placeholder="0" value={exEchauffement} onChange={(e) => setExEchauffement(parseInt(e.target.value) || 0)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.amber}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
                   </div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                     {exRepsParSerie.map((r, i) => (
@@ -6416,7 +6517,7 @@ function CalendrierNutritionCoach({ repas }) {
         </div>
       </Card>
 
-      <div style={{ fontSize: 12, color: C.textMuted, margin: "10px 0 6px", fontWeight: 700 }}>
+      <div style={{ fontSize: 12, color: C.textOnBg, margin: "10px 0 6px", fontWeight: 700 }}>
         {formatDateDisplay(selectedDate)} · {totalKcalJour} kcal
       </div>
       {repasDuJour.length === 0 ? (
@@ -6429,8 +6530,8 @@ function CalendrierNutritionCoach({ repas }) {
             const totalKcalRepas = items.reduce((sum, r) => sum + (r.kcal || 0), 0);
             return (
               <div key={m.key}>
-                <div style={{ fontSize: 12.5, color: C.text, fontWeight: 700, marginBottom: 6 }}>
-                  {m.emoji} {m.nom} <span style={{ color: C.textDim, fontWeight: 400 }}>· {totalKcalRepas} kcal</span>
+                <div style={{ fontSize: 12.5, color: C.textOnBg, fontWeight: 700, marginBottom: 6 }}>
+                  {m.emoji} {m.nom} <span style={{ color: C.textOnBgMuted, fontWeight: 400 }}>· {totalKcalRepas} kcal</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {items.map((r) => (
@@ -6844,31 +6945,15 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       })}
                     </div>
                   )}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <SectionLabel icon={Dumbbell} onBg>{avecJour.length > 0 ? "Autres séances (cycle)" : "Séances personnalisées"}</SectionLabel>
-                    {sansJour.map(renderProgCard)}
-                  </div>
+                  {sansJour.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <SectionLabel icon={Dumbbell} onBg>{avecJour.length > 0 ? "Autres séances (cycle)" : "Séances personnalisées"}</SectionLabel>
+                      {sansJour.map(renderProgCard)}
+                    </div>
+                  )}
                 </>
               );
             })()}
-            {seances.length === 0 ? (
-              <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucune séance enregistrée</div></Card>
-            ) : seances.map((s, sIdx) => (
-              <Card key={s.id}>
-                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{s.nom_programme}</div>
-                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
-                  {formatDateDisplay(s.date)} · {fmtTime(s.duree_secondes || 0)}
-                </div>
-                {(seriesBySeance[s.id] || []).map((sr, i) => {
-                  const couleur = getProgressionColor(seances, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
-                  return (
-                    <div key={i} style={{ fontSize: 12, color: couleur, background: C.surface, borderRadius: 8, padding: "6px 10px", marginTop: 4, fontFamily: FONT_MONO, fontWeight: 600 }}>
-                      {sr.exercice_nom} — {sr.poids}kg × {sr.reps} <span style={{ color: C.amber }}>RPE{sr.rpe}</span>
-                    </div>
-                  );
-                })}
-              </Card>
-            ))}
           </div>
         ) : tab === "bilans" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -7668,7 +7753,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           muscle: p.muscle,
           duree: "",
           ordre: p.ordre || 0,
-          jourFixe: p.jour_fixe || null,
+          jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "",
           exercices: (p.programme_exercices || [])
             .sort((a, b) => a.ordre - b.ordre)
             .map((ex) => ({
@@ -7684,6 +7769,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               type: ex.type_exercice || "muscu",
               dureeMinutes: ex.duree_minutes,
               groupeSuperset: ex.groupe_superset,
+              echauffement: ex.series_echauffement || 0,
             })),
         }));
         setCustomProgrammes(formatted);
@@ -8294,10 +8380,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0 })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
           )}
           {tab === "seances" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0 })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
           )}
           {activeProgramme && (
             <SessionView
