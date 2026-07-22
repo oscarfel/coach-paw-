@@ -2258,8 +2258,10 @@ function ScannerCodeBarres({ onClose, onScan }) {
   );
 }
 
-function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
+function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId }) {
   const [showScanner, setShowScanner] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [editGrams, setEditGrams] = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showSaveRecette, setShowSaveRecette] = useState(false);
@@ -2410,6 +2412,21 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
       setSearchQuery(found.nom);
       if (found.poidsPortionSuggere) setPoidsPortion(String(found.poidsPortionSuggere));
       fireToast("Produit trouvé", "green");
+
+      // Sauvegarde ce produit dans ta base personnelle pour le retrouver facilement au clavier la prochaine fois
+      if (profilId) {
+        supabase.from("aliments_scannes").upsert({
+          profil_id: profilId,
+          code_barre: barcode,
+          nom: found.nom,
+          kcal: found.kcal, prot: found.prot, gluc: found.gluc, lip: found.lip,
+          fibres: found.fibres, sucres: found.sucres, sodium: found.sodium,
+          potassium: found.potassium, calcium: found.calcium, fer: found.fer,
+          magnesium: found.magnesium, vitamine_d: found.vitamineD,
+        }, { onConflict: "profil_id,code_barre" }).then(({ error }) => {
+          if (error) console.error("Erreur sauvegarde aliment scanné:", error);
+        });
+      }
     } catch (err) {
       console.error("Erreur scan code-barres:", err);
       fireToast("Erreur lors de la recherche du produit");
@@ -2446,10 +2463,28 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const [ciqualRes, offRes] = await Promise.all([
+        const [mesAlimentsRes, ciqualRes, offRes] = await Promise.all([
+          profilId ? supabase.from("aliments_scannes").select("*").eq("profil_id", profilId).ilike("nom", `%${searchQuery}%`).limit(6) : Promise.resolve({ data: [] }),
           supabase.from("aliments_ciqual").select("*").ilike("nom", `%${searchQuery}%`).limit(8),
           fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=12&lc=fr`).then((r) => r.json()).catch(() => ({ products: [] })),
         ]);
+
+        const mesAlimentsParsed = (mesAlimentsRes.data || []).map((a) => ({
+          nom: a.nom,
+          source: "Mes aliments",
+          kcal: a.kcal || 0,
+          prot: a.prot || 0,
+          gluc: a.gluc || 0,
+          lip: a.lip || 0,
+          fibres: a.fibres || 0,
+          sucres: a.sucres || 0,
+          sodium: a.sodium || 0,
+          potassium: a.potassium || 0,
+          calcium: a.calcium || 0,
+          fer: a.fer || 0,
+          magnesium: a.magnesium || 0,
+          vitamineD: a.vitamine_d || 0,
+        }));
 
         const ciqualParsed = (ciqualRes.data || []).map((a) => ({
           nom: a.nom,
@@ -2488,8 +2523,8 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
             poidsPortionSuggere: p.serving_quantity ? Math.round(p.serving_quantity) : null,
           }));
 
-        // CIQUAL (aliments bruts, référence officielle) en premier, puis Open Food Facts (produits transformés/marques)
-        setSearchResults([...ciqualParsed, ...offParsed]);
+        // Mes aliments (déjà scannés) en premier, puis CIQUAL (référence officielle), puis Open Food Facts
+        setSearchResults([...mesAlimentsParsed, ...ciqualParsed, ...offParsed]);
       } catch (err) {
         console.error("Erreur recherche aliment:", err);
         setSearchResults([]);
@@ -2602,19 +2637,48 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
       {open && (
         <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((it) => (
-            <div key={it.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px" }}>
+            <div
+              key={it.id}
+              onClick={() => { setEditingItem(it); setEditGrams(String(it.grams)); }}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0F1A38", border: `1.5px solid ${C.amber}`, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}
+            >
               <div>
-                <div style={{ fontSize: 13.5, color: C.text, fontWeight: 700 }}>{it.nom}</div>
-                <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 1 }}>{it.grams}g</div>
+                <div style={{ fontSize: 13, color: C.text, fontWeight: 700, lineHeight: 1.3 }}>{it.nom} <span style={{ fontSize: 10.5, color: C.textMuted, fontWeight: 400 }}>· {it.grams}g</span></div>
+                <div style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_MONO, marginTop: 1 }}>
+                  P{it.prot}g · G{it.gluc}g · L{it.lip}g
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 14, color: C.text, fontFamily: FONT_MONO, fontWeight: 700 }}>{it.kcal}</span>
-                <button onClick={() => onRemove(meal.key, it.id)} style={{ background: "transparent", border: "none", color: C.red }}>
-                  <Trash2 size={15} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, color: C.text, fontFamily: FONT_MONO, fontWeight: 700 }}>{it.kcal}</span>
+                <button onClick={(e) => { e.stopPropagation(); onRemove(meal.key, it.id); }} style={{ background: "transparent", border: "none", color: C.red }}>
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
           ))}
+          {editingItem && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditingItem(null)}>
+              <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <SectionLabel icon={ClipboardList}>{editingItem.nom}</SectionLabel>
+                  <button onClick={() => setEditingItem(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>QUANTITÉ (GRAMMES)</div>
+                <input
+                  type="number"
+                  value={editGrams}
+                  onChange={(e) => setEditGrams(e.target.value)}
+                  style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14, fontFamily: FONT_MONO, marginBottom: 14 }}
+                />
+                <button
+                  onClick={() => { onUpdate(meal.key, editingItem.id, parseFloat(editGrams) || editingItem.grams); setEditingItem(null); }}
+                  style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}
+                >
+                  Enregistrer
+                </button>
+              </Card>
+            </div>
+          )}
 
           <button
             onClick={() => setShowAddForm(true)}
@@ -2661,7 +2725,7 @@ function MealCard({ meal, items, onAdd, onRemove, fireToast, profilId }) {
                       >
                         <div style={{ fontSize: 12.5, color: C.text, fontWeight: 600 }}>{r.nom}</div>
                         <div style={{ fontSize: 10.5, color: C.textDim }}>
-                          {Math.round(r.kcal)} kcal / 100g · <span style={{ color: r.source === "CIQUAL" ? C.green : C.blue }}>{r.source}</span>
+                          {Math.round(r.kcal)} kcal / 100g · <span style={{ color: r.source === "Mes aliments" ? C.amber : (r.source === "CIQUAL" ? C.green : C.blue) }}>{r.source}</span>
                         </div>
                       </button>
                     ))}
@@ -2952,7 +3016,7 @@ function CoursesEtSupplements({ profilId, fireToast }) {
   );
 }
 
-function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater }) {
+function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showNutriDetail, setShowNutriDetail] = useState(false);
   const totals = useMemo(() => {
@@ -3049,7 +3113,7 @@ function Nutrition({ meals, onAdd, onRemove, objectifs, profilId, fireToast, sav
         <SectionLabel icon={Apple} onBg>Repas</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {MEAL_DEFS.map((m) => (
-            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} fireToast={fireToast} profilId={profilId} />
+            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} fireToast={fireToast} profilId={profilId} />
           ))}
         </div>
       </div>
@@ -8260,6 +8324,46 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     }
   };
 
+  const updateFood = async (mealKey, id, nouveauxGrammes) => {
+    try {
+      const item = meals[mealKey].find((i) => i.id === id);
+      if (!item || !nouveauxGrammes) return;
+      const ratio = nouveauxGrammes / item.grams;
+      const updated = {
+        grams: nouveauxGrammes,
+        kcal: Math.round(item.kcal * ratio),
+        prot: +(item.prot * ratio).toFixed(1),
+        gluc: +(item.gluc * ratio).toFixed(1),
+        lip: +(item.lip * ratio).toFixed(1),
+        fibres: +((item.fibres || 0) * ratio).toFixed(2),
+        sucres: +((item.sucres || 0) * ratio).toFixed(2),
+        sodium: +((item.sodium || 0) * ratio).toFixed(4),
+        potassium: +((item.potassium || 0) * ratio).toFixed(4),
+        calcium: +((item.calcium || 0) * ratio).toFixed(4),
+        fer: +((item.fer || 0) * ratio).toFixed(4),
+        magnesium: +((item.magnesium || 0) * ratio).toFixed(4),
+        vitamineD: +((item.vitamineD || 0) * ratio).toFixed(6),
+      };
+      const { error } = await supabase
+        .from("repas")
+        .update({
+          grammes: updated.grams, kcal: updated.kcal, prot: updated.prot, gluc: updated.gluc, lip: updated.lip,
+          fibres: updated.fibres, sucres: updated.sucres, sodium: updated.sodium, potassium: updated.potassium,
+          calcium: updated.calcium, fer: updated.fer, magnesium: updated.magnesium, vitamine_d: updated.vitamineD,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      setMeals((prev) => ({
+        ...prev,
+        [mealKey]: prev[mealKey].map((i) => (i.id === id ? { ...i, ...updated } : i)),
+      }));
+      fireToast("Quantité mise à jour", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur modification quantité");
+    }
+  };
+
   const removeFood = async (mealKey, id) => {
     try {
       const { error } = await supabase.from("repas").delete().eq("id", id);
@@ -8396,7 +8500,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               onSessionComplete={saveSession}
             />
           )}
-          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} />}
+          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} onUpdate={updateFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} />}
           {tab === "bilans" && (
             <Bilans
               weightHistory={weightHistory}
