@@ -2365,7 +2365,7 @@ function formatRepos(sec) {
   return reste === 0 ? `${min}m` : `${min}m${reste}`;
 }
 
-function ExercicePickerModal({ bibliotheque, onSelect, onClose }) {
+function ExercicePickerInline({ bibliotheque, onSelect }) {
   const [groupeSelectionne, setGroupeSelectionne] = useState(null);
   const [recherche, setRecherche] = useState("");
 
@@ -2378,64 +2378,60 @@ function ExercicePickerModal({ bibliotheque, onSelect, onClose }) {
       : [];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 210, display: "flex", flexDirection: "column", padding: "20px 16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <SectionLabel icon={Dumbbell} onBg>Choisir un exercice</SectionLabel>
-        <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textOnBg }}><X size={22} /></button>
-      </div>
+    <div style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, marginTop: 6, maxHeight: 320, overflowY: "auto" }}>
       <input
         type="text"
         value={recherche}
         onChange={(e) => { setRecherche(e.target.value); setGroupeSelectionne(null); }}
         placeholder="🔍 Rechercher un exercice..."
-        style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, marginBottom: 14 }}
+        style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}
       />
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div>
         {recherche.trim() ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {exercicesAffiches.length === 0 ? (
-              <div style={{ color: C.textOnBgMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Aucun exercice trouvé</div>
+              <div style={{ color: C.textMuted, fontSize: 12.5, textAlign: "center", padding: 12 }}>Aucun exercice trouvé</div>
             ) : exercicesAffiches.map((ex) => (
-              <Card key={ex.id} onClick={() => onSelect(ex.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
-                <Dumbbell size={16} color={C.blue} />
-                <span style={{ fontSize: 13.5, color: C.text, fontWeight: 600 }}>{ex.nom}</span>
-              </Card>
+              <button key={ex.id} onClick={() => onSelect(ex.id)} style={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 10px", display: "flex", alignItems: "center", gap: 8, textAlign: "left" }}>
+                <Dumbbell size={14} color={C.blue} />
+                <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{ex.nom}</span>
+              </button>
             ))}
           </div>
         ) : groupeSelectionne ? (
           <>
             <button
               onClick={() => setGroupeSelectionne(null)}
-              style={{ background: "transparent", border: "none", color: C.textOnBg, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, marginBottom: 12 }}
+              style={{ background: "transparent", border: "none", color: C.text, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}
             >
               <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour aux groupes
             </button>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {exercicesAffiches.map((ex) => (
-                <Card key={ex.id} onClick={() => onSelect(ex.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
-                  <Dumbbell size={16} color={C.blue} />
-                  <span style={{ fontSize: 13.5, color: C.text, fontWeight: 600 }}>{ex.nom}</span>
-                </Card>
+                <button key={ex.id} onClick={() => onSelect(ex.id)} style={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 10px", display: "flex", alignItems: "center", gap: 8, textAlign: "left" }}>
+                  <Dumbbell size={14} color={C.blue} />
+                  <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{ex.nom}</span>
+                </button>
               ))}
             </div>
           </>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {groupesDisponibles.length === 0 ? (
-              <div style={{ color: C.textOnBgMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Ta bibliothèque d'exercices est vide</div>
+              <div style={{ color: C.textMuted, fontSize: 12.5, textAlign: "center", padding: 12 }}>Ta bibliothèque d'exercices est vide</div>
             ) : groupesDisponibles.map((g) => {
               const count = bibliotheque.filter((ex) => (ex.groupe_musculaire || "Autre") === g).length;
               return (
-                <Card key={g} onClick={() => setGroupeSelectionne(g)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Dumbbell size={18} color={C.blue} />
-                    <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: C.text }}>{g}</span>
-                  </div>
+                <button key={g} onClick={() => setGroupeSelectionne(g)} style={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: C.textDim }}>{count} exercice{count > 1 ? "s" : ""}</span>
-                    <ChevronRight size={16} color={C.textMuted} />
+                    <Dumbbell size={15} color={C.blue} />
+                    <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 13.5, color: C.text }}>{g}</span>
                   </div>
-                </Card>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: C.textDim }}>{count}</span>
+                    <ChevronRight size={14} color={C.textMuted} />
+                  </div>
+                </button>
               );
             })}
           </div>
@@ -5388,17 +5384,16 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                  <button onClick={() => setShowExercicePickerPage(true)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: selectedExId ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
+                  <button onClick={() => setShowExercicePickerPage(!showExercicePickerPage)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: selectedExId ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
                     {selectedExId ? bibliotheque.find((b) => b.id === selectedExId)?.nom : "Choisir un exercice..."}
                   </button>
                   <button onClick={() => setShowNewExercice(true)} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}><Plus size={14} /></button>
                 </div>
               )}
               {showExercicePickerPage && (
-                <ExercicePickerModal
+                <ExercicePickerInline
                   bibliotheque={bibliotheque}
                   onSelect={(id) => { setSelectedExId(id); setShowExercicePickerPage(false); }}
-                  onClose={() => setShowExercicePickerPage(false)}
                 />
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -6983,7 +6978,6 @@ function CalendrierNutritionCoach({ repas }) {
 }
 
 function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repasJour, onClose }) {
-  const totalKcalJour = repasJour.reduce((sum, r) => sum + (r.kcal || 0), 0);
   const rienDuTout = !checkin && !poids && !seance && repasJour.length === 0;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
@@ -7024,32 +7018,78 @@ function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repas
               </div>
             )}
 
-            {seance && (
-              <div>
-                <SectionLabel icon={Dumbbell}>Séance · {seance.nom_programme}</SectionLabel>
-                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>{fmtTime(seance.duree_secondes || 0)}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {seriesDeLaSeance.map((sr, i) => (
-                    <div key={i} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px", fontFamily: FONT_MONO }}>
-                      {sr.exercice_nom} — {sr.poids}kg × {sr.reps}
-                    </div>
-                  ))}
+            {seance && (() => {
+              const parExercice = [];
+              for (const sr of seriesDeLaSeance) {
+                let entry = parExercice.find((e) => e.nom === sr.exercice_nom);
+                if (!entry) {
+                  entry = { nom: sr.exercice_nom, series: [], video: sr.video_url || null };
+                  parExercice.push(entry);
+                }
+                entry.series.push(sr);
+                if (!entry.video && sr.video_url) entry.video = sr.video_url;
+              }
+              return (
+                <div>
+                  <SectionLabel icon={Dumbbell}>Séance · {seance.nom_programme}</SectionLabel>
+                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>{fmtTime(seance.duree_secondes || 0)}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {parExercice.map((ex, ei) => (
+                      <div key={ei} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", gap: 10 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, background: C.card, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                          {ex.video ? (
+                            <video src={`${ex.video}#t=0.1`} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <VideoIcon size={16} color={C.textDim} />
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>{ex.nom}</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {ex.series.map((sr, i) => (
+                              <span key={i} style={{ fontSize: 11.5, color: "#FFFFFF", background: C.blue, borderRadius: 8, padding: "5px 9px", fontFamily: FONT_MONO, fontWeight: 700 }}>
+                                {sr.poids}kg × {sr.reps} <span style={{ opacity: 0.85 }}>RPE{sr.rpe}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {repasJour.length > 0 && (
-              <div>
-                <SectionLabel icon={Apple}>Nutrition · {totalKcalJour} kcal</SectionLabel>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {repasJour.map((r) => (
-                    <div key={r.id} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px" }}>
-                      {r.aliment} — {r.grammes}g · {r.kcal} kcal
-                    </div>
-                  ))}
+            {repasJour.length > 0 && (() => {
+              const totalKcalJour = repasJour.reduce((sum, r) => sum + (r.kcal || 0), 0);
+              return (
+                <div>
+                  <SectionLabel icon={Apple}>Nutrition · {totalKcalJour} kcal au total</SectionLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {MEAL_DEFS.map((m) => {
+                      const items = repasJour.filter((r) => r.type_repas === m.key);
+                      if (items.length === 0) return null;
+                      const totalKcalRepas = items.reduce((sum, r) => sum + (r.kcal || 0), 0);
+                      return (
+                        <div key={m.key} style={{ border: `2px solid ${C.amber}`, borderRadius: 12, padding: 10 }}>
+                          <div style={{ fontSize: 12.5, color: C.amber, fontWeight: 800, marginBottom: 8 }}>
+                            {m.emoji} {m.nom} <span style={{ fontWeight: 400 }}>· {totalKcalRepas} kcal</span>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {items.map((r) => (
+                              <div key={r.id} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "8px 10px", display: "flex", justifyContent: "space-between" }}>
+                                <span>{r.aliment} <span style={{ color: C.textMuted }}>· {r.grammes}g</span></span>
+                                <span style={{ fontFamily: FONT_MONO, fontWeight: 700 }}>{r.kcal} kcal</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
       </Card>
