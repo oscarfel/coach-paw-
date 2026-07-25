@@ -1293,6 +1293,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const [reps, setReps] = useState("");
   const [tempo, setTempo] = useState("");
   const [rpe, setRpe] = useState("8");
+  const [showTempoExplication, setShowTempoExplication] = useState(false);
   const fileRef = useRef(null);
   const hasVideo = !!log.video;
   const historique = history[`${programmeNom}::${ex.nom}`]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
@@ -1445,6 +1446,17 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
               💬 <strong>Note de ton coach :</strong> {ex.note}
             </div>
           )}
+          {ex.tempo && (
+            <button
+              onClick={() => setShowTempoExplication(true)}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 12px", alignSelf: "flex-start" }}
+            >
+              <Clock size={13} color={C.blue} />
+              <span style={{ fontSize: 12, color: C.text, fontWeight: 700, fontFamily: FONT_MONO }}>Tempo {ex.tempo}</span>
+              <span style={{ fontSize: 10, color: C.textMuted }}>(?)</span>
+            </button>
+          )}
+          {showTempoExplication && <TempoExplanationModal tempo={ex.tempo} onClose={() => setShowTempoExplication(false)} />}
           {historique && historique.sets.length > 0 && (
             <div
               style={{
@@ -1595,6 +1607,12 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                 }}
               />
             </div>
+            </div>
+          )}
+
+          {ex.objectifRepsMax && parseInt(reps) >= ex.objectifRepsMax && (
+            <div style={{ background: C.greenSoft, border: `1px solid ${C.green}`, borderRadius: 10, padding: "9px 12px", fontSize: 12, color: C.green, fontWeight: 700 }}>
+              🎯 Objectif de {ex.objectifRepsMax} reps atteint ! Augmente la charge la prochaine fois.
             </div>
           )}
 
@@ -2214,6 +2232,219 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 /* ------------------------------------------------------------------ */
 /*  NUTRITION                                                          */
 /* ------------------------------------------------------------------ */
+const RPE_VALEURS = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+function RPEPickerModal({ value, onSelect, onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <SectionLabel icon={Flame}>Choisir le RPE</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {RPE_VALEURS.map((v) => (
+            <button
+              key={v}
+              onClick={() => { onSelect(v); onClose(); }}
+              style={{
+                padding: "12px 0", borderRadius: 10, fontSize: 15, fontWeight: 700, fontFamily: FONT_MONO,
+                background: String(value) === String(v) ? C.blue : C.surface,
+                color: String(value) === String(v) ? "#06171F" : C.text,
+                border: `1px solid ${String(value) === String(v) ? C.blue : C.cardBorderLight}`,
+              }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+const TEMPO_VALEURS = ["10X0", "11X0", "1010", "20X0", "21X0", "2020", "30X0", "31X0"];
+function TempoPickerModal({ value, onSelect, onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <SectionLabel icon={Clock}>Choisir le tempo</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+          {TEMPO_VALEURS.map((v) => (
+            <button
+              key={v}
+              onClick={() => { onSelect(v); onClose(); }}
+              style={{
+                padding: "12px 0", borderRadius: 10, fontSize: 15, fontWeight: 700, fontFamily: FONT_MONO,
+                background: value === v ? C.blue : C.surface,
+                color: value === v ? "#06171F" : C.text,
+                border: `1px solid ${value === v ? C.blue : C.cardBorderLight}`,
+              }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function TempoExplanationModal({ tempo, onClose }) {
+  const chiffres = (tempo || "").split("");
+  const labels = ["Descente (excentrique)", "Pause en bas", "Montée (concentrique)", "Pause en haut"];
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <SectionLabel icon={Clock}>Tempo {tempo}</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {chiffres.map((c, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: C.blue, color: "#06171F", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontFamily: FONT_MONO, flexShrink: 0 }}>
+                {c}
+              </div>
+              <div>
+                <div style={{ fontSize: 12.5, color: C.text, fontWeight: 700 }}>{labels[i]}</div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>
+                  {c.toUpperCase() === "X" ? "Le plus vite possible, de façon explosive" : `${c} seconde${c !== "1" ? "s" : ""}`}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+const REPOS_VALEURS = [
+  { label: "30s", val: 30 }, { label: "1m", val: 60 }, { label: "1m30", val: 90 },
+  { label: "2m", val: 120 }, { label: "2m30", val: 150 }, { label: "3m", val: 180 },
+  { label: "3m30", val: 210 }, { label: "4m", val: 240 }, { label: "5m", val: 300 },
+];
+function RepoPickerModal({ value, onSelect, onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <SectionLabel icon={Clock}>Choisir le temps de repos</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {REPOS_VALEURS.map((r) => (
+            <button
+              key={r.val}
+              onClick={() => { onSelect(r.val); onClose(); }}
+              style={{
+                padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 700,
+                background: value === r.val ? C.blue : C.surface,
+                color: value === r.val ? "#06171F" : C.text,
+                border: `1px solid ${value === r.val ? C.blue : C.cardBorderLight}`,
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function formatRepos(sec) {
+  const trouve = REPOS_VALEURS.find((r) => r.val === sec);
+  if (trouve) return trouve.label;
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  const reste = sec % 60;
+  return reste === 0 ? `${min}m` : `${min}m${reste}`;
+}
+
+function ExercicePickerModal({ bibliotheque, onSelect, onClose }) {
+  const [groupeSelectionne, setGroupeSelectionne] = useState(null);
+  const [recherche, setRecherche] = useState("");
+
+  const groupesDisponibles = GROUPES_MUSCULAIRES.filter((g) => bibliotheque.some((ex) => (ex.groupe_musculaire || "Autre") === g));
+
+  const exercicesAffiches = recherche.trim()
+    ? bibliotheque.filter((ex) => ex.nom.toLowerCase().includes(recherche.toLowerCase()))
+    : groupeSelectionne
+      ? bibliotheque.filter((ex) => (ex.groupe_musculaire || "Autre") === groupeSelectionne)
+      : [];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 210, display: "flex", flexDirection: "column", padding: "20px 16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <SectionLabel icon={Dumbbell} onBg>Choisir un exercice</SectionLabel>
+        <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textOnBg }}><X size={22} /></button>
+      </div>
+      <input
+        type="text"
+        value={recherche}
+        onChange={(e) => { setRecherche(e.target.value); setGroupeSelectionne(null); }}
+        placeholder="🔍 Rechercher un exercice..."
+        style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, marginBottom: 14 }}
+      />
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {recherche.trim() ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {exercicesAffiches.length === 0 ? (
+              <div style={{ color: C.textOnBgMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Aucun exercice trouvé</div>
+            ) : exercicesAffiches.map((ex) => (
+              <Card key={ex.id} onClick={() => onSelect(ex.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+                <Dumbbell size={16} color={C.blue} />
+                <span style={{ fontSize: 13.5, color: C.text, fontWeight: 600 }}>{ex.nom}</span>
+              </Card>
+            ))}
+          </div>
+        ) : groupeSelectionne ? (
+          <>
+            <button
+              onClick={() => setGroupeSelectionne(null)}
+              style={{ background: "transparent", border: "none", color: C.textOnBg, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, marginBottom: 12 }}
+            >
+              <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour aux groupes
+            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {exercicesAffiches.map((ex) => (
+                <Card key={ex.id} onClick={() => onSelect(ex.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+                  <Dumbbell size={16} color={C.blue} />
+                  <span style={{ fontSize: 13.5, color: C.text, fontWeight: 600 }}>{ex.nom}</span>
+                </Card>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {groupesDisponibles.length === 0 ? (
+              <div style={{ color: C.textOnBgMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Ta bibliothèque d'exercices est vide</div>
+            ) : groupesDisponibles.map((g) => {
+              const count = bibliotheque.filter((ex) => (ex.groupe_musculaire || "Autre") === g).length;
+              return (
+                <Card key={g} onClick={() => setGroupeSelectionne(g)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Dumbbell size={18} color={C.blue} />
+                    <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: C.text }}>{g}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: C.textDim }}>{count} exercice{count > 1 ? "s" : ""}</span>
+                    <ChevronRight size={16} color={C.textMuted} />
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ScannerCodeBarres({ onClose, onScan }) {
   const scannerRef = useRef(null);
   const [erreur, setErreur] = useState(null);
@@ -4643,7 +4874,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   };
   const [nom, setNom] = useState(editingProgramme?.nom || "");
   const [muscle, setMuscle] = useState(editingProgramme?.muscle || "");
-  const [jourFixe, setJourFixe] = useState(editingProgramme?.jour_fixe || "");
+  const [jourFixe, setJourFixe] = useState(editingProgramme?.jourFixe || editingProgramme?.jour_fixe || "");
   const [echauffementGeneral, setEchauffementGeneral] = useState(editingProgramme?.echauffement_general || "");
   const [expandedIdx, setExpandedIdx] = useState(null);
   const [draggedIdx, setDraggedIdx] = useState(null);
@@ -4723,6 +4954,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       type: ex.type || ex.type_exercice || "muscu",
       dureeMinutes: ex.dureeMinutes ?? ex.duree_minutes ?? null,
       echauffement: ex.echauffement ?? ex.series_echauffement ?? 0,
+      objectifRepsMax: ex.objectifRepsMax ?? ex.objectif_reps_max ?? null,
     }));
   });
   const [exNom, setExNom] = useState("");
@@ -4732,6 +4964,15 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
   const [exRepsParSerie, setExRepsParSerie] = useState([10, 10, 10]);
   const [exType, setExType] = useState("muscu");
   const [exEchauffement, setExEchauffement] = useState(0);
+  const [exObjectifActif, setExObjectifActif] = useState(false);
+  const [exObjectifReps, setExObjectifReps] = useState(12);
+  const [showRpePickerNew, setShowRpePickerNew] = useState(false);
+  const [showTempoPickerNew, setShowTempoPickerNew] = useState(false);
+  const [showRepoPickerNew, setShowRepoPickerNew] = useState(false);
+  const [showRepoPickerIdx, setShowRepoPickerIdx] = useState(null);
+  const [showRpePickerIdx, setShowRpePickerIdx] = useState(null);
+  const [showTempoPickerIdx, setShowTempoPickerIdx] = useState(null);
+  const [showExercicePickerPage, setShowExercicePickerPage] = useState(false);
   const [exDureeMinutes, setExDureeMinutes] = useState(15);
 
   useEffect(() => {
@@ -4803,6 +5044,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
       rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length,
       type: exType, dureeMinutes: exType === "cardio" ? exDureeMinutes : null,
       echauffement: exType === "cardio" ? 0 : (parseInt(exEchauffement) || 0),
+      objectifRepsMax: exObjectifActif ? (parseInt(exObjectifReps) || null) : null,
     }]);
     setSelectedExId("");
     setExSets(3);
@@ -4814,6 +5056,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
     setExType("muscu");
     setExDureeMinutes(15);
     setExEchauffement(0);
+    setExObjectifActif(false);
+    setExObjectifReps(12);
   };
 
   const removeExercice = (idx) => {
@@ -4882,6 +5126,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
         type_exercice: ex.type || "muscu",
         duree_minutes: ex.dureeMinutes || null,
         series_echauffement: ex.echauffement || 0,
+        objectif_reps_max: ex.objectifRepsMax || null,
       }));
       const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
       if (exErr) throw exErr;
@@ -4956,13 +5201,13 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                 : ex.groupeSuperset
                   ? `3px solid ${C.blue}`
                   : `1.5px solid ${C.blueBorder}`,
-              borderTopLeftRadius: !ex.groupeSuperset || estDebutSuperset ? 10 : 0,
-              borderTopRightRadius: !ex.groupeSuperset || estDebutSuperset ? 10 : 0,
-              borderBottomLeftRadius: !ex.groupeSuperset || estFinSuperset ? 10 : 0,
-              borderBottomRightRadius: !ex.groupeSuperset || estFinSuperset ? 10 : 0,
+              borderTopLeftRadius: !ex.groupeSuperset || estDebutSuperset ? 14 : 0,
+              borderTopRightRadius: !ex.groupeSuperset || estDebutSuperset ? 14 : 0,
+              borderBottomLeftRadius: !ex.groupeSuperset || estFinSuperset ? 14 : 0,
+              borderBottomRightRadius: !ex.groupeSuperset || estFinSuperset ? 14 : 0,
               borderTop: ex.groupeSuperset && !estDebutSuperset ? "none" : undefined,
-              padding: "8px 10px",
-              marginBottom: estFinSuperset || !ex.groupeSuperset ? 8 : 0,
+              padding: "16px 16px",
+              marginBottom: estFinSuperset || !ex.groupeSuperset ? 10 : 0,
               opacity: draggedIdx === i ? 0.4 : 1,
             }}
           >
@@ -4973,44 +5218,78 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
                 <div
                   onMouseDown={() => setDraggedIdx(i)}
                   onTouchStart={() => setDraggedIdx(i)}
-                  style={{ color: C.textMuted, fontSize: 16, lineHeight: 1, padding: "4px 2px", cursor: "grab", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+                  style={{ color: C.textMuted, fontSize: 20, lineHeight: 1, padding: "4px 2px", cursor: "grab", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                 >
                   ⠿
                 </div>
                 <input type="checkbox" checked={selectedForSuperset.includes(i)} onChange={(e) => { e.stopPropagation(); toggleSelectForSuperset(i); }} onClick={(e) => e.stopPropagation()} />
-                <div style={{ fontSize: 13, color: C.text, cursor: "pointer" }} onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}>
-                  {ex.groupeSuperset && <span style={{ color: C.blue, fontWeight: 700 }}>[Superset] </span>}
-                  {ex.nom} — {ex.sets} séries · {ex.rest}s
+                <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setExpandedIdx(i)}>
+                  {ex.groupeSuperset && <span style={{ color: C.blue, fontWeight: 700, fontSize: 11 }}>[Superset] </span>}
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{ex.nom}</div>
+                  <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>
+                    {ex.sets} séries · {ex.rest}s
+                    {(ex.echauffement || 0) > 0 && <span style={{ color: C.amber }}> · 🔥 {ex.echauffement} éch.</span>}
+                  </div>
                 </div>
-              </div>            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <ChevronDown size={16} color={C.textMuted} style={{ transform: expandedIdx === i ? "rotate(180deg)" : "none" }} onClick={() => setExpandedIdx(expandedIdx === i ? null : i)} />
-                <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button onClick={() => setExpandedIdx(i)} style={{ background: "transparent", border: "none", color: C.textMuted, padding: 6 }}><ChevronRight size={18} /></button>
+                <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={16} /></button>
               </div>
             </div>
-            {expandedIdx === i && (
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.cardBorderLight}` }}>
+          </div>
+          );
+        })}
+        {showRpePickerIdx !== null && (
+          <RPEPickerModal value={exercices[showRpePickerIdx]?.rpe} onSelect={(v) => updateExercice(showRpePickerIdx, "rpe", v)} onClose={() => setShowRpePickerIdx(null)} />
+        )}
+        {showTempoPickerIdx !== null && (
+          <TempoPickerModal value={exercices[showTempoPickerIdx]?.tempo} onSelect={(v) => updateExercice(showTempoPickerIdx, "tempo", v)} onClose={() => setShowTempoPickerIdx(null)} />
+        )}
+        {showRepoPickerIdx !== null && (
+          <RepoPickerModal value={exercices[showRepoPickerIdx]?.rest} onSelect={(v) => updateExercice(showRepoPickerIdx, "rest", v)} onClose={() => setShowRepoPickerIdx(null)} />
+        )}
+        {expandedIdx !== null && exercices[expandedIdx] && (() => {
+          const ex = exercices[expandedIdx];
+          const i = expandedIdx;
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setExpandedIdx(null)}>
+              <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <SectionLabel icon={Dumbbell}>{ex.nom}</SectionLabel>
+                  <button onClick={() => setExpandedIdx(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
+                </div>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Séries</div>
-                <input type="number" value={ex.sets} onChange={(e) => {
-                  const n = parseInt(e.target.value) || 1;
-                  const arr = [...(ex.repsParSerie || [])];
-                  while (arr.length < n) arr.push(10);
-                  while (arr.length > n) arr.pop();
-                  updateExercice(i, "sets", n);
-                  updateExercice(i, "repsParSerie", arr);
-                }} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                  <button onClick={() => {
+                    const n = Math.max(1, ex.sets - 1);
+                    const arr = [...(ex.repsParSerie || [])];
+                    while (arr.length > n) arr.pop();
+                    updateExercice(i, "sets", n);
+                    updateExercice(i, "repsParSerie", arr);
+                  }} style={{ width: 36, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 18, fontWeight: 700 }}>−</button>
+                  <div style={{ flex: 1, textAlign: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 0", color: C.text, fontSize: 15, fontWeight: 700 }}>{ex.sets}</div>
+                  <button onClick={() => {
+                    const n = ex.sets + 1;
+                    const arr = [...(ex.repsParSerie || [])];
+                    while (arr.length < n) arr.push(10);
+                    updateExercice(i, "sets", n);
+                    updateExercice(i, "repsParSerie", arr);
+                  }} style={{ width: 36, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 18, fontWeight: 700 }}>+</button>
+                </div>
                 <div style={{ fontSize: 11, color: C.amber, marginBottom: 4, fontWeight: 700 }}>🔥 Séries d'échauffement (0 si aucune)</div>
-                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                   {[0, 1, 2, 3].map((n) => (
                     <button
                       key={n}
                       onClick={() => updateExercice(i, "echauffement", n)}
                       style={{
-                        flex: 1, padding: "6px", borderRadius: 8, fontSize: 13, fontWeight: 700,
-                        background: (ex.echauffement || 0) === n ? C.amber : C.card,
+                        flex: 1, padding: "8px", borderRadius: 8, fontSize: 14, fontWeight: 700,
+                        background: (ex.echauffement || 0) === n ? C.amber : C.surface,
                         color: (ex.echauffement || 0) === n ? "#3D2600" : C.textMuted,
                         border: `1px solid ${(ex.echauffement || 0) === n ? C.amber : C.cardBorderLight}`,
                       }}
@@ -5019,36 +5298,66 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                     </button>
                   ))}
                 </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={!!ex.objectifRepsMax}
+                      onChange={(e) => updateExercice(i, "objectifRepsMax", e.target.checked ? 12 : null)}
+                    />
+                    <span style={{ fontSize: 12.5, color: C.text, fontWeight: 600 }}>🎯 Objectif de progression (augmenter la charge à un nombre de reps)</span>
+                  </label>
+                  {ex.objectifRepsMax > 0 && (
+                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 12, color: C.textMuted }}>À partir de</span>
+                      <input
+                        type="number"
+                        value={ex.objectifRepsMax}
+                        onChange={(e) => updateExercice(i, "objectifRepsMax", parseInt(e.target.value) || 12)}
+                        style={{ width: 60, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
+                      />
+                      <span style={{ fontSize: 12, color: C.textMuted }}>répétitions, augmenter la charge</span>
+                    </div>
+                  )}
+                </div>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Répétitions par série</div>
-                <div style={{ display: "flex", gap: 6, Wrap: "wrap", marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                   {(ex.repsParSerie || []).map((r, si) => (
                     <input key={si} type="number" value={r} onChange={(e) => {
                       const val = parseInt(e.target.value) || 0;
                       const arr = [...ex.repsParSerie];
                       arr[si] = val;
                       updateExercice(i, "repsParSerie", arr);
-                    }} style={{ width: 44, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 12, textAlign: "center" }} />
+                    }} style={{ width: 48, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px", color: C.text, fontSize: 13, textAlign: "center" }} />
                   ))}
                 </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Repos (s)</div>
-                    <input type="number" value={ex.rest} onChange={(e) => updateExercice(i, "rest", parseInt(e.target.value) || 0)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13 }} />
+                    <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Repos</div>
+                    <button onClick={() => setShowRepoPickerIdx(i)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: C.text, fontSize: 13, textAlign: "left" }}>
+                      {formatRepos(ex.rest)}
+                    </button>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>RPE</div>
-                    <input type="number" value={ex.rpe || ""} onChange={(e) => updateExercice(i, "rpe", e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13 }} />
+                    <button onClick={() => setShowRpePickerIdx(i)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: ex.rpe ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
+                      {ex.rpe || "RPE"}
+                    </button>
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Tempo</div>
-                <input type="text" value={ex.tempo || ""} onChange={(e) => updateExercice(i, "tempo", e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, marginBottom: 8 }} />
+                <button onClick={() => setShowTempoPickerIdx(i)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: ex.tempo ? C.text : C.textDim, fontSize: 13, textAlign: "left", marginBottom: 12 }}>
+                  {ex.tempo || "Tempo"}
+                </button>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Note</div>
-                <textarea value={ex.note || ""} onChange={(e) => updateExercice(i, "note", e.target.value)} rows={2} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, resize: "none" }} />
-              </div>
-            )}
-          </div>
+                <textarea value={ex.note || ""} onChange={(e) => updateExercice(i, "note", e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: C.text, fontSize: 13, resize: "none", marginBottom: 14 }} />
+                <button onClick={() => setExpandedIdx(null)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14 }}>
+                  Terminé
+                </button>
+              </Card>
+            </div>
           );
-        })}
+        })()}
         {selectedForSuperset.length >= 2 && (       <button onClick={groupSuperset} style={{ width: "100%", background: C.blueSoft, border: `1px solid ${C.blue}`, color: C.blue, borderRadius: 10, padding: "8px", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
             Grouper en superset ({selectedForSuperset.length} exercices)
           </button>
@@ -5079,18 +5388,18 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                  <select value={selectedExId} onChange={(e) => setSelectedExId(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }}>
-                    <option value="">Choisir un exercice...</option>
-                    {GROUPES_MUSCULAIRES.filter((g) => bibliotheque.some((ex) => (ex.groupe_musculaire || "Autre") === g)).map((g) => (
-                      <optgroup key={g} label={g}>
-                        {bibliotheque.filter((ex) => (ex.groupe_musculaire || "Autre") === g).map((ex) => (
-                          <option key={ex.id} value={ex.id}>{ex.nom}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                  <button onClick={() => setShowExercicePickerPage(true)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: selectedExId ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
+                    {selectedExId ? bibliotheque.find((b) => b.id === selectedExId)?.nom : "Choisir un exercice..."}
+                  </button>
                   <button onClick={() => setShowNewExercice(true)} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}><Plus size={14} /></button>
                 </div>
+              )}
+              {showExercicePickerPage && (
+                <ExercicePickerModal
+                  bibliotheque={bibliotheque}
+                  onSelect={(id) => { setSelectedExId(id); setShowExercicePickerPage(false); }}
+                  onClose={() => setShowExercicePickerPage(false)}
+                />
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                 <PillButton active={exType === "muscu"} onClick={() => setExType("muscu")} style={{ flex: 1, textAlign: "center" }}>🏋️ Musculation</PillButton>
@@ -5103,19 +5412,61 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                     <input type="number" value={exDureeMinutes} onChange={(e) => setExDureeMinutes(parseInt(e.target.value) || 15)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>REPOS APRÈS (S)</div>
-                    <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>REPOS APRÈS</div>
+                    <button onClick={() => setShowRepoPickerNew(true)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, textAlign: "left" }}>
+                      {formatRepos(exRest)}
+                    </button>
                   </div>
                 </div>
               ) : (
                 <>
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    <input type="number" placeholder="Séries" value={exSets} onChange={(e) => setExSets(parseInt(e.target.value) || 3)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-                    <input type="number" placeholder="Repos (s)" value={exRest} onChange={(e) => setExRest(parseInt(e.target.value) || 90)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>SÉRIES</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button onClick={() => setExSets(Math.max(1, exSets - 1))} style={{ width: 32, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 16, fontWeight: 700 }}>−</button>
+                        <div style={{ flex: 1, textAlign: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 0", color: C.text, fontSize: 14, fontWeight: 700 }}>{exSets}</div>
+                        <button onClick={() => setExSets(exSets + 1)} style={{ width: 32, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 16, fontWeight: 700 }}>+</button>
+                      </div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>REPOS</div>
+                      <button onClick={() => setShowRepoPickerNew(true)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, textAlign: "left", height: 36 }}>
+                        {formatRepos(exRest)}
+                      </button>
+                    </div>
                   </div>
                   <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>SÉRIES D'ÉCHAUFFEMENT (0 SI AUCUNE)</div>
-                    <input type="number" min="0" placeholder="0" value={exEchauffement} onChange={(e) => setExEchauffement(parseInt(e.target.value) || 0)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.amber}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                    <div style={{ fontSize: 10.5, color: C.amber, marginBottom: 4, fontWeight: 700 }}>🔥 SÉRIES D'ÉCHAUFFEMENT (0 SI AUCUNE)</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {[0, 1, 2, 3].map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setExEchauffement(n)}
+                          style={{
+                            flex: 1, padding: "8px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+                            background: exEchauffement === n ? C.amber : C.surface,
+                            color: exEchauffement === n ? "#3D2600" : C.textMuted,
+                            border: `1px solid ${exEchauffement === n ? C.amber : C.cardBorderLight}`,
+                          }}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                      <input type="checkbox" checked={exObjectifActif} onChange={(e) => setExObjectifActif(e.target.checked)} />
+                      <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>🎯 Objectif de progression (augmenter la charge à un nombre de reps)</span>
+                    </label>
+                    {exObjectifActif && (
+                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, color: C.textMuted }}>À partir de</span>
+                        <input type="number" value={exObjectifReps} onChange={(e) => setExObjectifReps(parseInt(e.target.value) || 12)} style={{ width: 60, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }} />
+                        <span style={{ fontSize: 12, color: C.textMuted }}>répétitions, augmenter la charge</span>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                     {exRepsParSerie.map((r, i) => (
@@ -5136,8 +5487,12 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
                 </>
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input type="text" placeholder="Tempo (e: 3-1-1-0)" value={exTempo} onChange={(e) => setExTempo(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-                <input type="number" placeholder="RPE" value={exRpe} onChange={(e) => setExRpe(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
+                <button onClick={() => setShowTempoPickerNew(true)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: exTempo ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
+                  {exTempo || "Tempo"}
+                </button>
+                <button onClick={() => setShowRpePickerNew(true)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: exRpe ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
+                  {exRpe || "RPE"}
+                </button>
               </div>
               <textarea placeholder="Note spéciale (optionnel)" value={exNote} onChange={(e) => setExNote(e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 12, resize: "none" }} />
               <button
@@ -5149,6 +5504,9 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
             </Card>
           </div>
         )}
+        {showRpePickerNew && <RPEPickerModal value={exRpe} onSelect={setExRpe} onClose={() => setShowRpePickerNew(false)} />}
+        {showTempoPickerNew && <TempoPickerModal value={exTempo} onSelect={setExTempo} onClose={() => setShowTempoPickerNew(false)} />}
+        {showRepoPickerNew && <RepoPickerModal value={exRest} onSelect={setExRest} onClose={() => setShowRepoPickerNew(false)} />}
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14 }}>Annuler</button>
           <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : "Créer"}</button>
@@ -5191,7 +5549,7 @@ const LegendDot = ({ color, label }) => (
   </div>
 );
 
-function MiniCalendarClient({ seancesDates, poidsDates, bilansDates }) {
+function MiniCalendarClient({ seancesDates, poidsDates, bilansDates, nutritionDates, onSelectDay }) {
   const [viewDate, setViewDate] = useState(new Date());
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -5220,6 +5578,7 @@ function MiniCalendarClient({ seancesDates, poidsDates, bilansDates }) {
         <LegendDot color={C.blue} label="Séances" />
         <LegendDot color={C.red} label="Poids" />
         <LegendDot color={C.green} label="Bilan" />
+        <LegendDot color={C.amber} label="Nutrition" />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
         {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
@@ -5231,15 +5590,21 @@ function MiniCalendarClient({ seancesDates, poidsDates, bilansDates }) {
           const hasS = seancesDates.has(iso);
           const hasP = poidsDates.has(iso);
           const hasB = bilansDates.has(iso);
+          const hasN = nutritionDates && nutritionDates.has(iso);
           return (
-            <div key={i} style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 8, background: (hasS || hasP || hasB) ? C.surface : "transparent" }}>
+            <button
+              key={i}
+              onClick={() => onSelectDay && onSelectDay(iso)}
+              style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 8, background: (hasS || hasP || hasB || hasN) ? C.surface : "transparent", border: "none" }}
+            >
               <div style={{ fontSize: 10.5, color: C.text }}>{d}</div>
               <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
                 {hasS && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.blue }} />}
                 {hasP && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.red }} />}
                 {hasB && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.green }} />}
+                {hasN && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.amber }} />}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -6617,6 +6982,81 @@ function CalendrierNutritionCoach({ repas }) {
   );
 }
 
+function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repasJour, onClose }) {
+  const totalKcalJour = repasJour.reduce((sum, r) => sum + (r.kcal || 0), 0);
+  const rienDuTout = !checkin && !poids && !seance && repasJour.length === 0;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <SectionLabel icon={Calendar}>{formatDateDisplay(date)}</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
+        </div>
+
+        {rienDuTout ? (
+          <div style={{ color: C.textMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Rien d'enregistré ce jour-là</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {checkin && (
+              <div>
+                <SectionLabel icon={Flame}>Bilan du jour</SectionLabel>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1, background: C.surface, borderRadius: 10, padding: "8px", textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: C.textMuted }}>Fatigue</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{checkin.fatigue}/5</div>
+                  </div>
+                  <div style={{ flex: 1, background: C.surface, borderRadius: 10, padding: "8px", textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: C.textMuted }}>Sommeil</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{checkin.sommeil}/5</div>
+                  </div>
+                  <div style={{ flex: 1, background: C.surface, borderRadius: 10, padding: "8px", textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: C.textMuted }}>Énergie</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{checkin.energie}/5</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {poids && (
+              <div>
+                <SectionLabel icon={TrendingUp}>Poids</SectionLabel>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.text, fontFamily: FONT_MONO }}>{poids.poids} kg</div>
+              </div>
+            )}
+
+            {seance && (
+              <div>
+                <SectionLabel icon={Dumbbell}>Séance · {seance.nom_programme}</SectionLabel>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>{fmtTime(seance.duree_secondes || 0)}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {seriesDeLaSeance.map((sr, i) => (
+                    <div key={i} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px", fontFamily: FONT_MONO }}>
+                      {sr.exercice_nom} — {sr.poids}kg × {sr.reps}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {repasJour.length > 0 && (
+              <div>
+                <SectionLabel icon={Apple}>Nutrition · {totalKcalJour} kcal</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {repasJour.map((r) => (
+                    <div key={r.id} style={{ fontSize: 12, color: C.text, background: C.surface, borderRadius: 8, padding: "6px 10px" }}>
+                      {r.aliment} — {r.grammes}g · {r.kcal} kcal
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [tab, setTab] = useState("programme");
   const [loading, setLoading] = useState(true);
@@ -6633,6 +7073,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [customProgrammes, setCustomProgrammes] = useState([]);
   const [checkinsQuotidiens, setCheckinsQuotidiens] = useState([]);
   const [poidsRawDates, setPoidsRawDates] = useState([]);
+  const [poidsRawList, setPoidsRawList] = useState([]);
   const [photosHistoryCoach, setPhotosHistoryCoach] = useState([]);
   const [mensurationsCoach, setMensurationsCoach] = useState([]);
   const [notifActivees, setNotifActivees] = useState(null); // null = en cours de vérification
@@ -6640,7 +7081,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [connexionsRecentes, setConnexionsRecentes] = useState([]);
 
   useEffect(() => {
-    supabase.from("connexions_log").select("connected_at").eq("profil_id", client.id).order("connected_at", { ascending: false }).limit(15)
+    supabase.from("connexions_log").select("connected_at").eq("profil_id", client.id).order("connected_at", { ascending: false }).limit(5)
       .then(({ data }) => setConnexionsRecentes(data || []));
   }, [client.id]);
   const [savingNote, setSavingNote] = useState(false);
@@ -6730,6 +7171,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
         setSeances(seancesData);
         setWeightHistory((poidsRes.data || []).map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) })));
         setPoidsRawDates((poidsRes.data || []).map((r) => r.date));
+        setPoidsRawList(poidsRes.data || []);
         setCheckins(checkinsRes.data || []);
         setRepas(repasRes.data || []);
         setCustomProgrammes(programmesRes.data || []);
@@ -6761,6 +7203,8 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
 
   const seancesDatesSet = useMemo(() => new Set(seances.map((s) => s.date)), [seances]);
   const poidsDatesSet = useMemo(() => new Set(poidsRawDates), [poidsRawDates]);
+  const nutritionDatesSet = useMemo(() => new Set(repas.map((r) => r.date)), [repas]);
+  const [selectedJourDetail, setSelectedJourDetail] = useState(null);
   const bilansDatesSet = useMemo(() => {
     const set = new Set();
     for (const c of checkins) {
@@ -6961,13 +7405,28 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
         ) : tab === "programme" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button onClick={() => { console.log("CLIC DETECTE, showSeanceForm avant:", showSeanceForm); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <button onClick={() => setShowSeanceForm(true)} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Plus size={16} /> Créer une séance
             </button>
             {customProgrammes.length > 0 && (() => {
               const JOURS_ORDRE = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
               const avecJour = customProgrammes.filter((p) => p.jour_fixe);
               const sansJour = customProgrammes.filter((p) => !p.jour_fixe);
+
+              // Jours de la semaine en cours déjà validés par le client, pour le suivi vert
+              const now = new Date();
+              const decalage = (now.getDay() + 6) % 7;
+              const lundi = new Date(now);
+              lundi.setDate(now.getDate() - decalage);
+              const lundiIso = `${lundi.getFullYear()}-${String(lundi.getMonth() + 1).padStart(2, "0")}-${String(lundi.getDate()).padStart(2, "0")}`;
+              const joursValidesCetteSemaine = new Set();
+              for (const s of seances) {
+                const dateSeanceIso = String(s.date).slice(0, 10);
+                if (dateSeanceIso < lundiIso) continue;
+                const p = avecJour.find((prog) => prog.id === s.programme_id) || avecJour.find((prog) => prog.nom === s.nom_programme);
+                if (p) joursValidesCetteSemaine.add(p.jour_fixe);
+              }
+
               const renderProgCard = (p) => (
                 <Card key={p.id} onClick={() => setSelectedProgramme(p)} style={{ cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -6995,9 +7454,20 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       <SectionLabel icon={Calendar} onBg>Semaine type</SectionLabel>
                       {JOURS_ORDRE.map((jour) => {
                         const p = avecJour.find((prog) => prog.jour_fixe === jour);
+                        const estValide = joursValidesCetteSemaine.has(jour);
                         return (
-                          <Card key={jour} onClick={() => p && setSelectedProgramme(p)} style={{ cursor: p ? "pointer" : "default" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{jour}</div>
+                          <Card
+                            key={jour}
+                            onClick={() => p && setSelectedProgramme(p)}
+                            style={{
+                              cursor: p ? "pointer" : "default",
+                              border: estValide ? `2px solid ${C.green}` : undefined,
+                              boxShadow: estValide ? "0 0 14px rgba(34,168,118,0.5)" : undefined,
+                            }}
+                          >
+                            <div style={{ fontSize: 10, fontWeight: 700, color: estValide ? C.green : C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+                              {jour}{estValide && " · Validé ✓"}
+                            </div>
                             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: p ? C.text : C.textDim }}>{p ? p.nom : "Repos"}</div>
                             {p && (
                               <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
@@ -7021,7 +7491,25 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           </div>
         ) : tab === "bilans" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <MiniCalendarClient seancesDates={seancesDatesSet} poidsDates={poidsDatesSet} bilansDates={bilansDatesSet} />
+            <MiniCalendarClient seancesDates={seancesDatesSet} poidsDates={poidsDatesSet} bilansDates={bilansDatesSet} nutritionDates={nutritionDatesSet} onSelectDay={setSelectedJourDetail} />
+            {selectedJourDetail && (() => {
+              const checkinDuJour = checkins.find((c) => c.date === selectedJourDetail);
+              const poidsDuJour = poidsRawList.find((p) => p.date === selectedJourDetail);
+              const seanceDuJour = seances.find((s) => s.date === selectedJourDetail);
+              const seriesDeLaSeance = seanceDuJour ? (seriesBySeance[seanceDuJour.id] || []) : [];
+              const repasDuJour = repas.filter((r) => r.date === selectedJourDetail);
+              return (
+                <JourDetailModal
+                  date={selectedJourDetail}
+                  checkin={checkinDuJour}
+                  poids={poidsDuJour}
+                  seance={seanceDuJour}
+                  seriesDeLaSeance={seriesDeLaSeance}
+                  repasJour={repasDuJour}
+                  onClose={() => setSelectedJourDetail(null)}
+                />
+              );
+            })()}
             <Card>
               <SectionLabel icon={Flame}>Fatigue / Sommeil / Énergie</SectionLabel>
               {checkinsQuotidiens.length === 0 ? (
@@ -7834,6 +8322,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               dureeMinutes: ex.duree_minutes,
               groupeSuperset: ex.groupe_superset,
               echauffement: ex.series_echauffement || 0,
+              objectifRepsMax: ex.objectif_reps_max || null,
             })),
         }));
         setCustomProgrammes(formatted);
@@ -8484,10 +8973,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0 })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
           )}
           {tab === "seances" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0 })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
           )}
           {activeProgramme && (
             <SessionView
