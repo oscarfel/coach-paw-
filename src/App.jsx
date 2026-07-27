@@ -1339,19 +1339,19 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
 
   const submit = () => {
     if (ex.type === "cardio") {
-      onValidate(ex, { poids: 0, reps: ex.dureeMinutes || 0, tempo: "", rpe: rpe || "8" });
+      onValidate(ex, { poids: 0, reps: ex.dureeMinutes || 0, tempo: "", rpe: rpe || "8" }, false);
       setOpen(false);
       return;
     }
     if (!poids || !reps) return;
-    onValidate(ex, { poids: parseFloat(poids), reps: parseInt(reps), tempo, rpe });
+    onValidate(ex, { poids: parseFloat(poids), reps: parseInt(reps), tempo, rpe }, false);
     setPoids("");
     setReps("");
     setOpen(false);
   };
 
   const validerEchauffement = () => {
-    onValidate(ex, { poids: 0, reps: 0, tempo: "", rpe: "" });
+    onValidate(ex, { poids: 0, reps: 0, tempo: "", rpe: "" }, true);
     setOpen(false);
   };
 
@@ -1791,6 +1791,24 @@ function playBeep() {
 function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   const exIndex = programme.exercices.findIndex((e) => e.id === rest.exId);
   const ex = programme.exercices[exIndex];
+
+  // Sécurité : si l'exercice n'est pas retrouvé (identifiant introuvable), on ne plante pas —
+  // on affiche un écran de repos minimal avec juste un bouton pour continuer.
+  useEffect(() => {
+    if (!ex) console.error("RestScreen: exercice introuvable pour exId =", rest.exId);
+  }, [ex]);
+
+  if (!ex) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "#CFE4FC", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
+        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.textOnBg }}>Repos</span>
+        <button onClick={onSkip} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "14px 28px", fontWeight: 800, fontSize: 15 }}>
+          Continuer
+        </button>
+      </div>
+    );
+  }
+
   const estDerniereSerieDeLExercice = rest.setNumber >= ex.sets;
   const prochainExercice = estDerniereSerieDeLExercice ? programme.exercices[exIndex + 1] : null;
 
@@ -2008,19 +2026,20 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 
   const totalSets = Object.values(logs).reduce((a, l) => a + l.sets.length, 0);
 
-  const validateSet = (ex, set) => {
+  const validateSet = (ex, set, estEchauffement) => {
     unlockAudio();
     let setNumber = 1;
     setLogs((prev) => {
-      setNumber = prev[ex.id].sets.length + 1;
+      setNumber = (prev[ex.id]?.sets?.length || 0) + 1;
       return {
         ...prev,
-        [ex.id]: { ...prev[ex.id], sets: [...prev[ex.id].sets, set] },
+        [ex.id]: { ...prev[ex.id], sets: [...(prev[ex.id]?.sets || []), set] },
       };
     });
 
-    // Une série d'échauffement ne déclenche jamais le temps de repos.
-    if (setNumber <= (ex.echauffement || 0)) return;
+    // Une série d'échauffement ne déclenche jamais le temps de repos — signalé
+    // explicitement par le bouton utilisé (fiable, ne dépend pas d'un comptage).
+    if (estEchauffement) return;
 
     // Dans un superset, on n'active le repos que quand TOUS les exercices du groupe VISIBLEMENT
     // regroupés (adjacents dans la liste) ont fait cette même série — jamais un exercice
@@ -2032,7 +2051,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         for (let j = idx - 1; j >= 0 && programme.exercices[j]?.groupeSuperset === ex.groupeSuperset; j--) partenaires.push(programme.exercices[j]);
         for (let j = idx + 1; j < programme.exercices.length && programme.exercices[j]?.groupeSuperset === ex.groupeSuperset; j++) partenaires.push(programme.exercices[j]);
         const unPartenaireEnRetard = partenaires.some((p) => (logs[p.id]?.sets.length || 0) < setNumber);
-        if (unPartenaireEnRetard) return; // pas de repos, on passe directement au prochain exo du superset
+        if (unPartenaireEnRetard) return;
       }
     } catch (err) {
       console.error("Erreur vérification superset (repos activé quand même):", err);
@@ -5209,12 +5228,20 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionLabel icon={Plus}>Exercices</SectionLabel>
           {exercices.length > 0 && (
-            <button
-              onClick={() => { if (confirm("Vider tous les exercices de cette séance ?")) setExercices([]); }}
-              style={{ background: "transparent", border: "none", color: C.red, fontSize: 11.5, fontWeight: 700, marginBottom: 10 }}
-            >
-              Tout vider
-            </button>
+            <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
+              <button
+                onClick={() => { if (confirm("Retirer l'échauffement de tous les exercices de cette séance ?")) setExercices((prev) => prev.map((ex) => ({ ...ex, echauffement: 0 }))); }}
+                style={{ background: "transparent", border: "none", color: C.amber, fontSize: 11.5, fontWeight: 700 }}
+              >
+                Retirer tout l'échauffement
+              </button>
+              <button
+                onClick={() => { if (confirm("Vider tous les exercices de cette séance ?")) setExercices([]); }}
+                style={{ background: "transparent", border: "none", color: C.red, fontSize: 11.5, fontWeight: 700 }}
+              >
+                Tout vider
+              </button>
+            </div>
           )}
         </div>
         {exercices.map((ex, i) => {
