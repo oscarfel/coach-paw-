@@ -1294,6 +1294,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const [tempo, setTempo] = useState("");
   const [rpe, setRpe] = useState("8");
   const [showTempoExplication, setShowTempoExplication] = useState(false);
+  const [showVideoExecution, setShowVideoExecution] = useState(false);
   const fileRef = useRef(null);
   const hasVideo = !!log.video;
   const historique = history[`${programmeNom}::${ex.nom}`]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
@@ -1319,9 +1320,21 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
 
   // Remplissage segmenté : chaque série effective (hors échauffement) colore sa portion de la carte
   const cardFillGradient = () => {
-    return progressionPct > 0
-      ? `linear-gradient(to right, ${C.blue} 0%, ${C.blue} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
-      : C.card;
+    if (seriesEffectivesValidees === 0 || ex.type === "cardio") {
+      return progressionPct > 0
+        ? `linear-gradient(to right, ${C.green} 0%, ${C.green} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
+        : C.card;
+    }
+    const segWidth = 100 / ex.sets;
+    const stops = [];
+    let cursor = 0;
+    log.sets.slice(nbEchauffement).forEach((s, i) => {
+      const color = compareSetColor(i, s.poids, s.reps);
+      stops.push(`${color} ${cursor}%`, `${color} ${cursor + segWidth}%`);
+      cursor += segWidth;
+    });
+    stops.push(`${C.card} ${cursor}%`, `${C.card} 100%`);
+    return `linear-gradient(to right, ${stops.join(", ")})`;
   };
 
   const submit = () => {
@@ -1427,12 +1440,23 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {ex.videoDemoUrl && (
-            <video
-              src={ex.videoDemoUrl}
-              controls
-              playsInline
-              style={{ width: "100%", borderRadius: 12, background: "#000", maxHeight: 240 }}
-            />
+            <div>
+              <button
+                onClick={() => setShowVideoExecution(!showVideoExecution)}
+                style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11.5, display: "flex", alignItems: "center", gap: 4, padding: 0 }}
+              >
+                <ChevronRight size={12} style={{ transform: showVideoExecution ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+                Voir l'exo + vidéo d'exécution
+              </button>
+              {showVideoExecution && (
+                <video
+                  src={ex.videoDemoUrl}
+                  controls
+                  playsInline
+                  style={{ width: "100%", borderRadius: 12, background: "#000", maxHeight: 240, marginTop: 6 }}
+                />
+              )}
+            </div>
           )}
           {ex.note && (
             <div style={{ background: C.amberSoft, border: `1px solid ${C.amber}`, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: C.textOnBg }}>
@@ -1492,11 +1516,22 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
           })()}
 
           {seriesEffectivesValidees > 0 && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {[[C.green, "Progrès"], [C.amber, "Pareil qu'avant"], [C.red, "Moins bien"]].map(([color, label]) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {seriesEffectivesValidees > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {log.sets.map((s, i) => {
                 const estEchauffement = i < nbEchauffement;
                 if (estEchauffement) return null;
-                const couleur = C.blue;
+                const couleur = compareSetColor(i - nbEchauffement, s.poids, s.reps);
                 return (
                   <div
                     key={i}
@@ -1987,12 +2022,20 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     // Une série d'échauffement ne déclenche jamais le temps de repos.
     if (setNumber <= (ex.echauffement || 0)) return;
 
-    // Dans un superset, on n'active le repos que quand TOUS les exercices du groupe
-    // ont fait cette même série — sinon on enchaîne directement sur le suivant.
-    if (ex.groupeSuperset) {
-      const partenaires = programme.exercices.filter((e) => e.groupeSuperset === ex.groupeSuperset && e.id !== ex.id);
-      const unPartenaireEnRetard = partenaires.some((p) => (logs[p.id]?.sets.length || 0) < setNumber);
-      if (unPartenaireEnRetard) return; // pas de repos, on passe directement au prochain exo du superset
+    // Dans un superset, on n'active le repos que quand TOUS les exercices du groupe VISIBLEMENT
+    // regroupés (adjacents dans la liste) ont fait cette même série — jamais un exercice
+    // "orphelin" ailleurs dans la séance qui partagerait la même valeur par erreur.
+    try {
+      if (ex.groupeSuperset && programme?.exercices) {
+        const idx = programme.exercices.findIndex((e) => e.id === ex.id);
+        const partenaires = [];
+        for (let j = idx - 1; j >= 0 && programme.exercices[j]?.groupeSuperset === ex.groupeSuperset; j--) partenaires.push(programme.exercices[j]);
+        for (let j = idx + 1; j < programme.exercices.length && programme.exercices[j]?.groupeSuperset === ex.groupeSuperset; j++) partenaires.push(programme.exercices[j]);
+        const unPartenaireEnRetard = partenaires.some((p) => (logs[p.id]?.sets.length || 0) < setNumber);
+        if (unPartenaireEnRetard) return; // pas de repos, on passe directement au prochain exo du superset
+      }
+    } catch (err) {
+      console.error("Erreur vérification superset (repos activé quand même):", err);
     }
 
     const nouveauRest = { total: ex.rest, startedAt: Date.now(), left: ex.rest, exId: ex.id, setNumber, poids: set.poids, reps: set.reps };
