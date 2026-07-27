@@ -4901,7 +4901,7 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast, groupesDi
   );
 }
 
-function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, onCreated, fireToast }) {
+function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSemaineId, modeleJourFixe, onClose, onCreated, fireToast }) {
   const [selectedForSuperset, setSelectedForSuperset] = useState([]);
 
   const toggleSelectForSuperset = (idx) => {
@@ -5128,12 +5128,14 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, onClose, o
           nom: ex.nom, sets: ex.sets, repsParSerie: ex.repsParSerie, rest: ex.rest,
           tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.videoDemoUrl,
           ordre: ex.ordre, groupeSuperset: ex.groupeSuperset || null,
+          type: ex.type || "muscu", dureeMinutes: ex.dureeMinutes || null,
+          echauffement: ex.echauffement || 0, objectifRepsMax: ex.objectifRepsMax || null,
         }));
         if (editingProgramme?.id) {
-          const { error } = await supabase.from("programmes_modeles").update({ nom, muscle, exercices: exercicesJson }).eq("id", editingProgramme.id);
+          const { error } = await supabase.from("programmes_modeles").update({ nom, muscle, exercices: exercicesJson, jour_fixe: modeleJourFixe || null }).eq("id", editingProgramme.id);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from("programmes_modeles").insert({ coach_id: coachId, nom, muscle, exercices: exercicesJson });
+          const { error } = await supabase.from("programmes_modeles").insert({ coach_id: coachId, nom, muscle, exercices: exercicesJson, modele_semaine_id: modeleSemaineId || null, jour_fixe: modeleJourFixe || null });
           if (error) throw error;
         }
         fireToast(editingProgramme?.id ? "Modèle modifié" : "Modèle créé", "green");
@@ -5868,17 +5870,30 @@ function TachesView({ coachId, fireToast }) {
 
 function ProgrammesModelesView({ coachId, clients, fireToast }) {
   const [modeles, setModeles] = useState([]);
+  const [semaines, setSemaines] = useState([]);
+  const [ongletActif, setOngletActif] = useState("seances"); // "seances" | "semaines"
   const [loading, setLoading] = useState(true);
-  const [formMode, setFormMode] = useState(null); // null | "modele" | "pickClient" | "assign"
+  const [formMode, setFormMode] = useState(null); // null | "modele" | "pickClient" | "assign" | "nouvelleSemaine" | "detailSemaine" | "pickClientSemaine"
   const [editingModele, setEditingModele] = useState(null);
   const [assignClientId, setAssignClientId] = useState(null);
+  const [selectedSemaine, setSelectedSemaine] = useState(null);
+  const [nomSemaine, setNomSemaine] = useState("");
+  const [descSemaine, setDescSemaine] = useState("");
+  const [savingSemaine, setSavingSemaine] = useState(false);
+  const [assigningSemaine, setAssigningSemaine] = useState(false);
+  const JOURS_ORDRE_MODELE = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 
   const load = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("programmes_modeles").select("*").eq("coach_id", coachId).order("created_at", { ascending: false });
-      if (error) throw error;
-      setModeles(data || []);
+      const [modelesRes, semainesRes] = await Promise.all([
+        supabase.from("programmes_modeles").select("*").eq("coach_id", coachId).order("created_at", { ascending: false }),
+        supabase.from("modeles_semaine").select("*").eq("coach_id", coachId).order("created_at", { ascending: false }),
+      ]);
+      if (modelesRes.error) throw modelesRes.error;
+      if (semainesRes.error) throw semainesRes.error;
+      setModeles(modelesRes.data || []);
+      setSemaines(semainesRes.data || []);
     } catch (err) {
       console.error(err);
       fireToast("Erreur chargement modèles");
@@ -5887,6 +5902,77 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
     }
   };
   useEffect(() => { load(); }, [coachId]);
+
+  const modelesSansSemaine = modeles.filter((m) => !m.modele_semaine_id);
+  const modelesDeSemaine = (semaineId) => modeles.filter((m) => m.modele_semaine_id === semaineId);
+
+  const creerSemaine = async () => {
+    if (!nomSemaine.trim()) return;
+    setSavingSemaine(true);
+    try {
+      const { data, error } = await supabase.from("modeles_semaine").insert({ coach_id: coachId, nom: nomSemaine, description: descSemaine || null }).select().single();
+      if (error) throw error;
+      setSemaines((prev) => [data, ...prev]);
+      setNomSemaine("");
+      setDescSemaine("");
+      setFormMode("detailSemaine");
+      setSelectedSemaine(data);
+      fireToast("Semaine type créée", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur création semaine type");
+    } finally {
+      setSavingSemaine(false);
+    }
+  };
+
+  const supprimerSemaine = async (id) => {
+    if (!confirm("Supprimer cette semaine type et toutes ses séances ?")) return;
+    try {
+      const { error } = await supabase.from("modeles_semaine").delete().eq("id", id);
+      if (error) throw error;
+      setSemaines((prev) => prev.filter((s) => s.id !== id));
+      setModeles((prev) => prev.filter((m) => m.modele_semaine_id !== id));
+      if (formMode === "detailSemaine") { setFormMode(null); setSelectedSemaine(null); }
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression");
+    }
+  };
+
+  const assignerSemaineAuClient = async (clientId) => {
+    setAssigningSemaine(true);
+    try {
+      const seancesDeSemaine = modelesDeSemaine(selectedSemaine.id);
+      for (const s of seancesDeSemaine) {
+        const { data: prog, error: progErr } = await supabase
+          .from("programmes")
+          .insert({ profil_id: clientId, nom: s.nom, muscle: s.muscle, jour_fixe: s.jour_fixe || null })
+          .select()
+          .single();
+        if (progErr) throw progErr;
+        const exercicesRows = (s.exercices || []).map((ex, i) => ({
+          programme_id: prog.id, nom: ex.nom, sets: ex.sets, reps_par_serie: JSON.stringify(ex.repsParSerie || []),
+          rest: ex.rest, tempo: ex.tempo, rpe: ex.rpe, note: ex.note, video_demo_url: ex.videoDemoUrl,
+          ordre: ex.ordre ?? i, groupe_superset: ex.groupeSuperset || null,
+          type_exercice: ex.type || "muscu", duree_minutes: ex.dureeMinutes || null,
+          series_echauffement: ex.echauffement || 0, objectif_reps_max: ex.objectifRepsMax || null,
+        }));
+        if (exercicesRows.length > 0) {
+          const { error: exErr } = await supabase.from("programme_exercices").insert(exercicesRows);
+          if (exErr) throw exErr;
+        }
+      }
+      fireToast(`Semaine type assignée (${seancesDeSemaine.length} séance(s))`, "green");
+      setFormMode(null);
+      setSelectedSemaine(null);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur assignation semaine type");
+    } finally {
+      setAssigningSemaine(false);
+    }
+  };
 
   const remove = async (id) => {
     if (!confirm("Supprimer ce modèle ?")) return;
@@ -5906,7 +5992,9 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         estModele
         coachId={coachId}
         editingProgramme={editingModele}
-        onClose={() => { setFormMode(null); setEditingModele(null); }}
+        modeleSemaineId={selectedSemaine?.id}
+        modeleJourFixe={editingModele?.jour_fixe}
+        onClose={() => { setFormMode(selectedSemaine ? "detailSemaine" : null); setEditingModele(null); }}
         onCreated={load}
         fireToast={fireToast}
       />
@@ -5952,32 +6040,173 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
     );
   }
 
+  if (formMode === "nouvelleSemaine") {
+    return (
+      <div>
+        <button onClick={() => setFormMode(null)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+        </button>
+        <SectionLabel icon={Calendar}>Nouvelle semaine type</SectionLabel>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+          ex : "Programme épaule faible", "Prise de masse débutant"...
+        </div>
+        <input
+          type="text"
+          value={nomSemaine}
+          onChange={(e) => setNomSemaine(e.target.value)}
+          placeholder="Nom de la semaine type"
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 10 }}
+        />
+        <textarea
+          value={descSemaine}
+          onChange={(e) => setDescSemaine(e.target.value)}
+          placeholder="Description (optionnel)"
+          rows={2}
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, resize: "none", marginBottom: 14 }}
+        />
+        <button onClick={creerSemaine} disabled={savingSemaine || !nomSemaine.trim()} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, opacity: savingSemaine || !nomSemaine.trim() ? 0.6 : 1 }}>
+          {savingSemaine ? "Création..." : "Créer et ajouter les séances"}
+        </button>
+      </div>
+    );
+  }
+
+  if (formMode === "detailSemaine" && selectedSemaine) {
+    const seances7 = modelesDeSemaine(selectedSemaine.id);
+    return (
+      <div>
+        <button onClick={() => { setFormMode(null); setSelectedSemaine(null); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+        </button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+          <SectionLabel icon={Calendar}>{selectedSemaine.nom}</SectionLabel>
+          <button onClick={() => supprimerSemaine(selectedSemaine.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={16} /></button>
+        </div>
+        {selectedSemaine.description && <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>{selectedSemaine.description}</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {JOURS_ORDRE_MODELE.map((jour) => {
+            const seance = seances7.find((s) => s.jour_fixe === jour);
+            return (
+              <Card
+                key={jour}
+                onClick={() => { setEditingModele(seance || { jour_fixe: jour }); setFormMode("modele"); }}
+                style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{jour}</div>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: seance ? C.text : C.textDim }}>{seance ? seance.nom : "Repos — appuyer pour créer"}</div>
+                  {seance && <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{(seance.exercices || []).length} exercices</div>}
+                </div>
+                <ChevronRight size={16} color={C.textMuted} />
+              </Card>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => setFormMode("pickClientSemaine")}
+          disabled={seances7.length === 0}
+          style={{ width: "100%", background: seances7.length === 0 ? C.surface : C.blue, border: "none", color: seances7.length === 0 ? C.textDim : "#06171F", borderRadius: 12, padding: "13px", fontWeight: 800, fontSize: 14 }}
+        >
+          Assigner cette semaine type à un client
+        </button>
+      </div>
+    );
+  }
+
+  if (formMode === "pickClientSemaine" && selectedSemaine) {
+    return (
+      <div>
+        <button onClick={() => setFormMode("detailSemaine")} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+        </button>
+        <SectionLabel icon={User}>Assigner « {selectedSemaine.nom} » à...</SectionLabel>
+        <div style={{ fontSize: 11.5, color: C.textMuted, marginBottom: 12 }}>
+          Toutes les séances de cette semaine type seront ajoutées au programme du client, avec leurs jours fixes.
+        </div>
+        {clients.length === 0 ? (
+          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client pour le moment</div></Card>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {clients.map((c) => (
+              <Card
+                key={c.id}
+                onClick={() => !assigningSemaine && assignerSemaineAuClient(c.id)}
+                style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: assigningSemaine ? 0.6 : 1 }}
+              >
+                <span style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>{c.prenom} {c.nom}</span>
+                <ChevronRight size={16} color={C.textDim} />
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
-      <button
-        onClick={() => { setEditingModele(null); setFormMode("modele"); }}
-        style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
-      >
-        <Plus size={18} /> Créer un modèle
-      </button>
-      {loading ? (
-        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
-      ) : modeles.length === 0 ? (
-        <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun modèle pour le moment</div></Card>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <PillButton active={ongletActif === "seances"} onClick={() => setOngletActif("seances")} onBg style={{ flex: 1, justifyContent: "center" }}>Séances individuelles</PillButton>
+        <PillButton active={ongletActif === "semaines"} onClick={() => setOngletActif("semaines")} onBg style={{ flex: 1, justifyContent: "center" }}>Semaines types</PillButton>
+      </div>
+
+      {ongletActif === "seances" ? (
+        <>
+          <button
+            onClick={() => { setEditingModele(null); setSelectedSemaine(null); setFormMode("modele"); }}
+            style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+          >
+            <Plus size={18} /> Créer un modèle
+          </button>
+          {loading ? (
+            <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+          ) : modelesSansSemaine.length === 0 ? (
+            <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun modèle individuel pour le moment</div></Card>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {modelesSansSemaine.map((m) => (
+                <Card key={m.id}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{m.nom}</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{m.muscle} · {(m.exercices || []).length} exercices</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => { setEditingModele(m); setFormMode("modele"); }} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 0", color: C.text, fontSize: 12.5, fontWeight: 600 }}>Modifier</button>
+                    <button onClick={() => { setEditingModele(m); setFormMode("pickClient"); }} style={{ flex: 1, background: C.blueSoft, border: "none", borderRadius: 10, padding: "8px 0", color: C.blue, fontSize: 12.5, fontWeight: 700 }}>Assigner</button>
+                    <button onClick={() => remove(m.id)} style={{ background: "transparent", border: "none", color: C.red, padding: "0 8px" }}><Trash2 size={16} /></button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {modeles.map((m) => (
-            <Card key={m.id}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{m.nom}</div>
-              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{m.muscle} · {(m.exercices || []).length} exercices</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setEditingModele(m); setFormMode("modele"); }} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 0", color: C.text, fontSize: 12.5, fontWeight: 600 }}>Modifier</button>
-                <button onClick={() => { setEditingModele(m); setFormMode("pickClient"); }} style={{ flex: 1, background: C.blueSoft, border: "none", borderRadius: 10, padding: "8px 0", color: C.blue, fontSize: 12.5, fontWeight: 700 }}>Assigner</button>
-                <button onClick={() => remove(m.id)} style={{ background: "transparent", border: "none", color: C.red, padding: "0 8px" }}><Trash2 size={16} /></button>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div style={{ fontSize: 12, color: C.textOnBgMuted, marginBottom: 12 }}>
+            Regroupe plusieurs séances sur 7 jours (ex: "Programme épaule faible") pour les assigner d'un coup à un client.
+          </div>
+          <button
+            onClick={() => setFormMode("nouvelleSemaine")}
+            style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+          >
+            <Plus size={18} /> Créer une semaine type
+          </button>
+          {loading ? (
+            <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+          ) : semaines.length === 0 ? (
+            <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune semaine type pour le moment</div></Card>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {semaines.map((s) => {
+                const nbSeances = modelesDeSemaine(s.id).length;
+                return (
+                  <Card key={s.id} onClick={() => { setSelectedSemaine(s); setFormMode("detailSemaine"); }} style={{ cursor: "pointer" }}>
+                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{s.nom}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{nbSeances}/7 jour(s) programmé(s)</div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </>
   );
@@ -6771,6 +7000,7 @@ function NotificationsView({ coachId, clients, fireToast }) {
                   {c ? `${c.prenom} ${c.nom}` : "Client"} · {n.lu ? "Lu" : "Non lu"}
                   {n.type === "relance_inactif" && <span style={{ color: C.amber }}> · Relance auto</span>}
                   {n.type === "rapport_hebdo" && <span style={{ color: C.green }}> · Rapport hebdo</span>}
+                  {n.type === "rappel_bilan" && <span style={{ color: C.blue }}> · Rappel bilan</span>}
                   {!n.envoyee && n.date_prevue && (
                     <span style={{ color: C.amber }}> · Programmée pour le {new Date(n.date_prevue).toLocaleString("fr-FR")}</span>
                   )}
