@@ -1297,10 +1297,10 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const fileRef = useRef(null);
   const hasVideo = !!log.video;
   const historique = history[`${programmeNom}::${ex.nom}`]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
-  const currentSetIndex = log.sets.length; // 0-indexée : la prochaine série à faire
+  const nbEchauffement = ex.echauffement || 0;
+  const currentSetIndex = Math.max(0, log.sets.length - nbEchauffement); // 0-indexée, hors séries d'échauffement
   const rappelSerieActuelle = historique?.sets?.[currentSetIndex];
   const derniereSerieGlobale = historique?.sets?.[historique.sets.length - 1];
-  const nbEchauffement = ex.echauffement || 0;
   const seriesEffectivesValidees = Math.max(0, log.sets.length - nbEchauffement);
   const progressionPct = ex.type === "cardio"
     ? (log.sets.length > 0 ? 100 : 0)
@@ -1319,21 +1319,9 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
 
   // Remplissage segmenté : chaque série effective (hors échauffement) colore sa portion de la carte
   const cardFillGradient = () => {
-    if (seriesEffectivesValidees === 0 || ex.type === "cardio") {
-      return progressionPct > 0
-        ? `linear-gradient(to right, ${C.green} 0%, ${C.green} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
-        : C.card;
-    }
-    const segWidth = 100 / ex.sets;
-    const stops = [];
-    let cursor = 0;
-    log.sets.slice(nbEchauffement).forEach((s, i) => {
-      const color = compareSetColor(i, s.poids, s.reps);
-      stops.push(`${color} ${cursor}%`, `${color} ${cursor + segWidth}%`);
-      cursor += segWidth;
-    });
-    stops.push(`${C.card} ${cursor}%`, `${C.card} 100%`);
-    return `linear-gradient(to right, ${stops.join(", ")})`;
+    return progressionPct > 0
+      ? `linear-gradient(to right, ${C.blue} 0%, ${C.blue} ${progressionPct}%, ${C.card} ${progressionPct}%, ${C.card} 100%)`
+      : C.card;
   };
 
   const submit = () => {
@@ -1346,6 +1334,11 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
     onValidate(ex, { poids: parseFloat(poids), reps: parseInt(reps), tempo, rpe });
     setPoids("");
     setReps("");
+    setOpen(false);
+  };
+
+  const validerEchauffement = () => {
+    onValidate(ex, { poids: 0, reps: 0, tempo: "", rpe: "" });
     setOpen(false);
   };
 
@@ -1457,19 +1450,22 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
             </button>
           )}
           {showTempoExplication && <TempoExplanationModal tempo={ex.tempo} onClose={() => setShowTempoExplication(false)} />}
-          {historique && historique.sets.length > 0 && (
+          {historique && historique.sets.length > 0 && (() => {
+            const enEchauffement = log.sets.length < nbEchauffement;
+            return (
             <div
               style={{
                 background: "#FFFFFF",
                 border: `2px solid ${C.amber}`,
                 borderRadius: 14,
-                padding: "12px 14px",
-                fontSize: 13,
+                padding: enEchauffement ? "9px 11px" : "12px 14px",
+                fontSize: enEchauffement ? 11 : 13,
                 color: C.textOnBg,
                 boxShadow: "0 0 16px rgba(240,178,92,0.5), 0 4px 12px rgba(10,30,70,0.2)",
+                opacity: enEchauffement ? 0.75 : 1,
               }}
             >
-              <div style={{ fontWeight: 800, marginBottom: rappelSerieActuelle ? 6 : 0, fontSize: 14 }}>
+              <div style={{ fontWeight: 800, marginBottom: rappelSerieActuelle ? 6 : 0, fontSize: enEchauffement ? 11.5 : 14 }}>
                 {rappelSerieActuelle
                   ? `📌 Série ${currentSetIndex + 1} — la dernière fois : ${rappelSerieActuelle.poids} kg × ${rappelSerieActuelle.reps}`
                   : `📌 Toutes les séries prévues ont un historique (le ${historique.date})`}
@@ -1479,57 +1475,28 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                   <span
                     key={i}
                     style={{
-                      fontSize: 10.5, fontFamily: FONT_MONO, fontWeight: 700,
+                      fontSize: enEchauffement ? 9 : 10.5, fontFamily: FONT_MONO, fontWeight: 700,
                       color: i === currentSetIndex ? "#FFFFFF" : C.textOnBgMuted,
                       background: i === currentSetIndex ? C.amber : "#F1F3EA",
                       border: `1px solid ${i === currentSetIndex ? C.amber : C.cardBorder}`,
-                      borderRadius: 6, padding: "3px 7px",
+                      borderRadius: 6, padding: enEchauffement ? "2px 5px" : "3px 7px",
                     }}
                   >
                     S{i + 1}: {s.poids}kg×{s.reps}
                   </span>
                 ))}
               </div>
-              <div style={{ fontSize: 10, color: C.textOnBgMuted, marginTop: 6, fontWeight: 600 }}>Séance du {historique.date}</div>
+              <div style={{ fontSize: enEchauffement ? 9 : 10, color: C.textOnBgMuted, marginTop: 6, fontWeight: 600 }}>Séance du {historique.date}</div>
             </div>
-          )}
+            );
+          })()}
 
-          {log.sets.length > 0 && (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {[[C.green, "Progrès"], [C.amber, "Pareil qu'avant"], [C.red, "Moins bien"]].map(([color, label]) => (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{label}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {log.sets.length > 0 && (
+          {seriesEffectivesValidees > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {log.sets.map((s, i) => {
                 const estEchauffement = i < nbEchauffement;
-                if (estEchauffement) {
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        fontSize: 10,
-                        color: C.amber,
-                        background: "transparent",
-                        border: `1px dashed ${C.amber}`,
-                        borderRadius: 6,
-                        padding: "3px 7px",
-                        fontFamily: FONT_MONO,
-                        fontWeight: 600,
-                        opacity: 0.85,
-                      }}
-                    >
-                      🔥 Éch. {s.poids}kg×{s.reps}
-                    </div>
-                  );
-                }
-                const couleur = compareSetColor(i - nbEchauffement, s.poids, s.reps);
+                if (estEchauffement) return null;
+                const couleur = C.blue;
                 return (
                   <div
                     key={i}
@@ -1557,17 +1524,37 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                 🔥 Série d'échauffement {log.sets.length + 1}/{nbEchauffement}
               </div>
               <div style={{ fontSize: 11.5, color: C.textOnBg }}>
-                Charge légère, environ 5 répétitions — ne compte pas dans tes séries effectives.
+                Charge légère, environ 5 répétitions — augmente progressivement le poids à chaque série d'échauffement. Ne compte pas dans tes séries effectives.
               </div>
             </div>
           )}
 
-          {ex.type === "cardio" ? (
-            <div style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "14px", textAlign: "center", marginBottom: 4 }}>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 28, color: C.text, fontWeight: 700 }}>{ex.dureeMinutes} min</div>
-              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Valide une fois terminé</div>
+          {ex.type !== "cardio" && log.sets.length < nbEchauffement ? (
+            <button
+              onClick={validerEchauffement}
+              style={{
+                width: "100%", background: C.amber, border: "none", color: "#3D2600",
+                borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 14.5,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              <Check size={16} /> Valider la série d'échauffement
+            </button>
+          ) : ex.type === "cardio" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "14px", textAlign: "center" }}>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 28, color: C.text, fontWeight: 700 }}>{ex.dureeMinutes} min</div>
+                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Valide une fois terminé</div>
+              </div>
+              <button
+                onClick={submit}
+                style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
+                <Check size={15} /> Terminé
+              </button>
             </div>
           ) : (
+            <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
               <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>CHARGE (KG)</div>
@@ -1608,7 +1595,6 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
               />
             </div>
             </div>
-          )}
 
           {ex.objectifRepsMax && parseInt(reps) >= ex.objectifRepsMax && (
             <div style={{ background: C.greenSoft, border: `1px solid ${C.green}`, borderRadius: 10, padding: "9px 12px", fontSize: 12, color: C.green, fontWeight: 700 }}>
@@ -1704,9 +1690,11 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                 gap: 6,
               }}
             >
-              <Check size={15} /> {ex.type === "cardio" ? "Terminé" : "Valider la série"}
+              <Check size={15} /> Valider la série
             </button>
-          </div>
+            </div>
+            </>
+          )}
         </div>
         </Card>
         </div>
@@ -1995,6 +1983,9 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         [ex.id]: { ...prev[ex.id], sets: [...prev[ex.id].sets, set] },
       };
     });
+
+    // Une série d'échauffement ne déclenche jamais le temps de repos.
+    if (setNumber <= (ex.echauffement || 0)) return;
 
     // Dans un superset, on n'active le repos que quand TOUS les exercices du groupe
     // ont fait cette même série — sinon on enchaîne directement sur le suivant.
