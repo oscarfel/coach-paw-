@@ -7001,6 +7001,9 @@ function NotificationsView({ coachId, clients, fireToast }) {
                   {n.type === "relance_inactif" && <span style={{ color: C.amber }}> · Relance auto</span>}
                   {n.type === "rapport_hebdo" && <span style={{ color: C.green }}> · Rapport hebdo</span>}
                   {n.type === "rappel_bilan" && <span style={{ color: C.blue }}> · Rappel bilan</span>}
+                  {n.type?.startsWith("stagnation_") && <span style={{ color: C.red }}> · Stagnation</span>}
+                  {n.type === "resume_quotidien" && <span style={{ color: C.blue }}> · Résumé du jour</span>}
+                  {n.type?.startsWith("objectif_poids_") && <span style={{ color: C.green }}> · Objectif atteint</span>}
                   {!n.envoyee && n.date_prevue && (
                     <span style={{ color: C.amber }}> · Programmée pour le {new Date(n.date_prevue).toLocaleString("fr-FR")}</span>
                   )}
