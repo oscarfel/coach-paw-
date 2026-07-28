@@ -1351,7 +1351,10 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   };
 
   const validerEchauffement = () => {
-    onValidate(ex, { poids: 0, reps: 0, tempo: "", rpe: "" }, true);
+    const restantes = nbEchauffement - log.sets.length;
+    for (let i = 0; i < restantes; i++) {
+      onValidate(ex, { poids: 0, reps: 0, tempo: "", rpe: "" }, true);
+    }
     setOpen(false);
   };
 
@@ -1556,10 +1559,10 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
           {ex.type !== "cardio" && log.sets.length < nbEchauffement && (
             <div style={{ background: C.amberSoft, border: `1px solid ${C.amber}`, borderRadius: 10, padding: "10px 12px", marginBottom: 4 }}>
               <div style={{ fontSize: 12.5, fontWeight: 800, color: C.amber, marginBottom: 2 }}>
-                🔥 Série d'échauffement {log.sets.length + 1}/{nbEchauffement}
+                🔥 {nbEchauffement - log.sets.length} série{nbEchauffement - log.sets.length > 1 ? "s" : ""} d'échauffement à faire
               </div>
               <div style={{ fontSize: 11.5, color: C.textOnBg }}>
-                Charge légère, environ 5 répétitions — augmente progressivement le poids à chaque série d'échauffement. Ne compte pas dans tes séries effectives.
+                Charge légère, environ 5 répétitions — augmente progressivement le poids à chaque série. Ne compte pas dans tes séries effectives. Valide-les toutes d'un coup ci-dessous.
               </div>
             </div>
           )}
@@ -1573,7 +1576,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               }}
             >
-              <Check size={16} /> Valider la série d'échauffement
+              <Check size={16} /> Valider {nbEchauffement - log.sets.length > 1 ? `les ${nbEchauffement - log.sets.length} séries d'échauffement` : "la série d'échauffement"}
             </button>
           ) : ex.type === "cardio" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
