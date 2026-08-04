@@ -1295,6 +1295,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const [rpe, setRpe] = useState("8");
   const [showTempoExplication, setShowTempoExplication] = useState(false);
   const [showVideoExecution, setShowVideoExecution] = useState(false);
+  const [showEnregistreur, setShowEnregistreur] = useState(false);
   const fileRef = useRef(null);
   const hasVideo = !!log.video;
   const historique = history[`${programmeNom}::${ex.nom}`]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
@@ -1682,35 +1683,6 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => fileRef.current && fileRef.current.click()}
-              style={{
-                flex: "0 0 auto",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: hasVideo ? C.greenSoft : C.surface,
-                border: `1px solid ${hasVideo ? C.green : C.cardBorderLight}`,
-                color: hasVideo ? C.green : C.textMuted,
-                borderRadius: 10,
-                padding: "10px 12px",
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              <Video size={14} /> {hasVideo ? "Vidéo ajoutée" : "Vidéo"}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="video/*"
-              capture="environment"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const f = e.target.files[0];
-                if (f) onVideo(ex, URL.createObjectURL(f));
-              }}
-            />
             <button
               onClick={submit}
               style={{
@@ -2491,6 +2463,96 @@ function ExercicePickerInline({ bibliotheque, onSelect }) {
               );
             })}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EnregistreurVideoModal({ onClose, onRecorded }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const [enregistrement, setEnregistrement] = useState(false);
+  const [secondes, setSecondes] = useState(0);
+  const [erreur, setErreur] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    navigator.mediaDevices
+      .getUserMedia({
+        video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: "environment" },
+        audio: true,
+      })
+      .then((stream) => {
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch((err) => {
+        console.error("Erreur accès caméra:", err);
+        setErreur("Impossible d'accéder à la caméra. Vérifie les autorisations dans les réglages.");
+      });
+    return () => {
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const demarrer = () => {
+    if (!streamRef.current) return;
+    chunksRef.current = [];
+    const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
+    const recorder = new MediaRecorder(streamRef.current, { mimeType, videoBitsPerSecond: 400000 });
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.start();
+    recorderRef.current = recorder;
+    setEnregistrement(true);
+    setSecondes(0);
+    timerRef.current = setInterval(() => setSecondes((s) => s + 1), 1000);
+  };
+
+  const arreter = () => {
+    if (recorderRef.current) recorderRef.current.stop();
+    if (timerRef.current) clearInterval(timerRef.current);
+    setEnregistrement(false);
+    setTimeout(async () => {
+      const mimeType = recorderRef.current?.mimeType || "video/webm";
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      setEnvoi(true);
+      await onRecorded(blob, mimeType);
+      setEnvoi(false);
+    }, 300);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 210, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 16 }}>
+        <span style={{ color: "#FFFFFF", fontSize: 14, fontWeight: 700 }}>
+          {enregistrement ? `🔴 ${Math.floor(secondes / 60)}:${String(secondes % 60).padStart(2, "0")}` : "Filmer ton exécution"}
+        </span>
+        <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#FFFFFF" }}><X size={22} /></button>
+      </div>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        {erreur ? (
+          <div style={{ color: "#FF5D6C", fontSize: 13, textAlign: "center", padding: 30 }}>{erreur}</div>
+        ) : (
+          <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }} />
+        )}
+      </div>
+      <div style={{ padding: 30, display: "flex", justifyContent: "center" }}>
+        {envoi ? (
+          <div style={{ color: "#FFFFFF", fontSize: 13 }}>Envoi en cours...</div>
+        ) : !erreur && (
+          <button
+            onClick={enregistrement ? arreter : demarrer}
+            style={{
+              width: 72, height: 72, borderRadius: "50%",
+              background: enregistrement ? "#FF5D6C" : "#FFFFFF",
+              border: "4px solid rgba(255,255,255,0.5)",
+            }}
+          />
         )}
       </div>
     </div>
@@ -6628,6 +6690,7 @@ function VODView({ coachId, fireToast }) {
   const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
   const fileRef = useRef(null);
   const editFileRef = useRef(null);
+  const [showEnregistreurVOD, setShowEnregistreurVOD] = useState(null); // null | "nouveau" | exerciceId
 
   const load = async () => {
     setLoading(true);
@@ -6777,11 +6840,23 @@ function VODView({ coachId, fireToast }) {
             )}
           </div>
           <div style={{ flex: 1, fontSize: 13, color: C.text, fontWeight: 600 }}>{ex.nom}</div>
+          <button onClick={() => setShowEnregistreurVOD(ex.id)} style={{ background: "transparent", border: "none", color: C.blue, padding: 4 }}><VideoIcon size={15} /></button>
           <button onClick={() => editFileRef.current && (editFileRef.current.dataset.exId = ex.id, editFileRef.current.click())} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11 }}>
             {ex.video_demo_url ? "Changer vidéo" : "+ Vidéo"}
           </button>
           <button onClick={() => startEdit(ex)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 15 }}>✎</button>
           <button onClick={() => remove(ex.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+          {showEnregistreurVOD === ex.id && (
+            <EnregistreurVideoModal
+              onClose={() => setShowEnregistreurVOD(null)}
+              onRecorded={async (blob, mimeType) => {
+                const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+                const fichier = new File([blob], `enregistrement.${ext}`, { type: mimeType });
+                setShowEnregistreurVOD(null);
+                await replaceVideo(ex.id, fichier);
+              }}
+            />
+          )}
         </div>
       )}
     </Card>
@@ -6804,11 +6879,18 @@ function VODView({ coachId, fireToast }) {
           {GROUPES_MUSCULAIRES.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
         <button
-          onClick={() => fileRef.current && fileRef.current.click()}
+          onClick={() => setShowEnregistreurVOD("nouveau")}
           disabled={uploading}
           style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1, marginBottom: 8 }}
         >
-          <Upload size={16} /> {uploading ? "Envoi..." : "Ajouter avec une vidéo"}
+          <VideoIcon size={16} /> {uploading ? "Envoi..." : "Filmer (qualité réduite)"}
+        </button>
+        <button
+          onClick={() => fileRef.current && fileRef.current.click()}
+          disabled={uploading}
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "11px", fontWeight: 700, fontSize: 12.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1, marginBottom: 8 }}
+        >
+          <Upload size={14} /> Choisir un fichier vidéo
         </button>
         <button
           onClick={() => upload(null)}
@@ -6818,6 +6900,17 @@ function VODView({ coachId, fireToast }) {
           Ajouter sans vidéo pour l'instant
         </button>
         <input ref={fileRef} type="file" accept="video/*" style={{ display: "none" }} onChange={(e) => upload(e.target.files[0])} />
+        {showEnregistreurVOD === "nouveau" && (
+          <EnregistreurVideoModal
+            onClose={() => setShowEnregistreurVOD(null)}
+            onRecorded={async (blob, mimeType) => {
+              const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+              const fichier = new File([blob], `enregistrement.${ext}`, { type: mimeType });
+              setShowEnregistreurVOD(null);
+              await upload(fichier);
+            }}
+          />
+        )}
       </Card>
 
       {loading ? (
@@ -7004,6 +7097,7 @@ function NotificationsView({ coachId, clients, fireToast }) {
                   {n.type === "relance_inactif" && <span style={{ color: C.amber }}> · Relance auto</span>}
                   {n.type === "rapport_hebdo" && <span style={{ color: C.green }}> · Rapport hebdo</span>}
                   {n.type === "rappel_bilan" && <span style={{ color: C.blue }}> · Rappel bilan</span>}
+                  {n.type === "nouveau_bilan" && <span style={{ color: C.green }}> · Nouveau bilan reçu</span>}
                   {n.type?.startsWith("stagnation_") && <span style={{ color: C.red }}> · Stagnation</span>}
                   {n.type === "resume_quotidien" && <span style={{ color: C.blue }}> · Résumé du jour</span>}
                   {n.type?.startsWith("objectif_poids_") && <span style={{ color: C.green }}> · Objectif atteint</span>}
@@ -9107,6 +9201,29 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       if (error) throw error;
       setCheckins((prev) => [...prev, c]);
       fireToast("Bilan de semaine envoyé", "green");
+
+      // Notifie le coach immédiatement que son client a rempli son bilan
+      if (profilRow.coach_id) {
+        try {
+          const { data: notifData } = await supabase.from("notifications").insert({
+            coach_id: profilRow.coach_id, client_id: null,
+            titre: `Nouveau bilan : ${profilRow.prenom}`,
+            message: `${profilRow.prenom} vient d'envoyer son bilan de la semaine.`,
+            lu: false, type: "nouveau_bilan", envoyee: true,
+          }).select().single();
+          await fetch("/api/send-push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              coachId: profilRow.coach_id,
+              titre: `Nouveau bilan : ${profilRow.prenom}`,
+              message: `${profilRow.prenom} vient d'envoyer son bilan de la semaine.`,
+            }),
+          });
+        } catch (notifErr) {
+          console.error("Erreur notification coach:", notifErr);
+        }
+      }
     } catch (err) {
       console.error(err);
       fireToast("Erreur envoi bilan");
