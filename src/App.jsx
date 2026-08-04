@@ -1395,7 +1395,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
             </svg>
             <div style={{ position: "absolute", top: 2, left: 2, width: 52, height: 52, borderRadius: 12, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
               {ex.videoDemoUrl ? (
-                <video src={`${ex.videoDemoUrl}#t=0.1`} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <video src={`${ex.videoDemoUrl}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <Dumbbell size={22} color={C.textDim} />
               )}
@@ -1432,7 +1432,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
               {ex.videoDemoUrl ? (
-                <video src={`${ex.videoDemoUrl}#t=0.1`} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <video src={`${ex.videoDemoUrl}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <Dumbbell size={18} color={C.textDim} />
               )}
@@ -6771,7 +6771,7 @@ function VODView({ coachId, fireToast }) {
             style={{ width: 36, height: 36, borderRadius: 8, background: C.card, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: ex.video_demo_url ? "pointer" : "default" }}
           >
             {ex.video_demo_url ? (
-              <video src={`${ex.video_demo_url}#t=0.1`} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <video src={`${ex.video_demo_url}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
               <Dumbbell size={16} color={C.textDim} />
             )}
@@ -7335,7 +7335,7 @@ function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repas
                       <div key={ei} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", gap: 10 }}>
                         <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, background: C.card, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                           {ex.video ? (
-                            <video src={`${ex.video}#t=0.1`} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <video src={`${ex.video}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           ) : (
                             <VideoIcon size={16} color={C.textDim} />
                           )}
@@ -7635,7 +7635,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       }}
                     >
                       {videoDeLExercice ? (
-                        <video src={`${videoDeLExercice}#t=0.1`} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <video src={`${videoDeLExercice}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
                         <VideoIcon size={18} color={C.textDim} />
                       )}
