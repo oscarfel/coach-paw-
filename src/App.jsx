@@ -2938,12 +2938,12 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
   return (
     <Card style={{ padding: 0 }}>
       <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14 }}>
-        <button onClick={() => setOpen(!open)} style={{ flex: 1, background: "transparent", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
+        <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{meal.emoji} {meal.nom}</div>
             <div style={{ fontSize: 12, color: C.textMuted }}>{items.length} aliment(s) · {totalKcal} kcal</div>
           </div>
-        </button>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <div style={{ position: "relative" }}>
             <button onClick={() => setShowMenu(!showMenu)} style={{ background: "transparent", border: "none", color: C.textMuted, padding: 6 }}>
@@ -2976,10 +2976,9 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
               </>
             )}
           </div>
-          <ChevronDown size={18} color={C.textMuted} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} onClick={() => setOpen(!open)} />
         </div>
       </div>
-      {open && (
+      {(
         <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((it) => (
             <div
@@ -7588,7 +7587,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
         const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes, dailyRes, photosRes, mensurationsRes, pushRes] = await Promise.all([
           supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(10),
           supabase.from("poids_historique").select("*").eq("profil_id", client.id).order("date", { ascending: true }),
-          supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }),
+          supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(1),
           supabase.from("repas").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
           supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }),
           supabase.from("checkins_quotidiens").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
@@ -7636,14 +7635,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const poidsDatesSet = useMemo(() => new Set(poidsRawDates), [poidsRawDates]);
   const nutritionDatesSet = useMemo(() => new Set(repas.map((r) => r.date)), [repas]);
   const [selectedJourDetail, setSelectedJourDetail] = useState(null);
-  const bilansDatesSet = useMemo(() => {
-    const set = new Set();
-    for (const c of checkins) {
-      const d = parseFrDate(c.date);
-      if (d) set.add(d.toISOString().slice(0, 10));
-    }
-    return set;
-  }, [checkins]);
+  const bilansDatesSet = useMemo(() => new Set(checkins.map((c) => String(c.date).slice(0, 10))), [checkins]);
 
   const detailTabs = [
     { key: "programme", label: "Programme", icon: Dumbbell },
@@ -7993,22 +7985,45 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               )}
             </Card>
             <Card>
-              <SectionLabel icon={ClipboardList}>Bilans de semaine</SectionLabel>
+              <SectionLabel icon={ClipboardList}>Bilan de semaine</SectionLabel>
               {checkins.length === 0 ? (
                 <div style={{ color: C.textMuted, fontSize: 13 }}>Aucun bilan envoyé</div>
-              ) : checkins.map((c, i) => (
-                <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
-                  <span style={{ color: C.text, fontWeight: 700 }}>{c.date}</span> — force {c.sensation_force ?? "—"}/5, satisfaction {c.satisfaction ?? "—"}/5, sommeil {c.heures_sommeil ?? "—"}h, écarts {c.ecarts_nutrition > 0 ? (c.ecarts_nutrition === 3 ? "3+" : c.ecarts_nutrition) : "0"}
-                  {c.satisfaction_raison && <div style={{ marginTop: 4, color: C.textDim }}>Satisfaction : {c.satisfaction_raison}</div>}
-                  {c.cent_pourcent === false && (
-                    <div style={{ marginTop: 4, color: C.amber }}>
-                      Pas à 100% ({c.estimation_pourcentage ?? "—"}%){c.pourquoi_pas_cent ? ` — ${c.pourquoi_pas_cent}` : ""}
-                    </div>
-                  )}
-                  {c.douleurs && <div style={{ marginTop: 4, color: C.textDim }}>Exercice à problème : {c.douleurs}</div>}
-                  {c.commentaire && <div style={{ marginTop: 4, color: C.textDim }}>{c.commentaire}</div>}
-                </div>
-              ))}
+              ) : checkins.map((c, i) => {
+                const QA = ({ q, a, sur5 }) => a === null || a === undefined || a === "" ? null : (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 15, color: C.text, fontWeight: 700, marginBottom: 8 }}>{q}</div>
+                    {sur5 ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ flex: 1, height: 4, borderRadius: 4, background: C.card, position: "relative" }}>
+                          <div style={{ position: "absolute", left: `${(a / 5) * 100}%`, top: -8, transform: "translateX(-50%)", width: 20, height: 20, borderRadius: "50%", background: C.blue }} />
+                        </div>
+                        <span style={{ fontSize: 13, color: C.textOnBg, fontWeight: 700 }}>{a}/5</span>
+                      </div>
+                    ) : (
+                      <div style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13 }}>
+                        {a}
+                      </div>
+                    )}
+                  </div>
+                );
+                return (
+                  <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 14, padding: 18, marginBottom: 14 }}>
+                    <div style={{ fontSize: 12.5, color: C.blue, fontWeight: 800, marginBottom: 16 }}>{c.date}</div>
+                    <QA q="Sensation de force" a={c.sensation_force} sur5 />
+                    <QA q="Un exercice t'a posé problème ?" a={c.douleurs} />
+                    <QA q="Écarts nutritionnels cette semaine" a={c.ecarts_nutrition != null ? (c.ecarts_nutrition >= 3 ? "3+" : String(c.ecarts_nutrition)) : null} />
+                    <QA q="Qu'as-tu mangé en dehors du plan ?" a={c.description_ecarts} />
+                    <QA q="Heures de sommeil moyennes / nuit" a={c.heures_sommeil != null ? `${c.heures_sommeil}h` : null} />
+                    <QA q="Satisfaction de la semaine" a={c.satisfaction} sur5 />
+                    <QA q="Pourquoi es-tu (ou pas) satisfait(e) de ta semaine ?" a={c.satisfaction_raison} />
+                    <QA q="As-tu été à 100% cette semaine (entraînement / alimentation / sommeil) ?" a={c.cent_pourcent === true ? "Oui" : c.cent_pourcent === false ? "Non" : null} />
+                    <QA q="Pourquoi ?" a={c.pourquoi_pas_cent} />
+                    <QA q="À combien tu t'estimes ? (%)" a={c.estimation_pourcentage != null ? `${c.estimation_pourcentage}%` : null} />
+                    <QA q="Motivation" a={c.motivation} sur5 />
+                    <QA q="Commentaire libre pour ton coach" a={c.commentaire} />
+                  </div>
+                );
+              })}
             </Card>
 
             <Card>
@@ -8326,8 +8341,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         setTendancePoidsParClient(tendance);
 
         const bilansAvecDate = (bilansRes.data || [])
-          .map((b) => ({ ...b, dateParsed: parseFrDate(b.date) }))
-          .filter((b) => b.dateParsed)
+          .map((b) => ({ ...b, dateParsed: new Date(b.date) }))
+          .filter((b) => b.dateParsed && !isNaN(b.dateParsed))
           .sort((a, b) => b.dateParsed - a.dateParsed);
         setRecentBilans(bilansAvecDate.slice(0, 6));
 
@@ -9182,6 +9197,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const addCheckin = async (c) => {
     if (!profilId) return;
     try {
+      // Supprime tout bilan précédent — un seul bilan (le plus récent) est conservé à la fois
+      const { error: delErr } = await supabase.from("bilans_semaine").delete().eq("profil_id", profilId);
+      if (delErr) throw delErr;
+
       const { error } = await supabase.from("bilans_semaine").insert({
         profil_id: profilId,
         sensation_force: c.sensationForce,
@@ -9199,7 +9218,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         date: c.date,
       });
       if (error) throw error;
-      setCheckins((prev) => [...prev, c]);
+      setCheckins([c]);
       fireToast("Bilan de semaine envoyé", "green");
 
       // Notifie le coach immédiatement que son client a rempli son bilan
