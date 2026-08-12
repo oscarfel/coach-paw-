@@ -8567,24 +8567,26 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
               <Card>
                 <SectionLabel icon={Flame}>Activité récente</SectionLabel>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {recentSeances.slice(0, 4).map((s) => {
-                    const c = clients.find((cl) => cl.id === s.profil_id);
-                    return (
-                      <div key={`s-${s.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <Dumbbell size={13} color={C.blue} />
-                        <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a terminé « {s.nom_programme} » · {formatDateDisplay(s.date)}
-                      </div>
-                    );
-                  })}
-                  {recentBilans.slice(0, 4).map((b) => {
-                    const c = clients.find((cl) => cl.id === b.profil_id);
-                    return (
-                      <div key={`b-${b.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                        <ClipboardList size={13} color={C.green} />
-                        <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a rempli son bilan de semaine · {b.date}
-                      </div>
-                    );
-                  })}
+                  {[
+                    ...recentSeances.map((s) => ({ type: "seance", date: s.date, data: s })),
+                    ...recentBilans.map((b) => ({ type: "bilan", date: b.date, data: b })),
+                  ]
+                    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+                    .slice(0, 6)
+                    .map((item) => {
+                      const c = clients.find((cl) => cl.id === item.data.profil_id);
+                      return item.type === "seance" ? (
+                        <div key={`s-${item.data.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
+                          <Dumbbell size={13} color={C.blue} />
+                          <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a terminé « {item.data.nom_programme} » · {formatDateDisplay(item.data.date)}
+                        </div>
+                      ) : (
+                        <div key={`b-${item.data.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
+                          <ClipboardList size={13} color={C.green} />
+                          <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a rempli son bilan de semaine · {formatDateDisplay(item.data.date)}
+                        </div>
+                      );
+                    })}
                   {recentSeances.length === 0 && recentBilans.length === 0 && (
                     <div style={{ fontSize: 12.5, color: C.textDim }}>Aucune activité récente</div>
                   )}
@@ -9358,6 +9360,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const saveSession = async ({ programme, logs, seconds }) => {
     if (!profilId) return;
     try {
+      // Supprime les anciennes séances de ce même programme — seule la plus récente est conservée
+      // (les séries associées sont supprimées automatiquement via la suppression en cascade)
+      if (programme.id) {
+        await supabase.from("seances").delete().eq("profil_id", profilId).eq("programme_id", programme.id);
+      } else {
+        await supabase.from("seances").delete().eq("profil_id", profilId).eq("nom_programme", programme.nom);
+      }
+
       const { data: seance, error: seanceErr } = await supabase
         .from("seances")
         .insert({
