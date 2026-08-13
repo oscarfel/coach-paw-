@@ -2920,16 +2920,34 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
       kcal = prot * 4 + gluc * 4 + lip * 9;
     }
     if (!nom || (!kcal && !prot && !gluc && !lip)) return;
+    const grams = parseFloat(manualGrams) || 0;
     onAdd(meal.key, {
       id: Date.now(),
       nom,
-      grams: parseFloat(manualGrams) || 0,
+      grams,
       kcal: Math.round(kcal),
       prot: +prot.toFixed(1),
       gluc: +gluc.toFixed(1),
       lip: +lip.toFixed(1),
       fibres: 0, sucres: 0, sodium: 0, potassium: 0, calcium: 0, fer: 0, magnesium: 0, vitamineD: 0,
     });
+
+    // Enregistre cet aliment dans la base personnelle pour le retrouver facilement la prochaine fois
+    if (profilId) {
+      const ratio = grams > 0 ? 100 / grams : 1; // ramène à une valeur pour 100g
+      supabase.from("aliments_scannes").insert({
+        profil_id: profilId,
+        code_barre: null,
+        nom,
+        kcal: Math.round(kcal * ratio),
+        prot: +(prot * ratio).toFixed(1),
+        gluc: +(gluc * ratio).toFixed(1),
+        lip: +(lip * ratio).toFixed(1),
+      }).then(({ error }) => {
+        if (error) console.error("Erreur sauvegarde aliment manuel:", error);
+      });
+    }
+
     setManualNom(""); setManualGrams(""); setManualKcal(""); setManualProt(""); setManualGluc(""); setManualLip("");
     setManualMode(false);
     setShowAddForm(false);
