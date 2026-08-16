@@ -9418,7 +9418,12 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       }
       if (rows.length) {
         const { error: seriesErr } = await supabase.from("series").insert(rows);
-        if (seriesErr) throw seriesErr;
+        if (seriesErr) {
+          // Si l'enregistrement des séries échoue, on retire la séance vide plutôt que
+          // de la laisser sans détail (sinon le coach voit une séance "vide").
+          await supabase.from("seances").delete().eq("id", seance.id);
+          throw seriesErr;
+        }
       }
 
       setStats((s) => ({ ...s, seancesRealisees: s.seancesRealisees + 1 }));
