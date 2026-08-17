@@ -4,7 +4,7 @@ import {
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
   Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
-  ShoppingCart, Pill, ScanLine, MoreVertical,
+  ShoppingCart, Pill, ScanLine, MoreVertical, Edit3,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2605,6 +2605,7 @@ function ScannerCodeBarres({ onClose, onScan }) {
 
 function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId }) {
   const [showScanner, setShowScanner] = useState(false);
+  const [editingNomAliment, setEditingNomAliment] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editGrams, setEditGrams] = useState("");
   const [showMenu, setShowMenu] = useState(false);
@@ -2632,6 +2633,23 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
         })),
       });
       if (error) throw error;
+
+      // Si c'est le coach qui enregistre, la recette part aussi dans ses recettes
+      // côté coach, pour pouvoir l'envoyer plus tard à ses clients.
+      const { data: profilData } = await supabase.from("profils").select("role").eq("id", profilId).single();
+      if (profilData?.role === "coach") {
+        const totalKcal = items.reduce((s, it) => s + it.kcal, 0);
+        const ingredientsTexte = items.map((it) => `${it.nom} — ${it.grams}g (${it.kcal} kcal)`).join("\n");
+        await supabase.from("recettes").insert({
+          coach_id: profilId,
+          client_id: null,
+          nom: nomRecette,
+          description: `${meal.nom} · ${totalKcal} kcal au total`,
+          ingredients: ingredientsTexte,
+          instructions: "",
+        });
+      }
+
       fireToast("Recette enregistrée", "green");
       setShowSaveRecette(false);
       setNomRecette("");
@@ -2810,8 +2828,8 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
       try {
         const [mesAlimentsRes, ciqualRes, offRes] = await Promise.all([
           profilId ? supabase.from("aliments_scannes").select("*").eq("profil_id", profilId).ilike("nom", `%${searchQuery}%`).limit(6) : Promise.resolve({ data: [] }),
-          supabase.from("aliments_ciqual").select("*").ilike("nom", `%${searchQuery}%`).limit(8),
-          fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=12&lc=fr`).then((r) => r.json()).catch(() => ({ products: [] })),
+          supabase.from("aliments_ciqual").select("*").ilike("nom", `%${searchQuery}%`).limit(10),
+          fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=20&lc=fr`).then((r) => r.json()).catch(() => ({ products: [] })),
         ]);
 
         const mesAlimentsParsed = (mesAlimentsRes.data || []).map((a) => ({
@@ -2849,11 +2867,11 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
         }));
 
         const offParsed = (offRes.products || [])
-          .filter((p) => p.product_name && p.nutriments && p.nutriments["energy-kcal_100g"] != null)
+          .filter((p) => p.product_name && p.nutriments && (p.nutriments["energy-kcal_100g"] != null || p.nutriments["energy_100g"] != null))
           .map((p) => ({
             nom: p.product_name,
             source: p.brands || "Open Food Facts",
-            kcal: p.nutriments["energy-kcal_100g"] || 0,
+            kcal: p.nutriments["energy-kcal_100g"] != null ? p.nutriments["energy-kcal_100g"] : Math.round((p.nutriments["energy_100g"] || 0) / 4.184),
             prot: p.nutriments["proteins_100g"] || 0,
             gluc: p.nutriments["carbohydrates_100g"] || 0,
             lip: p.nutriments["fat_100g"] || 0,
@@ -2876,7 +2894,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
       } finally {
         setSearching(false);
       }
-    }, 450);
+    }, 300);
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [searchQuery, selectedFood]);
 
@@ -3097,8 +3115,25 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
 
               {selectedFood && (
                 <div style={{ fontSize: 11.5, color: C.blue, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Check size={12} /> {selectedFood.nom}
-                  <button onClick={() => { setSelectedFood(null); setSearchQuery(""); }} style={{ background: "transparent", border: "none", color: C.textDim, display: "flex" }}><X size={12} /></button>
+                  {editingNomAliment ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={selectedFood.nom}
+                      onChange={(e) => setSelectedFood({ ...selectedFood, nom: e.target.value })}
+                      onBlur={() => setEditingNomAliment(false)}
+                      onKeyDown={(e) => e.key === "Enter" && setEditingNomAliment(false)}
+                      style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 6, padding: "2px 6px", color: C.text, fontSize: 11.5 }}
+                    />
+                  ) : (
+                    <>
+                      <Check size={12} /> {selectedFood.nom}
+                      <button onClick={() => setEditingNomAliment(true)} style={{ background: "transparent", border: "none", color: C.textDim, display: "flex", opacity: 0.6 }}>
+                        <Edit3 size={11} />
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => { setSelectedFood(null); setSearchQuery(""); setEditingNomAliment(false); }} style={{ background: "transparent", border: "none", color: C.textDim, display: "flex" }}><X size={12} /></button>
                 </div>
               )}
 
@@ -5278,7 +5313,50 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
           .eq("id", editingProgramme.id);
         if (updateErr) throw updateErr;
         progId = editingProgramme.id;
-        await supabase.from("programme_exercices").delete().eq("programme_id", progId);
+
+        // On ne touche que ce qui a vraiment changé : les exercices déjà existants (avec un id réel)
+        // sont mis à jour EN PLACE (leur id ne change pas, donc leur historique reste intact) ;
+        // seuls les nouveaux exercices sont insérés, et ceux retirés sont supprimés.
+        const exercicesExistants = exercices.filter((ex) => ex.id && typeof ex.id !== "number");
+        const exercicesNouveaux = exercices.filter((ex) => !ex.id || typeof ex.id === "number");
+        const idsConserves = exercicesExistants.map((ex) => ex.id);
+
+        if (idsConserves.length > 0) {
+          await supabase.from("programme_exercices").delete().eq("programme_id", progId).not("id", "in", `(${idsConserves.join(",")})`);
+        } else {
+          await supabase.from("programme_exercices").delete().eq("programme_id", progId);
+        }
+
+        for (const ex of exercicesExistants) {
+          const { error: updExErr } = await supabase
+            .from("programme_exercices")
+            .update({
+              nom: ex.nom, sets: ex.sets, reps_par_serie: JSON.stringify(ex.repsParSerie), rest: ex.rest,
+              tempo: ex.tempo, rpe: ex.rpe || null, note: ex.note, video_demo_url: ex.videoDemoUrl,
+              ordre: ex.ordre, groupe_superset: ex.groupeSuperset || null, type_exercice: ex.type || "muscu",
+              duree_minutes: ex.dureeMinutes || null, series_echauffement: ex.echauffement || 0,
+              objectif_reps_max: ex.objectifRepsMax || null,
+            })
+            .eq("id", ex.id);
+          if (updExErr) throw updExErr;
+        }
+
+        if (exercicesNouveaux.length > 0) {
+          const nouvellesRows = exercicesNouveaux.map((ex) => ({
+            programme_id: progId, nom: ex.nom, sets: ex.sets, reps_par_serie: JSON.stringify(ex.repsParSerie),
+            rest: ex.rest, tempo: ex.tempo, rpe: ex.rpe || null, note: ex.note, video_demo_url: ex.videoDemoUrl,
+            ordre: ex.ordre, groupe_superset: ex.groupeSuperset || null, type_exercice: ex.type || "muscu",
+            duree_minutes: ex.dureeMinutes || null, series_echauffement: ex.echauffement || 0,
+            objectif_reps_max: ex.objectifRepsMax || null,
+          }));
+          const { error: newExErr } = await supabase.from("programme_exercices").insert(nouvellesRows);
+          if (newExErr) throw newExErr;
+        }
+
+        fireToast("Séance modifiée", "green");
+        onCreated();
+        onClose();
+        return;
       } else {
         const { data: prog, error: progErr } = await supabase
           .from("programmes")
@@ -5307,7 +5385,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
       }));
       const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
       if (exErr) throw exErr;
-      fireToast(editingProgramme?.id ? "Séance modifiée" : "Séance créée", "green");
+      fireToast("Séance créée", "green");
       onCreated();
       onClose();
     } catch (err) {
@@ -7667,7 +7745,12 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
         setPoidsRawList(poidsRes.data || []);
         setCheckins(checkinsRes.data || []);
         setRepas(repasRes.data || []);
-        setCustomProgrammes(programmesRes.data || []);
+        setCustomProgrammes(
+          (programmesRes.data || []).map((p) => ({
+            ...p,
+            programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)),
+          }))
+        );
         setCheckinsQuotidiens(dailyRes.data || []);
         setPhotosHistoryCoach(photosRes.data || []);
         setMensurationsCoach(mensurationsRes.data || []);
@@ -7846,7 +7929,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               editingProgramme={editingProgramme}
               onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
               onCreated={() => {
-                supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes(data || []));
+                supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes((data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) }))));
               }}
               fireToast={fireToast}
             />
@@ -8294,7 +8377,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             editingProgramme={editingProgramme}
             onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
             onCreated={() => {
-              supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes(data || []));
+              supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes((data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) }))));
             }}
             fireToast={fireToast}
           />
