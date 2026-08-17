@@ -40,6 +40,7 @@ const C = {
 };
 
 const FONT_DISPLAY = "'Inter', sans-serif";
+const SIGNED_URL_EXPIRY = 315360000; // ~10 ans, pour les fichiers sur buckets privés (photos-bilan, documents-coach)
 const FONT_BODY = "'Inter', sans-serif";
 const FONT_MONO = "'JetBrains Mono', monospace";
 
@@ -6716,12 +6717,13 @@ function OutilsView({ coachId, clients, fireToast, section }) {
       const fileName = `${coachId}/${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage.from("documents-coach").upload(fileName, file);
       if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("documents-coach").getPublicUrl(fileName);
+      const { data: urlData, error: signErr } = await supabase.storage.from("documents-coach").createSignedUrl(fileName, SIGNED_URL_EXPIRY);
+      if (signErr) throw signErr;
       const { error } = await supabase.from("documents_coach").insert({
         coach_id: coachId,
         client_id: targetClientId === "tous" ? null : targetClientId,
         nom: file.name,
-        url: urlData.publicUrl,
+        url: urlData.signedUrl,
       });
       if (error) throw error;
       fireToast("Document envoyé", "green");
@@ -9116,10 +9118,11 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       const fileName = `profil/${profilId}_${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage.from("photos-bilan").upload(fileName, file);
       if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("photos-bilan").getPublicUrl(fileName);
-      const { error } = await supabase.from("profils").update({ photo_url: urlData.publicUrl }).eq("id", profilId);
+      const { data: urlData, error: signErr } = await supabase.storage.from("photos-bilan").createSignedUrl(fileName, SIGNED_URL_EXPIRY);
+      if (signErr) throw signErr;
+      const { error } = await supabase.from("profils").update({ photo_url: urlData.signedUrl }).eq("id", profilId);
       if (error) throw error;
-      setUser((u) => ({ ...u, photoUrl: urlData.publicUrl }));
+      setUser((u) => ({ ...u, photoUrl: urlData.signedUrl }));
       fireToast("Photo de profil enregistrée", "green");
     } catch (err) {
       console.error(err);
@@ -9136,11 +9139,12 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       const fileName = `${profilId}/${categorie}_${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage.from("photos-bilan").upload(fileName, file);
       if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("photos-bilan").getPublicUrl(fileName);
+      const { data: urlData, error: signErr } = await supabase.storage.from("photos-bilan").createSignedUrl(fileName, SIGNED_URL_EXPIRY);
+      if (signErr) throw signErr;
       const { data, error } = await supabase
         .from("photos_bilan")
         .upsert(
-          { profil_id: profilId, categorie, date: today, mois, url: urlData.publicUrl },
+          { profil_id: profilId, categorie, date: today, mois, url: urlData.signedUrl },
           { onConflict: "profil_id,categorie,mois" }
         )
         .select("*")
