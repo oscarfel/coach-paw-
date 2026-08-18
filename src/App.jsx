@@ -3886,50 +3886,6 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Bilans</div>
       </div>
 
-      {/* Calendrier des bilans envoyés */}
-      <Card>
-        <SectionLabel icon={Calendar}>Bilans envoyés</SectionLabel>
-        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-          <LegendDot color={C.green} label="Bilan envoyé" />
-        </div>
-        {(() => {
-          const bilansDatesClient = new Set(checkins.map((c) => String(c.date).slice(0, 10)));
-          const viewDate = new Date();
-          const year = viewDate.getFullYear();
-          const month = viewDate.getMonth();
-          const firstDay = new Date(year, month, 1);
-          const startWeekday = (firstDay.getDay() + 6) % 7;
-          const daysInMonth = new Date(year, month + 1, 0).getDate();
-          const cells = [];
-          for (let i = 0; i < startWeekday; i++) cells.push(null);
-          for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-          const isoFor = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-          return (
-            <>
-              <div style={{ fontWeight: 700, fontSize: 13, color: C.text, textTransform: "capitalize", marginBottom: 10 }}>
-                {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-                {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
-                  <div key={i} style={{ textAlign: "center", fontSize: 10, color: C.textDim, fontWeight: 700 }}>{d}</div>
-                ))}
-                {cells.map((d, i) => {
-                  if (d === null) return <div key={i} />;
-                  const iso = isoFor(d);
-                  const hasBilan = bilansDatesClient.has(iso);
-                  return (
-                    <div key={i} style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 8, background: hasBilan ? C.surface : "transparent" }}>
-                      <div style={{ fontSize: 10.5, color: C.text }}>{d}</div>
-                      {hasBilan && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.green, marginTop: 2 }} />}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          );
-        })()}
-      </Card>
-
       {/* Courbe de poids */}
       <Card>
         <SectionLabel icon={TrendingUp}>Évolution du poids</SectionLabel>
