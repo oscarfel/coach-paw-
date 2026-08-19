@@ -256,9 +256,26 @@ const EMPTY_MEALS = { petitDej: [], dejeuner: [], collation: [], diner: [] };
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
+// Parse une date en gérant aussi l'ancien format texte "JJ/MM/AAAA" (bug corrigé : les
+// bilans étaient enregistrés avec toLocaleDateString("fr-FR"), que new Date() réinterprète
+// en MM/JJ/AAAA — jour et mois inversés). Les enregistrements existants dans ce format
+// doivent continuer à s'afficher et se trier correctement.
+const parseDateFlexible = (value) => {
+  if (!value) return null;
+  const str = String(value);
+  const frMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (frMatch) {
+    const [, jour, mois, annee] = frMatch;
+    const d = new Date(Number(annee), Number(mois) - 1, Number(jour));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(str);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
 const formatDateDisplay = (dateStr) => {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
+  const d = parseDateFlexible(dateStr);
+  if (!d) return dateStr;
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
 };
 
@@ -621,7 +638,7 @@ function CalendrierSeances({ recentSeances }) {
     </div>
   );
 }
-function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition, streak = 0 }) {
+function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition, streak = 0, streakEnAttente = false }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
   const [draggedProgIdx, setDraggedProgIdx] = useState(null);
   const [dragOverProgIdx, setDragOverProgIdx] = useState(null);
@@ -902,9 +919,9 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
               {caloriesObjectif > 0 && <ProgressBar value={caloriesConsommees} max={caloriesObjectif} color={C.blue} height={6} />}
               {streak > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8 }}>
-                  <Flame size={13} color={C.amber} fill={C.amber} />
-                  <span style={{ fontSize: 11.5, color: C.amber, fontWeight: 700 }}>
-                    {streak} jour{streak > 1 ? "s" : ""} de suite
+                  <Flame size={13} color={streakEnAttente ? C.textDim : C.amber} fill={streakEnAttente ? C.textDim : C.amber} />
+                  <span style={{ fontSize: 11.5, color: streakEnAttente ? C.textDim : C.amber, fontWeight: 700 }}>
+                    {streakEnAttente ? streak : `${streak} jour${streak > 1 ? "s" : ""} de suite`}
                   </span>
                 </div>
               )}
@@ -1896,10 +1913,25 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
 
 function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete }) {
   const [seconds, setSeconds] = useState(0);
+  // Verrou anti double-envoi : un double-tap sur "Terminer" avant le prochain rendu pouvait
+  // déclencher deux sauvegardes en parallèle et laisser une séance fantôme en base.
+  const dejaEnvoyeRef = useRef(false);
   const sessionKey = programme.id || programme.nom;
   const startTimeKey = `session_start_${sessionKey}`;
   const logsKey = `session_logs_${sessionKey}`;
   const restKey = `session_rest_${sessionKey}`;
+
+  // Sécurité : si une séance a été abandonnée (app fermée sans appuyer sur "Terminer"),
+  // son chrono restait figé dans le localStorage. En relançant le même programme plus
+  // tard, on reprenait ce vieux départ et on obtenait des durées absurdes (ex: plusieurs
+  // jours). Au-delà d'un délai qu'aucune vraie séance ne dépasse, on repart de zéro.
+  const SEANCE_ABANDON_MAX_MS = 6 * 60 * 60 * 1000; // 6h
+  const staleStart = localStorage.getItem(startTimeKey);
+  if (staleStart && Date.now() - parseInt(staleStart, 10) > SEANCE_ABANDON_MAX_MS) {
+    localStorage.removeItem(startTimeKey);
+    localStorage.removeItem(logsKey);
+    localStorage.removeItem(restKey);
+  }
 
   const [logs, setLogs] = useState(() => {
     const saved = localStorage.getItem(logsKey);
@@ -2233,6 +2265,8 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       </div>
       <button
         onClick={() => {
+          if (dejaEnvoyeRef.current) return;
+          dejaEnvoyeRef.current = true;
           setFinished(true);
           nettoyerStockageSession();
           onSessionComplete?.({ programme, logs, seconds });
@@ -2604,7 +2638,7 @@ function ScannerCodeBarres({ onClose, onScan }) {
   );
 }
 
-function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId }) {
+function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId, isCoach = false }) {
   const [showScanner, setShowScanner] = useState(false);
   const [editingNomAliment, setEditingNomAliment] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -2614,6 +2648,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
   const [showSaveRecette, setShowSaveRecette] = useState(false);
   const [nomRecette, setNomRecette] = useState("");
   const [savingRecette, setSavingRecette] = useState(false);
+  const [ajouterAuxBrouillons, setAjouterAuxBrouillons] = useState(false);
   const [showUseRecette, setShowUseRecette] = useState(false);
   const [mesRecettes, setMesRecettes] = useState([]);
   const [loadingRecettes, setLoadingRecettes] = useState(false);
@@ -2635,10 +2670,9 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
       });
       if (error) throw error;
 
-      // Si c'est le coach qui enregistre, la recette part aussi dans ses recettes
-      // côté coach, pour pouvoir l'envoyer plus tard à ses clients.
-      const { data: profilData } = await supabase.from("profils").select("role").eq("id", profilId).single();
-      if (profilData?.role === "coach") {
+      // Optionnel (coach uniquement) : ajoute aussi la recette à ses brouillons, pour
+      // pouvoir la préparer et l'envoyer plus tard à un client sans tout retaper.
+      if (isCoach && ajouterAuxBrouillons) {
         const totalKcal = items.reduce((s, it) => s + it.kcal, 0);
         const ingredientsTexte = items.map((it) => `${it.nom} — ${it.grams}g (${it.kcal} kcal)`).join("\n");
         await supabase.from("recettes").insert({
@@ -2648,12 +2682,14 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
           description: `${meal.nom} · ${totalKcal} kcal au total`,
           ingredients: ingredientsTexte,
           instructions: "",
+          envoyee: false, // atterrit dans le dossier "Brouillons" du coach, à envoyer plus tard
         });
       }
 
       fireToast("Recette enregistrée", "green");
       setShowSaveRecette(false);
       setNomRecette("");
+      setAjouterAuxBrouillons(false);
     } catch (err) {
       console.error("Erreur enregistrement recette:", err);
       fireToast("Erreur lors de l'enregistrement");
@@ -2666,11 +2702,12 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
     setShowUseRecette(true);
     setLoadingRecettes(true);
     try {
+      // On ne filtre plus par type de repas : une recette enregistrée depuis le petit-déjeuner
+      // doit pouvoir être réutilisée dans n'importe quel repas (déjeuner, collation...).
       const { data, error } = await supabase
         .from("recettes_personnelles")
         .select("*")
         .eq("profil_id", profilId)
-        .eq("type_repas", meal.key)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setMesRecettes(data || []);
@@ -3249,6 +3286,12 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
               placeholder="ex : Mon petit-déj protéiné"
               style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 14 }}
             />
+            {isCoach && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: "pointer" }}>
+                <input type="checkbox" checked={ajouterAuxBrouillons} onChange={(e) => setAjouterAuxBrouillons(e.target.checked)} />
+                <span style={{ fontSize: 12, color: C.textMuted }}>Ajouter aussi à mes brouillons de recettes (à envoyer à un client plus tard)</span>
+              </label>
+            )}
             <button
               onClick={enregistrerCommeRecette}
               disabled={savingRecette || !nomRecette.trim()}
@@ -3263,14 +3306,14 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId 
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowUseRecette(false)}>
           <Card style={{ width: "100%", maxWidth: 380, maxHeight: "75vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <SectionLabel icon={ClipboardList}>Mes recettes · {meal.nom}</SectionLabel>
+              <SectionLabel icon={ClipboardList}>Mes recettes · ajouter à {meal.nom}</SectionLabel>
               <button onClick={() => setShowUseRecette(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             {loadingRecettes ? (
               <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
             ) : mesRecettes.length === 0 ? (
               <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: 10 }}>
-                Aucune recette enregistrée pour ce repas. Utilise "Enregistrer comme recette" une fois que tu as ajouté des aliments.
+                Aucune recette enregistrée. Utilise "Enregistrer comme recette" une fois que tu as ajouté des aliments.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3414,7 +3457,7 @@ function CoursesEtSupplements({ profilId, fireToast }) {
   );
 }
 
-function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater }) {
+function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater, isCoach = false }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showNutriDetail, setShowNutriDetail] = useState(false);
   const totals = useMemo(() => {
@@ -3511,7 +3554,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
         <SectionLabel icon={Apple} onBg>Repas</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {MEAL_DEFS.map((m) => (
-            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} fireToast={fireToast} profilId={profilId} />
+            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} fireToast={fireToast} profilId={profilId} isCoach={isCoach} />
           ))}
         </div>
       </div>
@@ -3875,7 +3918,10 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
       return;
     }
     setFormError("");
-    addCheckin({ ...form, date: new Date().toLocaleDateString("fr-FR") });
+    // Date au format ISO (comme pour les séances) : un format "JJ/MM/AAAA" stocké tel quel
+    // se fait reparser jour/mois inversés partout ailleurs (tri, affichage), ce qui faisait
+    // apparaître un bilan comme plus récent qu'il ne l'était réellement.
+    addCheckin({ ...form, date: todayIso() });
     setForm(emptyForm);
   };
 
@@ -5728,7 +5774,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         {showRepoPickerNew && <RepoPickerModal value={exRest} onSelect={setExRest} onClose={() => setShowRepoPickerNew(false)} />}
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14 }}>Annuler</button>
-          <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : "Créer"}</button>
+          <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : editingProgramme?.id ? "Enregistrer" : "Créer"}</button>
         </div>
       </Card>
     </div>
@@ -5764,7 +5810,7 @@ const MedalBadge = ({ color, size = 36 }) => {
 const LegendDot = ({ color, label }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
     <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-    <span style={{ fontSize: 11, color: C.textOnBgMuted, fontWeight: 600 }}>{label}</span>
+    <span style={{ fontSize: 11, color: C.textOnBg, fontWeight: 700 }}>{label}</span>
   </div>
 );
 
@@ -6177,10 +6223,10 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
   if (formMode === "pickClient") {
     return (
       <div>
-        <button onClick={() => { setFormMode(null); setEditingModele(null); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => { setFormMode(null); setEditingModele(null); }} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
-        <SectionLabel icon={User}>Assigner « {editingModele.nom} » à...</SectionLabel>
+        <SectionLabel onBg icon={User}>Assigner « {editingModele.nom} » à...</SectionLabel>
         {clients.length === 0 ? (
           <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client pour le moment</div></Card>
         ) : (
@@ -6204,11 +6250,11 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
   if (formMode === "nouvelleSemaine") {
     return (
       <div>
-        <button onClick={() => setFormMode(null)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => setFormMode(null)} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
-        <SectionLabel icon={Calendar}>Nouvelle semaine type</SectionLabel>
-        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+        <SectionLabel onBg icon={Calendar}>Nouvelle semaine type</SectionLabel>
+        <div style={{ fontSize: 12, color: C.textOnBgMuted, marginBottom: 12 }}>
           ex : "Programme épaule faible", "Prise de masse débutant"...
         </div>
         <input
@@ -6236,14 +6282,14 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
     const seances7 = modelesDeSemaine(selectedSemaine.id);
     return (
       <div>
-        <button onClick={() => { setFormMode(null); setSelectedSemaine(null); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => { setFormMode(null); setSelectedSemaine(null); }} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-          <SectionLabel icon={Calendar}>{selectedSemaine.nom}</SectionLabel>
+          <SectionLabel onBg icon={Calendar}>{selectedSemaine.nom}</SectionLabel>
           <button onClick={() => supprimerSemaine(selectedSemaine.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={16} /></button>
         </div>
-        {selectedSemaine.description && <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 14 }}>{selectedSemaine.description}</div>}
+        {selectedSemaine.description && <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>{selectedSemaine.description}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
           {JOURS_ORDRE_MODELE.map((jour) => {
             const seance = seances7.find((s) => s.jour_fixe === jour);
@@ -6277,11 +6323,11 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
   if (formMode === "pickClientSemaine" && selectedSemaine) {
     return (
       <div>
-        <button onClick={() => setFormMode("detailSemaine")} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => setFormMode("detailSemaine")} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
-        <SectionLabel icon={User}>Assigner « {selectedSemaine.nom} » à...</SectionLabel>
-        <div style={{ fontSize: 11.5, color: C.textMuted, marginBottom: 12 }}>
+        <SectionLabel onBg icon={User}>Assigner « {selectedSemaine.nom} » à...</SectionLabel>
+        <div style={{ fontSize: 11.5, color: C.textOnBgMuted, marginBottom: 12 }}>
           Toutes les séances de cette semaine type seront ajoutées au programme du client, avec leurs jours fixes.
         </div>
         {clients.length === 0 ? (
@@ -6383,6 +6429,9 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
   const [descRecette, setDescRecette] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [savingRecette, setSavingRecette] = useState(false);
+  const [cibleEnvoiParRecette, setCibleEnvoiParRecette] = useState({}); // { [recetteId]: clientId | "tous" }
+  const [envoyingRecetteId, setEnvoyingRecetteId] = useState(null);
 
   // --- Liste de courses ---
   const [listesCourses, setListesCourses] = useState([]);
@@ -6419,20 +6468,45 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
 
   const cibleActuelle = targetClientId === "tous" ? null : targetClientId;
 
-  const creerRecette = async () => {
+  // envoyerMaintenant=false : la recette est enregistrée comme brouillon (pas encore
+  // visible par un client), pour la préparer à l'avance et l'envoyer plus tard.
+  const creerRecette = async (envoyerMaintenant) => {
     if (!nomRecette.trim()) { fireToast("Donne un nom à la recette"); return; }
+    setSavingRecette(true);
     try {
       const { error } = await supabase.from("recettes").insert({
-        coach_id: coachId, client_id: cibleActuelle, nom: nomRecette,
+        coach_id: coachId,
+        client_id: envoyerMaintenant ? cibleActuelle : null,
+        nom: nomRecette,
         description: descRecette, ingredients, instructions,
+        envoyee: envoyerMaintenant,
       });
       if (error) throw error;
-      fireToast("Recette créée", "green");
+      fireToast(envoyerMaintenant ? "Recette créée et envoyée" : "Recette enregistrée en brouillon", "green");
       setNomRecette(""); setDescRecette(""); setIngredients(""); setInstructions("");
       load();
     } catch (err) {
       console.error(err);
       fireToast("Erreur création recette");
+    } finally {
+      setSavingRecette(false);
+    }
+  };
+
+  const envoyerRecette = async (recette) => {
+    const cible = cibleEnvoiParRecette[recette.id];
+    const clientIdCible = !cible || cible === "tous" ? null : cible;
+    setEnvoyingRecetteId(recette.id);
+    try {
+      const { error } = await supabase.from("recettes").update({ client_id: clientIdCible, envoyee: true }).eq("id", recette.id);
+      if (error) throw error;
+      fireToast("Recette envoyée", "green");
+      setRecettes((prev) => prev.map((r) => (r.id === recette.id ? { ...r, client_id: clientIdCible, envoyee: true } : r)));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur envoi recette");
+    } finally {
+      setEnvoyingRecetteId(null);
     }
   };
 
@@ -6502,6 +6576,12 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
     return c ? `${c.prenom} ${c.nom}` : "Client";
   };
 
+  // Les recettes créées avant cette fonctionnalité n'ont pas de champ "envoyee" : on les
+  // considère comme déjà envoyées (comportement d'avant), seul un brouillon explicite
+  // (envoyee === false) va dans le petit dossier "Brouillons".
+  const recettesBrouillons = recettes.filter((r) => r.envoyee === false);
+  const recettesEnvoyees = recettes.filter((r) => r.envoyee !== false);
+
   const selecteurClient = (
     <select
       value={targetClientId}
@@ -6528,28 +6608,84 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
           <textarea value={descRecette} onChange={(e) => setDescRecette(e.target.value)} placeholder="Description (optionnel)" rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
           <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} placeholder="Ingrédients (un par ligne)" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
           <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions de préparation" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10, resize: "none" }} />
-          <button onClick={creerRecette} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>Créer la recette</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => creerRecette(false)}
+              disabled={savingRecette || !nomRecette.trim()}
+              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
+            >
+              <Folder size={14} style={{ verticalAlign: -2, marginRight: 5 }} /> Enregistrer en brouillon
+            </button>
+            <button
+              onClick={() => creerRecette(true)}
+              disabled={savingRecette || !nomRecette.trim()}
+              style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
+            >
+              Créer et envoyer
+            </button>
+          </div>
         </Card>
 
         {loading ? (
           <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
-        ) : recettes.length === 0 ? (
-          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune recette pour le moment</div></Card>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {recettes.map((r) => (
-              <Card key={r.id} style={{ padding: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.nom}</div>
-                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{nomClient(r.client_id)}</div>
-                  </div>
-                  <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
-                </div>
-                {r.description && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 6 }}>{r.description}</div>}
-              </Card>
-            ))}
-          </div>
+          <>
+            <SectionLabel icon={Folder} onBg>Brouillons — à préparer et envoyer plus tard</SectionLabel>
+            {recettesBrouillons.length === 0 ? (
+              <Card style={{ marginBottom: 20 }}><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun brouillon pour le moment</div></Card>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                {recettesBrouillons.map((r) => (
+                  <Card key={r.id} style={{ padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.nom}</div>
+                      <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+                    </div>
+                    {r.description && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 6, marginBottom: 8 }}>{r.description}</div>}
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <select
+                        value={cibleEnvoiParRecette[r.id] || "tous"}
+                        onChange={(e) => setCibleEnvoiParRecette((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                        style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 12.5 }}
+                      >
+                        <option value="tous">Tous mes clients</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => envoyerRecette(r)}
+                        disabled={envoyingRecetteId === r.id}
+                        style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "8px 14px", fontWeight: 700, fontSize: 12.5, opacity: envoyingRecetteId === r.id ? 0.6 : 1 }}
+                      >
+                        {envoyingRecetteId === r.id ? "Envoi..." : "Envoyer"}
+                      </button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <SectionLabel icon={Send} onBg>Envoyées</SectionLabel>
+            {recettesEnvoyees.length === 0 ? (
+              <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune recette envoyée pour le moment</div></Card>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {recettesEnvoyees.map((r) => (
+                  <Card key={r.id} style={{ padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.nom}</div>
+                        <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{nomClient(r.client_id)}</div>
+                      </div>
+                      <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
+                    </div>
+                    {r.description && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 6 }}>{r.description}</div>}
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </>
     );
@@ -7590,7 +7726,6 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [loading, setLoading] = useState(true);
   const [seances, setSeances] = useState([]);
   const [seriesBySeance, setSeriesBySeance] = useState({});
-  const [previewClientVideo, setPreviewClientVideo] = useState(null);
   const [weightHistory, setWeightHistory] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [repas, setRepas] = useState([]);
@@ -7735,6 +7870,52 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
     return () => { active = false; };
   }, [client.id]);
 
+  // Nettoyage automatique des séances "fantômes" : un bug côté chrono pouvait laisser
+  // plusieurs séances pour un même programme (une vide/aberrante en plus de la vraie).
+  // On ne garde qu'une seule séance par programme — en priorité celle qui a des séries
+  // enregistrées — et on supprime les doublons en base pour que l'historique affiché
+  // au coach reflète ce que le client a réellement fait.
+  useEffect(() => {
+    if (loading || seances.length === 0) return;
+    const parProgramme = {};
+    for (const s of seances) {
+      const cle = s.programme_id || s.nom_programme;
+      if (!parProgramme[cle]) parProgramme[cle] = [];
+      parProgramme[cle].push(s);
+    }
+    const aSupprimer = [];
+    for (const groupe of Object.values(parProgramme)) {
+      if (groupe.length === 1) {
+        // Séance isolée sans aucune série : le bouton "Terminer" côté client est
+        // désactivé tant qu'aucune série n'est validée, donc une séance vide en base est
+        // forcément un artefact (double envoi réseau, etc.) — rien d'utile à garder.
+        const seule = groupe[0];
+        if ((seriesBySeance[seule.id] || []).length === 0) aSupprimer.push(seule.id);
+        continue;
+      }
+      const trie = [...groupe].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const avecSeries = trie.find((s) => (seriesBySeance[s.id] || []).length > 0);
+      const aGarder = avecSeries || trie[0];
+      for (const s of trie) {
+        if (s.id !== aGarder.id) aSupprimer.push(s.id);
+      }
+    }
+    if (aSupprimer.length === 0) return;
+    (async () => {
+      const { error } = await supabase.from("seances").delete().in("id", aSupprimer);
+      if (error) {
+        console.error("Erreur nettoyage séances fantômes:", error);
+        return;
+      }
+      setSeances((prev) => prev.filter((s) => !aSupprimer.includes(s.id)));
+      setSeriesBySeance((prev) => {
+        const next = { ...prev };
+        for (const id of aSupprimer) delete next[id];
+        return next;
+      });
+    })();
+  }, [loading, seances, seriesBySeance]);
+
   const seancesDatesSet = useMemo(() => new Set(seances.map((s) => s.date)), [seances]);
   const poidsDatesSet = useMemo(() => new Set(poidsRawDates), [poidsRawDates]);
   const nutritionDatesSet = useMemo(() => new Set(repas.map((r) => r.date)), [repas]);
@@ -7812,36 +7993,18 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 }
 
                 const renderExercice = (ex) => {
-                  const videoDeLExercice = ex.series.find((sr) => sr.video_url)?.video_url || null;
                   return (
-                  <div key={ex.nom} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", gap: 10 }}>
-                    <button
-                      onClick={() => videoDeLExercice && setPreviewClientVideo(videoDeLExercice)}
-                      style={{
-                        width: 52, height: 52, borderRadius: 10, flexShrink: 0,
-                        background: C.card, border: `1px solid ${C.cardBorderLight}`,
-                        display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
-                        cursor: videoDeLExercice ? "pointer" : "default",
-                      }}
-                    >
-                      {videoDeLExercice ? (
-                        <video src={`${videoDeLExercice}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <VideoIcon size={18} color={C.textDim} />
-                      )}
-                    </button>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>{ex.nom}</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {ex.series.map((sr, i) => {
-                          const couleur = getProgressionColor(historiqueFiltré, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
-                          return (
-                            <span key={i} style={{ fontSize: 11.5, color: "#FFFFFF", background: couleur, borderRadius: 8, padding: "5px 9px", fontFamily: FONT_MONO, fontWeight: 700 }}>
-                              {sr.poids}kg × {sr.reps} <span style={{ opacity: 0.85 }}>RPE{sr.rpe}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
+                  <div key={ex.nom} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>{ex.nom}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {ex.series.map((sr, i) => {
+                        const couleur = getProgressionColor(historiqueFiltré, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
+                        return (
+                          <span key={i} style={{ fontSize: 11.5, color: "#FFFFFF", background: couleur, borderRadius: 8, padding: "5px 9px", fontFamily: FONT_MONO, fontWeight: 700 }}>
+                            {sr.poids}kg × {sr.reps} <span style={{ opacity: 0.85 }}>RPE{sr.rpe}</span>
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                   );
@@ -7868,16 +8031,6 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   </Card>
                 );
               })}
-            </div>
-          )}
-          {previewClientVideo && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPreviewClientVideo(null)}>
-              <div style={{ width: "100%", maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                  <button onClick={() => setPreviewClientVideo(null)} style={{ background: "transparent", border: "none", color: "#FFFFFF" }}><X size={22} /></button>
-                </div>
-                <video src={previewClientVideo} controls autoPlay playsInline style={{ width: "100%", borderRadius: 12, background: "#000" }} />
-              </div>
             </div>
           )}
           {showSeanceForm && (
@@ -8457,8 +8610,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         setTendancePoidsParClient(tendance);
 
         const bilansAvecDate = (bilansRes.data || [])
-          .map((b) => ({ ...b, dateParsed: new Date(b.date) }))
-          .filter((b) => b.dateParsed && !isNaN(b.dateParsed))
+          .map((b) => ({ ...b, dateParsed: parseDateFlexible(b.date) }))
+          .filter((b) => b.dateParsed)
           .sort((a, b) => b.dateParsed - a.dateParsed);
         setRecentBilans(bilansAvecDate.slice(0, 6));
 
@@ -8687,7 +8840,9 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                     ...recentSeances.map((s) => ({ type: "seance", date: s.date, data: s })),
                     ...recentBilans.map((b) => ({ type: "bilan", date: b.date, data: b })),
                   ]
-                    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+                    // parseDateFlexible gère aussi l'ancien format "JJ/MM/AAAA" des bilans —
+                    // une simple comparaison de chaînes triait mal ce format face aux dates ISO.
+                    .sort((a, b) => (parseDateFlexible(b.date) || 0) - (parseDateFlexible(a.date) || 0))
                     .slice(0, 6)
                     .map((item) => {
                       const c = clients.find((cl) => cl.id === item.data.profil_id);
@@ -8950,17 +9105,21 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const [dailyCheckinDone, setDailyCheckinDone] = useState(null); // null = en cours de vérification
   const profilIdRef = useRef(profilRow.id);
 
-  const streakNutrition = useMemo(() => {
+  // La flamme ne s'éteint pas immédiatement à minuit si rien n'est encore renseigné
+  // aujourd'hui : elle reste affichée (en gris, "en attente") tant que la journée n'est
+  // pas terminée. Elle ne s'éteint vraiment que le lendemain si la journée s'est
+  // écoulée sans repas renseigné.
+  const { streakNutrition, streakNutritionEnAttente } = useMemo(() => {
     const hasFoodToday = Object.values(meals).some((arr) => arr.length > 0);
-    if (!hasFoodToday) return 0;
-    let streak = 1;
+    let streakJusquHier = 0;
     let cursor = new Date();
     cursor.setDate(cursor.getDate() - 1);
     while (datesAvecRepasAnterieures.has(cursor.toISOString().slice(0, 10))) {
-      streak++;
+      streakJusquHier++;
       cursor.setDate(cursor.getDate() - 1);
     }
-    return streak;
+    if (hasFoodToday) return { streakNutrition: streakJusquHier + 1, streakNutritionEnAttente: false };
+    return { streakNutrition: streakJusquHier, streakNutritionEnAttente: streakJusquHier > 0 };
   }, [meals, datesAvecRepasAnterieures]);
 
   useEffect(() => {
@@ -9478,26 +9637,64 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   const saveSession = async ({ programme, logs, seconds }) => {
     if (!profilId) return;
     try {
-      // Supprime les anciennes séances de ce même programme — seule la plus récente est conservée
-      // (les séries associées sont supprimées automatiquement via la suppression en cascade)
-      if (programme.id) {
-        await supabase.from("seances").delete().eq("profil_id", profilId).eq("programme_id", programme.id);
-      } else {
-        await supabase.from("seances").delete().eq("profil_id", profilId).eq("nom_programme", programme.nom);
-      }
+      // Une seule séance est conservée par programme (pas d'historique qui s'accumule),
+      // mais on la MET À JOUR en place plutôt que de la supprimer et tout recréer : sinon,
+      // les exercices non refaits aujourd'hui (un exercice ajouté au programme mais pas
+      // encore testé, un exercice sauté ce jour-là...) perdaient leurs séries précédentes
+      // et leur "dernière performance" disparaissait pour rien.
+      const nomsExercicesLogges = new Set(
+        programme.exercices.filter((ex) => (logs[ex.id]?.sets?.length || 0) > 0).map((ex) => ex.nom)
+      );
 
-      const { data: seance, error: seanceErr } = await supabase
-        .from("seances")
-        .insert({
-          profil_id: profilId,
-          nom_programme: programme.nom,
-          programme_id: programme.id || null,
-          duree_secondes: seconds,
-          date: todayIso(),
-        })
-        .select("*")
-        .single();
-      if (seanceErr) throw seanceErr;
+      let requeteAnciennes = supabase.from("seances").select("id").eq("profil_id", profilId);
+      requeteAnciennes = programme.id
+        ? requeteAnciennes.or(`programme_id.eq.${programme.id},nom_programme.eq."${programme.nom}"`)
+        : requeteAnciennes.eq("nom_programme", programme.nom);
+      const { data: anciennes, error: rechercheErr } = await requeteAnciennes;
+      if (rechercheErr) console.error("Erreur recherche anciennes séances:", rechercheErr);
+
+      let seanceId;
+      if (anciennes && anciennes.length > 0) {
+        seanceId = anciennes[0].id;
+        // S'il traînait plusieurs séances pour ce programme (bug déjà corrigé par ailleurs),
+        // on garde la première et on nettoie le reste.
+        const autresIds = anciennes.slice(1).map((s) => s.id);
+        if (autresIds.length > 0) {
+          const { error: nettoyageErr } = await supabase.from("seances").delete().in("id", autresIds);
+          if (nettoyageErr) console.error("Erreur nettoyage doublons séances:", nettoyageErr);
+        }
+
+        const { error: updErr } = await supabase
+          .from("seances")
+          .update({ nom_programme: programme.nom, programme_id: programme.id || null, duree_secondes: seconds, date: todayIso() })
+          .eq("id", seanceId);
+        if (updErr) throw updErr;
+
+        // Ne remplace que les séries des exercices refaits aujourd'hui : celles des
+        // exercices non touchés cette fois restent en place avec leur dernière valeur.
+        if (nomsExercicesLogges.size > 0) {
+          const { error: delSeriesErr } = await supabase
+            .from("series")
+            .delete()
+            .eq("seance_id", seanceId)
+            .in("exercice_nom", [...nomsExercicesLogges]);
+          if (delSeriesErr) throw delSeriesErr;
+        }
+      } else {
+        const { data: seance, error: seanceErr } = await supabase
+          .from("seances")
+          .insert({
+            profil_id: profilId,
+            nom_programme: programme.nom,
+            programme_id: programme.id || null,
+            duree_secondes: seconds,
+            date: todayIso(),
+          })
+          .select("*")
+          .single();
+        if (seanceErr) throw seanceErr;
+        seanceId = seance.id;
+      }
 
       const rows = [];
       for (const ex of programme.exercices) {
@@ -9505,7 +9702,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         if (!log) continue;
         log.sets.forEach((set, idx) => {
           rows.push({
-            seance_id: seance.id,
+            seance_id: seanceId,
             exercice_nom: ex.nom,
             poids: set.poids,
             reps: set.reps,
@@ -9518,12 +9715,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       }
       if (rows.length) {
         const { error: seriesErr } = await supabase.from("series").insert(rows);
-        if (seriesErr) {
-          // Si l'enregistrement des séries échoue, on retire la séance vide plutôt que
-          // de la laisser sans détail (sinon le coach voit une séance "vide").
-          await supabase.from("seances").delete().eq("id", seance.id);
-          throw seriesErr;
-        }
+        if (seriesErr) throw seriesErr;
       }
 
       setStats((s) => ({ ...s, seancesRealisees: s.seancesRealisees + 1 }));
@@ -9533,7 +9725,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         for (const ex of programme.exercices) {
           const log = logs[ex.id];
           if (log?.sets.length) {
-            next[ex.nom] = { date: displayDate, sets: log.sets.map((s) => ({ poids: s.poids, reps: s.reps })) };
+            next[`${programme.nom}::${ex.nom}`] = { date: displayDate, sets: log.sets.map((s) => ({ poids: s.poids, reps: s.reps })) };
           }
         }
         return next;
@@ -9579,7 +9771,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} streakEnAttente={streakNutritionEnAttente} />
           )}
           {tab === "seances" && !activeProgramme && (
             <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
@@ -9595,7 +9787,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               onSessionComplete={saveSession}
             />
           )}
-          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} onUpdate={updateFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} />}
+          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} onUpdate={updateFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} isCoach={profilRow.role === "coach"} />}
           {tab === "bilans" && (
             <Bilans
               weightHistory={weightHistory}
