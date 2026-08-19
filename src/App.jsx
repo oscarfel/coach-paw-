@@ -3894,8 +3894,22 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
     motivation: 3,
     commentaire: "",
   };
-  const [form, setForm] = useState(emptyForm);
+  // Brouillon du bilan persisté : si le client quitte l'app en cours de rédaction (ou que
+  // l'app se ferme en arrière-plan), il retrouve ce qu'il avait déjà écrit en revenant,
+  // au lieu de devoir tout retaper avant de pouvoir l'envoyer à son coach.
+  const BILAN_DRAFT_KEY = "bilan_draft_form";
+  const [form, setForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem(BILAN_DRAFT_KEY);
+      if (saved) return { ...emptyForm, ...JSON.parse(saved) };
+    } catch { /* ignore */ }
+    return emptyForm;
+  });
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    localStorage.setItem(BILAN_DRAFT_KEY, JSON.stringify(form));
+  }, [form]);
 
   const submitWeight = () => {
     const w = parseFloat(newWeight);
@@ -3923,6 +3937,7 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
     // apparaître un bilan comme plus récent qu'il ne l'était réellement.
     addCheckin({ ...form, date: todayIso() });
     setForm(emptyForm);
+    localStorage.removeItem(BILAN_DRAFT_KEY);
   };
 
   return (
@@ -9047,7 +9062,33 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         setCustomProgrammes(formatted);
       });
   }, [profilId]);
-  const [activeProgramme, setActiveProgramme] = useState(null);
+  // Reprise automatique de la séance en cours : si l'app se ferme (changement d'appli,
+  // mise en arrière-plan trop longue...) puis se rouvre, on ne doit pas retomber sur
+  // l'accueil en ayant perdu la séance — le chrono et les séries sont déjà sauvegardés
+  // dans le localStorage par SessionView, il ne restait qu'à retrouver quel programme
+  // était en cours pour rouvrir directement dessus.
+  const ACTIVE_PROGRAMME_KEY = `active_programme_${profilId}`;
+  const [activeProgramme, setActiveProgrammeState] = useState(null);
+  const setActiveProgramme = (p) => {
+    setActiveProgrammeState(p);
+    if (p) localStorage.setItem(ACTIVE_PROGRAMME_KEY, String(p.id || p.nom));
+    else localStorage.removeItem(ACTIVE_PROGRAMME_KEY);
+  };
+  useEffect(() => {
+    if (activeProgramme || customProgrammes.length === 0) return;
+    const savedKey = localStorage.getItem(ACTIVE_PROGRAMME_KEY);
+    if (!savedKey) return;
+    const match = customProgrammes.find((p) => String(p.id) === savedKey || p.nom === savedKey);
+    if (!match) { localStorage.removeItem(ACTIVE_PROGRAMME_KEY); return; }
+    // Ne reprend que s'il reste vraiment une séance en cours (chrono démarré) — sinon
+    // rien à reprendre, et mieux vaut nettoyer la référence.
+    if (localStorage.getItem(`session_start_${match.id || match.nom}`)) {
+      setActiveProgrammeState(match);
+    } else {
+      localStorage.removeItem(ACTIVE_PROGRAMME_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customProgrammes]);
   const [exerciseHistory, setExerciseHistory] = useState({});
   const [meals, setMeals] = useState(EMPTY_MEALS);
   const [objectifsNutrition, setObjectifsNutrition] = useState(() => ({
