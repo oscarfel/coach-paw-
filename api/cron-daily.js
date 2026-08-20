@@ -65,8 +65,7 @@ export default async function handler(req, res) {
   }
 
   const resume = {
-    notifsProgrammeesEnvoyees: 0, relances: 0, rapports: 0, rappelsBilan: 0,
-    stagnations: 0,
+    notifsProgrammeesEnvoyees: 0, relances: 0, rapports: 0, stagnations: 0,
   };
 
   try {
@@ -140,33 +139,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // --- 4) Rappel bilan hebdo non rempli (le dimanche soir) ---
-      if (jourDeLaSemaine === 0) {
-        const seuil7jBilan = new Date();
-        seuil7jBilan.setDate(seuil7jBilan.getDate() - 7);
-        const seuil7jBilanIso = seuil7jBilan.toISOString().slice(0, 10);
-
-        for (const client of clients) {
-          const { count: nbBilans } = await supabase
-            .from('bilans_semaine')
-            .select('id', { count: 'exact', head: true })
-            .eq('profil_id', client.id)
-            .gte('date', seuil7jBilanIso);
-
-          if ((nbBilans || 0) === 0 && !(await dejaEnvoye(client.id, 'rappel_bilan', 6))) {
-            await supabase.from('notifications').insert({
-              coach_id: client.coach_id, client_id: client.id,
-              titre: 'Ton bilan de la semaine 📋',
-              message: "Tu n'as pas encore rempli ton bilan hebdo. Prends 2 minutes pour le faire avant la fin du dimanche !",
-              lu: false, type: 'rappel_bilan', envoyee: true,
-            });
-            await sendPush(client.id, 'Ton bilan de la semaine 📋', "Tu n'as pas encore rempli ton bilan hebdo. Prends 2 minutes pour le faire avant la fin du dimanche !");
-            resume.rappelsBilan++;
-          }
-        }
-      }
-
-      // --- 5) Alerte stagnation (le lundi, compare les 2 dernieres semaines aux 2 precedentes) ---
+      // --- 4) Alerte stagnation (le lundi, compare les 2 dernieres semaines aux 2 precedentes) ---
       if (jourDeLaSemaine === 1) {
         const il_y_a_28j = new Date(); il_y_a_28j.setDate(il_y_a_28j.getDate() - 28);
         const il_y_a_14j = new Date(); il_y_a_14j.setDate(il_y_a_14j.getDate() - 14);
