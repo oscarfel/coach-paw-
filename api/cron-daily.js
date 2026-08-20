@@ -57,8 +57,6 @@ async function dejaEnvoyeCoach(coachId, type, joursColddown) {
   return data && data.length > 0;
 }
 
-const JOURS_ORDRE = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-
 export default async function handler(req, res) {
   // Protection : seul Vercel Cron (avec le bon secret) peut declencher cette route
   const authHeader = req.headers.authorization;
@@ -68,7 +66,7 @@ export default async function handler(req, res) {
 
   const resume = {
     notifsProgrammeesEnvoyees: 0, relances: 0, rapports: 0, rappelsBilan: 0,
-    stagnations: 0, resumesCoach: 0, objectifsAtteints: 0,
+    stagnations: 0,
   };
 
   try {
@@ -88,7 +86,6 @@ export default async function handler(req, res) {
     }
 
     const { data: clients } = await supabase.from('profils').select('*').eq('role', 'client');
-    const { data: coachs } = await supabase.from('profils').select('*').eq('role', 'coach');
     const jourDeLaSemaine = new Date().getDay(); // 0 = dimanche, 1 = lundi ... 6 = samedi
 
     if (clients && clients.length > 0) {
@@ -217,61 +214,6 @@ export default async function handler(req, res) {
             resume.stagnations++;
           }
         }
-      }
-
-      // --- 7) Alerte objectif de poids atteint (tous les jours) ---
-      for (const client of clients) {
-        if (!client.poids_objectif) continue;
-        const { data: poidsHisto } = await supabase
-          .from('poids_historique').select('poids, date').eq('profil_id', client.id).order('date', { ascending: true });
-        if (!poidsHisto || poidsHisto.length < 2) continue;
-
-        const premier = Number(poidsHisto[0].poids);
-        const actuel = Number(poidsHisto[poidsHisto.length - 1].poids);
-        const objectif = Number(client.poids_objectif);
-        const veutPerdre = premier > objectif;
-        const objectifAtteint = veutPerdre ? actuel <= objectif : actuel >= objectif;
-
-        if (objectifAtteint && !(await dejaEnvoyeCoach(client.coach_id, 'objectif_poids_' + client.id, 90))) {
-          await supabase.from('notifications').insert({
-            coach_id: client.coach_id, client_id: null,
-            titre: `Objectif atteint : ${client.prenom} 🎯`,
-            message: `${client.prenom} a atteint son objectif de poids (${objectif} kg) ! Pense a feliciter et fixer un nouvel objectif.`,
-            lu: false, type: 'objectif_poids_' + client.id, envoyee: true,
-          });
-          resume.objectifsAtteints++;
-        }
-      }
-    }
-
-    // --- 6) Resume quotidien coach ---
-    if (coachs && coachs.length > 0) {
-      const jourTexte = JOURS_ORDRE[jourDeLaSemaine];
-      for (const coach of coachs) {
-        const { data: mesClients } = await supabase.from('profils').select('id').eq('coach_id', coach.id).eq('role', 'client');
-        const idsClients = (mesClients || []).map((c) => c.id);
-        if (idsClients.length === 0) continue;
-
-        const { data: programmesDuJour } = await supabase
-          .from('programmes').select('id').in('profil_id', idsClients).eq('jour_fixe', jourTexte);
-        const nbPrevues = (programmesDuJour || []).length;
-
-        let nbInactifs = 0;
-        for (const cid of idsClients) {
-          const { data: derniere } = await supabase.from('seances').select('date').eq('profil_id', cid).order('date', { ascending: false }).limit(1);
-          if (!derniere || derniere.length === 0) continue;
-          const jours = Math.floor((new Date(todayIso()) - new Date(derniere[0].date)) / 86400000);
-          if (jours >= 5) nbInactifs++;
-        }
-
-        await supabase.from('notifications').insert({
-          coach_id: coach.id, client_id: null,
-          titre: 'Ton resume du jour',
-          message: `${nbPrevues} seance(s) prevue(s) aujourd'hui.${nbInactifs > 0 ? ` ${nbInactifs} client(s) inactif(s) depuis 5+ jours.` : ''}`,
-          lu: false, type: 'resume_quotidien', envoyee: true,
-        });
-        await sendPush(coach.id, 'Ton resume du jour', `${nbPrevues} seance(s) prevue(s) aujourd'hui.${nbInactifs > 0 ? ` ${nbInactifs} client(s) inactif(s).` : ''}`);
-        resume.resumesCoach++;
       }
     }
 
