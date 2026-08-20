@@ -110,7 +110,7 @@ export default async function handler(req, res) {
               message: `Ca fait ${joursSince} jours sans seance. Pret(e) a t'y remettre ?`,
               lu: false, type: 'relance_inactif', envoyee: true,
             });
-            await sendPu(client.id, "On ne t'a pas vu recemment 👋", `Ca fait ${joursSince} jours sans seance. Pret(e) a t'y remettre ?`);
+            await sendPush(client.id, "On ne t'a pas vu recemment 👋", `Ca fait ${joursSince} jours sans seance. Pret(e) a t'y remettre ?`);
             resume.relances++;
           }
         }
@@ -130,7 +130,7 @@ export default async function handler(req, res) {
 
           let deltaPoids = null;
           if (poidsHisto && poidsHisto.length >= 2) {
-            deltaPoids = (Number(poidsHisto[poidsHisto.length - 1].poids) - Number(poidsHisto[0].poids.toFixed(1);
+            deltaPoids = (Number(poidsHisto[poidsHisto.length - 1].poids) - Number(poidsHisto[0].poids)).toFixed(1);
           }
 
           await supabase.from('notifications').insert({
@@ -173,7 +173,7 @@ export default async function handler(req, res) {
       if (jourDeLaSemaine === 1) {
         const il_y_a_28j = new Date(); il_y_a_28j.setDate(il_y_a_28j.getDate() - 28);
         const il_y_a_14j = new Date(); il_y_a_14j.setDate(il_y_a_14j.getDate() - 14);
-    const il_y_a_28j_iso = il_y_a_28j.toISOString().slice(0, 10);
+        const il_y_a_28j_iso = il_y_a_28j.toISOString().slice(0, 10);
         const il_y_a_14j_iso = il_y_a_14j.toISOString().slice(0, 10);
 
         for (const client of clients) {
@@ -253,7 +253,7 @@ export default async function handler(req, res) {
         if (idsClients.length === 0) continue;
 
         const { data: programmesDuJour } = await supabase
-          .from('programmes').select('id').in('profil_id', idsClients).eq('jo_fixe', jourTexte);
+          .from('programmes').select('id').in('profil_id', idsClients).eq('jour_fixe', jourTexte);
         const nbPrevues = (programmesDuJour || []).length;
 
         let nbInactifs = 0;
