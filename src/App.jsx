@@ -5700,16 +5700,20 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                     const n = Math.max(1, ex.sets - 1);
                     const arr = [...(ex.repsParSerie || [])];
                     while (arr.length > n) arr.pop();
+                    const rangeArr = Array.from({ length: n }, () => (ex.objectifRepsRangeParSerie || [])[0] || null);
                     updateExercice(i, "sets", n);
                     updateExercice(i, "repsParSerie", arr);
+                    updateExercice(i, "objectifRepsRangeParSerie", rangeArr);
                   }} style={{ width: 36, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 18, fontWeight: 700 }}>−</button>
                   <div style={{ flex: 1, textAlign: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 0", color: C.text, fontSize: 15, fontWeight: 700 }}>{ex.sets}</div>
                   <button onClick={() => {
                     const n = ex.sets + 1;
                     const arr = [...(ex.repsParSerie || [])];
                     while (arr.length < n) arr.push(10);
+                    const rangeArr = Array.from({ length: n }, () => (ex.objectifRepsRangeParSerie || [])[0] || null);
                     updateExercice(i, "sets", n);
                     updateExercice(i, "repsParSerie", arr);
+                    updateExercice(i, "objectifRepsRangeParSerie", rangeArr);
                   }} style={{ width: 36, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 18, fontWeight: 700 }}>+</button>
                 </div>
                 <div style={{ fontSize: 11, color: C.amber, marginBottom: 4, fontWeight: 700 }}>🔥 Séries d'échauffement (0 si aucune)</div>
@@ -5730,42 +5734,37 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                   ))}
                 </div>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>
-                  🎯 Fourchette de répétitions par série <span style={{ color: C.textDim }}>(atteindre le haut de la fourchette suggère d'augmenter la charge)</span>
+                  🎯 Fourchette de répétitions <span style={{ color: C.textDim }}>(atteindre le haut de la fourchette suggère d'augmenter la charge)</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-                  {Array.from({ length: ex.sets }).map((_, si) => {
-                    const range = (ex.objectifRepsRangeParSerie || [])[si] || null;
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
+                  {(() => {
+                    const range = (ex.objectifRepsRangeParSerie || [])[0] || null;
                     const setRange = (r) => {
-                      const arr = [...(ex.objectifRepsRangeParSerie || [])];
-                      while (arr.length < ex.sets) arr.push(null);
-                      arr[si] = r;
+                      const arr = Array.from({ length: ex.sets }, () => r);
                       updateExercice(i, "objectifRepsRangeParSerie", arr);
                     };
                     return (
-                      <div key={si}>
-                        <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 3 }}>Série {si + 1}</div>
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                          {REP_RANGES.map((r) => {
-                            const actif = range && range.min === r.min && range.max === r.max;
-                            return (
-                              <button
-                                key={`${r.min}-${r.max}`}
-                                type="button"
-                                onClick={() => setRange(actif ? null : { min: r.min, max: r.max })}
-                                style={{
-                                  border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 999, padding: "5px 10px",
-                                  background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted, fontSize: 12, fontWeight: 700,
-                                }}
-                              >
-                                {r.min}-{r.max}
-                              </button>
-                            );
-                          })}
-                          <RepRangePersonnalise range={range} onSet={setRange} />
-                        </div>
-                      </div>
+                      <>
+                        {REP_RANGES.map((r) => {
+                          const actif = range && range.min === r.min && range.max === r.max;
+                          return (
+                            <button
+                              key={`${r.min}-${r.max}`}
+                              type="button"
+                              onClick={() => setRange(actif ? null : { min: r.min, max: r.max })}
+                              style={{
+                                border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 999, padding: "5px 10px",
+                                background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted, fontSize: 12, fontWeight: 700,
+                              }}
+                            >
+                              {r.min}-{r.max}
+                            </button>
+                          );
+                        })}
+                        <RepRangePersonnalise range={range} onSet={setRange} />
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
@@ -6330,7 +6329,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         if (progErr) throw progErr;
         const exercicesRows = (s.exercices || []).map((ex, i) => ({
           programme_id: prog.id, nom: ex.nom, sets: ex.sets, reps_par_serie: JSON.stringify(ex.repsParSerie || []),
-          rest: ex.rest, tempo: ex.tempo, rpe: ex.rpe, note: ex.note, video_demo_url: ex.videoDemoUrl,
+          rest: ex.rest, tempo: ex.tempo, rpe: ex.rpe || null, note: ex.note, video_demo_url: ex.videoDemoUrl,
           ordre: ex.ordre ?? i, groupe_superset: ex.groupeSuperset || null,
           type_exercice: ex.type || "muscu", duree_minutes: ex.dureeMinutes || null,
           series_echauffement: ex.echauffement || 0, objectif_reps_max: ex.objectifRepsMax || null,
