@@ -424,6 +424,63 @@ const MEAL_DEFS = [
   { key: "diner", nom: "Dîner", emoji: "🌙" },
 ];
 
+const ECHAUFFEMENT_PRESETS = [
+  { key: "articulaireHaut", label: "Articulaire — haut du corps", description: "Rotations épaules, coudes, poignets", texte: "• Échauffement articulaire haut du corps (rotations épaules, coudes, poignets) — 3 min" },
+  { key: "articulaireBas", label: "Articulaire — bas du corps", description: "Rotations hanches, genoux, chevilles", texte: "• Échauffement articulaire bas du corps (rotations hanches, genoux, chevilles) — 3 min" },
+  { key: "cardio", label: "Cardio léger", description: "Vélo, rameur ou tapis à faible intensité", texte: "• Cardio léger (vélo/rameur/tapis) — 5 min" },
+  { key: "tractionPoidsCorps", label: "Traction poids du corps", description: "Tractions/rowing léger sans charge pour préparer le dos", texte: "• Échauffement traction poids du corps (tractions ou rowing léger) — 2-3 min" },
+  { key: "pompes", label: "Pompes", description: "Séries de pompes légères pour préparer le haut du corps en poussée", texte: "• Échauffement pompes — 2-3 séries légères" },
+  { key: "squatsFentes", label: "Squats / fentes", description: "Squats et fentes au poids du corps pour préparer les jambes", texte: "• Échauffement squats/fentes au poids du corps — 2-3 min" },
+  { key: "mobilite", label: "Mobilité dynamique", description: "Balancements jambes/bras, gainage dynamique", texte: "• Mobilité dynamique (balancements jambes/bras, gainage dynamique) — 3 min" },
+  { key: "activation", label: "Activation spécifique", description: "Séries d'approche légères sur le premier exercice", texte: "• Séries d'approche légères sur le premier exercice de la séance" },
+];
+
+const REP_RANGES = [
+  { min: 4, max: 8 },
+  { min: 6, max: 9 },
+  { min: 9, max: 12 },
+  { min: 10, max: 15 },
+];
+
+function RepRangePersonnalise({ range, onSet }) {
+  const estCustom = range && !REP_RANGES.some((r) => r.min === range.min && r.max === range.max);
+  const [open, setOpen] = useState(false);
+  const [min, setMin] = useState(estCustom ? range.min : "");
+  const [max, setMax] = useState(estCustom ? range.max : "");
+
+  if (open) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <input type="number" value={min} onChange={(e) => setMin(e.target.value)} placeholder="min" style={{ width: 42, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "5px", color: C.text, fontSize: 12, textAlign: "center" }} />
+        <span style={{ color: C.textDim, fontSize: 12 }}>-</span>
+        <input type="number" value={max} onChange={(e) => setMax(e.target.value)} placeholder="max" style={{ width: 42, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "5px", color: C.text, fontSize: 12, textAlign: "center" }} />
+        <button
+          type="button"
+          onClick={() => {
+            const mn = parseInt(min), mx = parseInt(max);
+            if (mn > 0 && mx >= mn) { onSet({ min: mn, max: mx }); setOpen(false); }
+          }}
+          style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "5px 8px", fontSize: 11, fontWeight: 700 }}
+        >
+          OK
+        </button>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      style={{
+        border: `1px solid ${estCustom ? C.blue : C.cardBorderLight}`, borderRadius: 999, padding: "5px 10px",
+        background: estCustom ? C.blueSoft : "transparent", color: estCustom ? C.blue : C.textMuted, fontSize: 12, fontWeight: 700,
+      }}
+    >
+      {estCustom ? `${range.min}-${range.max}` : "+ Perso"}
+    </button>
+  );
+}
+
 const PHOTO_CATS = [
   { key: "face", nom: "Face" },
   { key: "profil", nom: "Profil" },
@@ -1322,6 +1379,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const rappelSerieActuelle = historique?.sets?.[currentSetIndex];
   const derniereSerieGlobale = historique?.sets?.[historique.sets.length - 1];
   const seriesEffectivesValidees = Math.max(0, log.sets.length - nbEchauffement);
+  const rangeActuelle = (ex.objectifRepsRangeParSerie || [])[currentSetIndex] || null;
   const progressionPct = ex.type === "cardio"
     ? (log.sets.length > 0 ? 100 : 0)
     : Math.min(100, Math.round((seriesEffectivesValidees / ex.sets) * 100));
@@ -1384,6 +1442,8 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
         overflow: "hidden",
         background: cardFillGradient(),
         transition: "background 0.4s ease",
+        border: `2px solid ${C.amber}`,
+        boxShadow: "0 0 0 1px rgba(240,178,92,0.35), 0 0 16px rgba(240,178,92,0.35)",
       }}
     >
       <button
@@ -1633,12 +1693,14 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
               />
             </div>
             <div>
-              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>RÉPÉTITIONS</div>
+              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>
+                RÉPÉTITIONS{rangeActuelle && <span style={{ color: C.blue, fontWeight: 600 }}> · vise {rangeActuelle.min}-{rangeActuelle.max}</span>}
+              </div>
               <input
                 type="number"
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}
-                placeholder={rappelSerieActuelle ? String(rappelSerieActuelle.reps) : "0"}
+                placeholder={rappelSerieActuelle ? String(rappelSerieActuelle.reps) : (rangeActuelle ? `${rangeActuelle.min}-${rangeActuelle.max}` : "0")}
                 style={{
                   width: "100%",
                   background: C.surface,
@@ -1653,9 +1715,9 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
             </div>
             </div>
 
-          {ex.objectifRepsMax && parseInt(reps) >= ex.objectifRepsMax && (
+          {((rangeActuelle && parseInt(reps) >= rangeActuelle.max) || (!rangeActuelle && ex.objectifRepsMax && parseInt(reps) >= ex.objectifRepsMax)) && (
             <div style={{ background: C.greenSoft, border: `1px solid ${C.green}`, borderRadius: 10, padding: "9px 12px", fontSize: 12, color: C.green, fontWeight: 700 }}>
-              🎯 Objectif de {ex.objectifRepsMax} reps atteint ! Augmente la charge la prochaine fois.
+              🎯 Objectif de {rangeActuelle ? rangeActuelle.max : ex.objectifRepsMax} reps atteint ! Augmente la charge la prochaine fois.
             </div>
           )}
 
@@ -5146,6 +5208,10 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
     );
     setSelectedForSuperset([]);
   };
+
+  const degrouperSuperset = (groupeId) => {
+    setExercices((prev) => prev.map((ex) => (ex.groupeSuperset === groupeId ? { ...ex, groupeSuperset: null } : ex)));
+  };
   const [nom, setNom] = useState(editingProgramme?.nom || "");
   const [muscle, setMuscle] = useState(editingProgramme?.muscle || "");
   const [jourFixe, setJourFixe] = useState(editingProgramme?.jourFixe || editingProgramme?.jour_fixe || "");
@@ -5229,6 +5295,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
       dureeMinutes: ex.dureeMinutes ?? ex.duree_minutes ?? null,
       echauffement: ex.echauffement ?? ex.series_echauffement ?? 0,
       objectifRepsMax: ex.objectifRepsMax ?? ex.objectif_reps_max ?? null,
+      objectifRepsRangeParSerie: ex.objectifRepsRangeParSerie || (ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : []),
     }));
   });
   const [exNom, setExNom] = useState("");
@@ -5355,12 +5422,13 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
           ordre: ex.ordre, groupeSuperset: ex.groupeSuperset || null,
           type: ex.type || "muscu", dureeMinutes: ex.dureeMinutes || null,
           echauffement: ex.echauffement || 0, objectifRepsMax: ex.objectifRepsMax || null,
+          objectifRepsRangeParSerie: ex.objectifRepsRangeParSerie || null,
         }));
         if (editingProgramme?.id) {
-          const { error } = await supabase.from("programmes_modeles").update({ nom, muscle, exercices: exercicesJson, jour_fixe: modeleJourFixe || null }).eq("id", editingProgramme.id);
+          const { error } = await supabase.from("programmes_modeles").update({ nom, muscle, exercices: exercicesJson, jour_fixe: modeleJourFixe || null, echauffement_general: echauffementGeneral || null, updated_at: new Date().toISOString() }).eq("id", editingProgramme.id);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from("programmes_modeles").insert({ coach_id: coachId, nom, muscle, exercices: exercicesJson, modele_semaine_id: modeleSemaineId || null, jour_fixe: modeleJourFixe || null });
+          const { error } = await supabase.from("programmes_modeles").insert({ coach_id: coachId, nom, muscle, exercices: exercicesJson, modele_semaine_id: modeleSemaineId || null, jour_fixe: modeleJourFixe || null, echauffement_general: echauffementGeneral || null });
           if (error) throw error;
         }
         fireToast(editingProgramme?.id ? "Modèle modifié" : "Modèle créé", "green");
@@ -5373,7 +5441,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
       if (editingProgramme?.id) {
         const { error: updateErr } = await supabase
           .from("programmes")
-          .update({ nom, muscle, jour_fixe: jourFixe || null, echauffement_general: echauffementGeneral || null })
+          .update({ nom, muscle, jour_fixe: jourFixe || null, echauffement_general: echauffementGeneral || null, updated_at: new Date().toISOString() })
           .eq("id", editingProgramme.id);
         if (updateErr) throw updateErr;
         progId = editingProgramme.id;
@@ -5400,6 +5468,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
               ordre: ex.ordre, groupe_superset: ex.groupeSuperset || null, type_exercice: ex.type || "muscu",
               duree_minutes: ex.dureeMinutes || null, series_echauffement: ex.echauffement || 0,
               objectif_reps_max: ex.objectifRepsMax || null,
+              objectif_reps_range_par_serie: JSON.stringify(ex.objectifRepsRangeParSerie || null),
             })
             .eq("id", ex.id);
           if (updExErr) throw updExErr;
@@ -5412,6 +5481,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
             ordre: ex.ordre, groupe_superset: ex.groupeSuperset || null, type_exercice: ex.type || "muscu",
             duree_minutes: ex.dureeMinutes || null, series_echauffement: ex.echauffement || 0,
             objectif_reps_max: ex.objectifRepsMax || null,
+            objectif_reps_range_par_serie: JSON.stringify(ex.objectifRepsRangeParSerie || null),
           }));
           const { error: newExErr } = await supabase.from("programme_exercices").insert(nouvellesRows);
           if (newExErr) throw newExErr;
@@ -5446,6 +5516,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         duree_minutes: ex.dureeMinutes || null,
         series_echauffement: ex.echauffement || 0,
         objectif_reps_max: ex.objectifRepsMax || null,
+        objectif_reps_range_par_serie: JSON.stringify(ex.objectifRepsRangeParSerie || null),
       }));
       const { error: exErr } = await supabase.from("programme_exercices").insert(rows);
       if (exErr) throw exErr;
@@ -5487,10 +5558,34 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         )}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Échauffement général (optionnel)</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {ECHAUFFEMENT_PRESETS.map((preset) => {
+              const lignes = echauffementGeneral.split("\n").filter(Boolean);
+              const actif = lignes.includes(preset.texte);
+              return (
+                <button
+                  key={preset.key}
+                  type="button"
+                  title={preset.description}
+                  onClick={() => {
+                    const next = actif ? lignes.filter((l) => l !== preset.texte) : [...lignes, preset.texte];
+                    setEchauffementGeneral(next.join("\n"));
+                  }}
+                  style={{
+                    border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 999, padding: "6px 11px",
+                    background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted,
+                    fontSize: 11.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 5,
+                  }}
+                >
+                  {actif && <CheckCircle2 size={12} />} {preset.label}
+                </button>
+              );
+            })}
+          </div>
           <textarea
             value={echauffementGeneral}
             onChange={(e) => setEchauffementGeneral(e.target.value)}
-            placeholder="ex : 5 min de vélo + rotations articulaires (épaules, hanches, chevilles)"
+            placeholder="ex : 5 min de vélo + rotations articulaires (épaules, hanches, chevilles) — ou coche un type ci-dessus"
             rows={2}
             style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "none" }}
           />
@@ -5539,9 +5634,18 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
             }}
           >
             {estDebutSuperset && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-                <Zap size={13} color={C.blue} />
-                <span style={{ fontSize: 10.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <Zap size={13} color={C.blue} />
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); degrouperSuperset(ex.groupeSuperset); }}
+                  style={{ background: "transparent", border: "none", color: C.blue, fontSize: 10.5, fontWeight: 700, padding: 0, textDecoration: "underline" }}
+                >
+                  Dégrouper
+                </button>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -5625,38 +5729,43 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                     </button>
                   ))}
                 </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={!!ex.objectifRepsMax}
-                      onChange={(e) => updateExercice(i, "objectifRepsMax", e.target.checked ? 12 : null)}
-                    />
-                    <span style={{ fontSize: 12.5, color: C.text, fontWeight: 600 }}>🎯 Objectif de progression (augmenter la charge à un nombre de reps)</span>
-                  </label>
-                  {ex.objectifRepsMax > 0 && (
-                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 12, color: C.textMuted }}>À partir de</span>
-                      <input
-                        type="number"
-                        value={ex.objectifRepsMax}
-                        onChange={(e) => updateExercice(i, "objectifRepsMax", parseInt(e.target.value) || 12)}
-                        style={{ width: 60, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
-                      />
-                      <span style={{ fontSize: 12, color: C.textMuted }}>répétitions, augmenter la charge</span>
-                    </div>
-                  )}
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>
+                  🎯 Fourchette de répétitions par série <span style={{ color: C.textDim }}>(atteindre le haut de la fourchette suggère d'augmenter la charge)</span>
                 </div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Répétitions par série</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                  {(ex.repsParSerie || []).map((r, si) => (
-                    <input key={si} type="number" value={r} onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      const arr = [...ex.repsParSerie];
-                      arr[si] = val;
-                      updateExercice(i, "repsParSerie", arr);
-                    }} style={{ width: 48, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px", color: C.text, fontSize: 13, textAlign: "center" }} />
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                  {Array.from({ length: ex.sets }).map((_, si) => {
+                    const range = (ex.objectifRepsRangeParSerie || [])[si] || null;
+                    const setRange = (r) => {
+                      const arr = [...(ex.objectifRepsRangeParSerie || [])];
+                      while (arr.length < ex.sets) arr.push(null);
+                      arr[si] = r;
+                      updateExercice(i, "objectifRepsRangeParSerie", arr);
+                    };
+                    return (
+                      <div key={si}>
+                        <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 3 }}>Série {si + 1}</div>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          {REP_RANGES.map((r) => {
+                            const actif = range && range.min === r.min && range.max === r.max;
+                            return (
+                              <button
+                                key={`${r.min}-${r.max}`}
+                                type="button"
+                                onClick={() => setRange(actif ? null : { min: r.min, max: r.max })}
+                                style={{
+                                  border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 999, padding: "5px 10px",
+                                  background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted, fontSize: 12, fontWeight: 700,
+                                }}
+                              >
+                                {r.min}-{r.max}
+                              </button>
+                            );
+                          })}
+                          <RepRangePersonnalise range={range} onSet={setRange} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
@@ -6215,7 +6324,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
       for (const s of seancesDeSemaine) {
         const { data: prog, error: progErr } = await supabase
           .from("programmes")
-          .insert({ profil_id: clientId, nom: s.nom, muscle: s.muscle, jour_fixe: s.jour_fixe || null })
+          .insert({ profil_id: clientId, nom: s.nom, muscle: s.muscle, jour_fixe: s.jour_fixe || null, echauffement_general: s.echauffement_general || null })
           .select()
           .single();
         if (progErr) throw progErr;
@@ -6225,6 +6334,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
           ordre: ex.ordre ?? i, groupe_superset: ex.groupeSuperset || null,
           type_exercice: ex.type || "muscu", duree_minutes: ex.dureeMinutes || null,
           series_echauffement: ex.echauffement || 0, objectif_reps_max: ex.objectifRepsMax || null,
+          objectif_reps_range_par_serie: JSON.stringify(ex.objectifRepsRangeParSerie || null),
         }));
         if (exercicesRows.length > 0) {
           const { error: exErr } = await supabase.from("programme_exercices").insert(exercicesRows);
@@ -6236,7 +6346,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
       setSelectedSemaine(null);
     } catch (err) {
       console.error(err);
-      fireToast("Erreur assignation semaine type");
+      fireToast("Erreur assignation semaine type : " + (err.message || err.code || "inconnue"));
     } finally {
       setAssigningSemaine(false);
     }
@@ -6363,7 +6473,11 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{jour}</div>
                   <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: seance ? C.text : C.textDim }}>{seance ? seance.nom : "Repos — appuyer pour créer"}</div>
-                  {seance && <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{(seance.exercices || []).length} exercices</div>}
+                  {seance && (
+                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                      {(seance.exercices || []).length} exercices · {(seance.exercices || []).reduce((sum, ex) => sum + (Number(ex.sets) || 0), 0)} séries
+                    </div>
+                  )}
                 </div>
                 <ChevronRight size={16} color={C.textMuted} />
               </Card>
@@ -6435,7 +6549,8 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
               {modelesSansSemaine.map((m) => (
                 <Card key={m.id}>
                   <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{m.nom}</div>
-                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{m.muscle} · {(m.exercices || []).length} exercices</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>{m.muscle} · {(m.exercices || []).length} exercices · {(m.exercices || []).reduce((sum, ex) => sum + (Number(ex.sets) || 0), 0)} séries</div>
+                  {m.updated_at && <div style={{ fontSize: 10, color: C.textDim, marginBottom: 8 }}>Modifié le {formatDateDisplay(m.updated_at)}</div>}
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => { setEditingModele(m); setFormMode("modele"); }} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 0", color: C.text, fontSize: 12.5, fontWeight: 600 }}>Modifier</button>
                     <button onClick={() => { setEditingModele(m); setFormMode("pickClient"); }} style={{ flex: 1, background: C.blueSoft, border: "none", borderRadius: 10, padding: "8px 0", color: C.blue, fontSize: 12.5, fontWeight: 700 }}>Assigner</button>
@@ -7408,8 +7523,99 @@ function NotificationsView({ coachId, clients, fireToast }) {
   );
 }
 
-function PlanAlimentaireModal({ planActuel, onSave, onClose }) {
-  const [mode, setMode] = useState("pourcentage"); // "pourcentage" | "grammes"
+const FACTEURS_ACTIVITE = [
+  { key: "sedentaire", label: "Sédentaire", description: "Peu ou pas d'exercice, travail assis", valeur: 1.2 },
+  { key: "leger", label: "Légèrement actif", description: "Sport léger 1-3 jours / semaine", valeur: 1.375 },
+  { key: "modere", label: "Modérément actif", description: "Sport modéré 3-5 jours / semaine", valeur: 1.55 },
+  { key: "actif", label: "Très actif", description: "Sport intense 6-7 jours / semaine", valeur: 1.725 },
+  { key: "extreme", label: "Extrêmement actif", description: "Sport intense quotidien + travail physique", valeur: 1.9 },
+];
+
+function CalculateurCalories({ client, onUtiliser }) {
+  const [sexe, setSexe] = useState("homme");
+  const [poids, setPoids] = useState(client.poids_actuel || "");
+  const [taille, setTaille] = useState(client.taille || "");
+  const [age, setAge] = useState(client.age || "");
+  const [activite, setActivite] = useState("modere");
+  const [objectif, setObjectif] = useState("maintien"); // "deficit" | "maintien" | "surplus"
+
+  const poidsN = parseFloat(poids) || 0;
+  const tailleN = parseFloat(taille) || 0;
+  const ageN = parseInt(age) || 0;
+  const facteur = FACTEURS_ACTIVITE.find((f) => f.key === activite)?.valeur || 1.2;
+
+  const bmr = poidsN && tailleN && ageN
+    ? 10 * poidsN + 6.25 * tailleN - 5 * ageN + (sexe === "homme" ? 5 : -161)
+    : 0;
+  const maintenance = bmr * facteur;
+  const ajustement = objectif === "deficit" ? 0.8 : objectif === "surplus" ? 1.15 : 1;
+  const resultat = Math.round(maintenance * ajustement);
+
+  return (
+    <>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <PillButton active={sexe === "homme"} onClick={() => setSexe("homme")} style={{ flex: 1, textAlign: "center" }}>Homme</PillButton>
+        <PillButton active={sexe === "femme"} onClick={() => setSexe("femme")} style={{ flex: 1, textAlign: "center" }}>Femme</PillButton>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Poids (kg)</div>
+          <input type="number" value={poids} onChange={(e) => setPoids(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Taille (cm)</div>
+          <input type="number" value={taille} onChange={(e) => setTaille(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Âge</div>
+          <input type="number" value={age} onChange={(e) => setAge(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6, fontWeight: 700, textTransform: "uppercase" }}>Niveau d'activité</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+        {FACTEURS_ACTIVITE.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setActivite(f.key)}
+            style={{
+              textAlign: "left", border: `1px solid ${activite === f.key ? C.blue : C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px",
+              background: activite === f.key ? C.blueSoft : "transparent", color: activite === f.key ? C.blue : C.text,
+            }}
+          >
+            <div style={{ fontSize: 12.5, fontWeight: 700 }}>{f.label}</div>
+            <div style={{ fontSize: 10.5, color: activite === f.key ? C.blue : C.textMuted }}>{f.description}</div>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6, fontWeight: 700, textTransform: "uppercase" }}>Objectif</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <PillButton active={objectif === "deficit"} onClick={() => setObjectif("deficit")} style={{ flex: 1, textAlign: "center" }}>Perte (-20%)</PillButton>
+        <PillButton active={objectif === "maintien"} onClick={() => setObjectif("maintien")} style={{ flex: 1, textAlign: "center" }}>Maintien</PillButton>
+        <PillButton active={objectif === "surplus"} onClick={() => setObjectif("surplus")} style={{ flex: 1, textAlign: "center" }}>Prise (+15%)</PillButton>
+      </div>
+
+      <Card style={{ textAlign: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Résultat estimé</div>
+        <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: C.text, fontWeight: 700 }}>{resultat || "—"} <span style={{ fontSize: 13, color: C.textMuted, fontWeight: 400 }}>kcal / jour</span></div>
+        {!resultat && <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Renseigne poids, taille et âge</div>}
+      </Card>
+
+      <button
+        onClick={() => resultat && onUtiliser(resultat)}
+        disabled={!resultat}
+        style={{ width: "100%", background: resultat ? C.blue : C.surface, border: "none", color: resultat ? "#06171F" : C.textDim, borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}
+      >
+        Utiliser ce résultat
+      </button>
+    </>
+  );
+}
+
+function PlanAlimentaireModal({ planActuel, onSave, onClose, client }) {
+  const [mode, setMode] = useState("pourcentage"); // "pourcentage" | "grammes" | "calculateur"
   const [kcal, setKcal] = useState(planActuel.kcal);
   const [pctProt, setPctProt] = useState(planActuel.pctProt);
   const [pctGluc, setPctGluc] = useState(planActuel.pctGluc);
@@ -7448,9 +7654,12 @@ function PlanAlimentaireModal({ planActuel, onSave, onClose }) {
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           <PillButton active={mode === "pourcentage"} onClick={() => setMode("pourcentage")} style={{ flex: 1, textAlign: "center" }}>En %</PillButton>
           <PillButton active={mode === "grammes"} onClick={() => setMode("grammes")} style={{ flex: 1, textAlign: "center" }}>En grammes</PillButton>
+          {client && <PillButton active={mode === "calculateur"} onClick={() => setMode("calculateur")} style={{ flex: 1, textAlign: "center" }}>Calculateur</PillButton>}
         </div>
 
-        {mode === "pourcentage" ? (
+        {mode === "calculateur" && client ? (
+          <CalculateurCalories client={client} onUtiliser={(resultat) => { setKcal(resultat); setMode("pourcentage"); }} />
+        ) : mode === "pourcentage" ? (
           <>
             <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Objectif calorique</div>
             <input type="number" value={kcal} onChange={(e) => setKcal(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 16, fontFamily: FONT_MONO, marginBottom: 16 }} />
@@ -7494,10 +7703,12 @@ function PlanAlimentaireModal({ planActuel, onSave, onClose }) {
           </>
         )}
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "12px", fontWeight: 600, fontSize: 14 }}>Annuler</button>
-          <button onClick={save} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
-        </div>
+        {mode !== "calculateur" && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "12px", fontWeight: 600, fontSize: 14 }}>Annuler</button>
+            <button onClick={save} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -7812,6 +8023,51 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [savingNote, setSavingNote] = useState(false);
   const [masque, setMasque] = useState(client.masque || false);
   const [deleting, setDeleting] = useState(false);
+  // notifications_actives est true par défaut (colonne absente = true) : seule une désactivation
+  // explicite par le coach doit couper les notifs push envoyées à ce client.
+  const [notifsCoachActivees, setNotifsCoachActivees] = useState(client.notifications_actives !== false);
+  const [savingNotifsCoach, setSavingNotifsCoach] = useState(false);
+  const [catPhotoOuverte, setCatPhotoOuverte] = useState(null);
+  const [suppressionPhotoId, setSuppressionPhotoId] = useState(null);
+
+  const supprimerPhotoBilan = async (photo) => {
+    if (!confirm("Supprimer définitivement cette photo ?")) return;
+    setSuppressionPhotoId(photo.id);
+    try {
+      const { error } = await supabase.from("photos_bilan").delete().eq("id", photo.id);
+      if (error) throw error;
+      // Best-effort : on essaie aussi de virer le fichier du storage pour ne pas garder
+      // de photos orphelines. Si l'URL signée ne matche pas le format attendu, on ignore.
+      try {
+        const m = photo.url.match(/\/photos-bilan\/([^?]+)/);
+        if (m) await supabase.storage.from("photos-bilan").remove([decodeURIComponent(m[1])]);
+      } catch { /* ignore, la ligne DB est supprimée, c'est le principal */ }
+      setPhotosHistoryCoach((prev) => prev.filter((p) => p.id !== photo.id));
+      fireToast("Photo supprimée", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression photo");
+    } finally {
+      setSuppressionPhotoId(null);
+    }
+  };
+
+  const toggleNotifsCoach = async () => {
+    const nouvelEtat = !notifsCoachActivees;
+    setSavingNotifsCoach(true);
+    setNotifsCoachActivees(nouvelEtat);
+    try {
+      const { error } = await supabase.from("profils").update({ notifications_actives: nouvelEtat }).eq("id", client.id);
+      if (error) throw error;
+      fireToast(nouvelEtat ? "Notifications réactivées pour ce client" : "Notifications désactivées pour ce client", "green");
+    } catch (err) {
+      console.error(err);
+      setNotifsCoachActivees(!nouvelEtat);
+      fireToast("Erreur mise à jour notifications");
+    } finally {
+      setSavingNotifsCoach(false);
+    }
+  };
 
   const enregistrerNote = async () => {
     setSavingNote(true);
@@ -8186,6 +8442,9 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   <div style={{ fontSize: 11, color: C.textDim }}>
                     {(p.programme_exercices || []).length} exercices · {(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
                   </div>
+                  {p.updated_at && (
+                    <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>Modifié le {formatDateDisplay(p.updated_at)}</div>
+                  )}
                 </Card>
               );
               return (
@@ -8349,24 +8608,76 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               {photosHistoryCoach.length === 0 ? (
                 <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune photo envoyée</div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {PHOTO_CATS.map((cat) => {
-                    const latest = photosHistoryCoach.find((p) => p.categorie === cat.key);
+                    const photosCat = photosHistoryCoach
+                      .filter((p) => p.categorie === cat.key)
+                      .slice()
+                      .sort((a, b) => new Date(a.date) - new Date(b.date));
+                    if (photosCat.length === 0) return null;
+                    const avant = photosCat[0];
+                    const apres = photosCat[photosCat.length - 1];
+                    const memePhoto = avant.id === apres.id;
+                    const ouverte = catPhotoOuverte === cat.key;
                     return (
-                      <div key={cat.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <div
-                          onClick={() => latest && setZoomPhoto(latest.url)}
-                          style={{
-                            width: "100%", aspectRatio: "3/4", borderRadius: 10,
-                            background: latest ? `url(${latest.url}) center/cover` : C.surface,
-                            border: `1px solid ${C.cardBorderLight}`,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            cursor: latest ? "pointer" : "default",
-                          }}
-                        >
-                          {!latest && <Camera size={16} color={C.textDim} />}
+                      <div key={cat.key}>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>{cat.nom}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: memePhoto ? "1fr" : "1fr 1fr", gap: 8 }}>
+                          <div>
+                            <div
+                              onClick={() => setZoomPhoto(avant.url)}
+                              style={{ width: "100%", aspectRatio: "3/4", borderRadius: 10, background: `url(${avant.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
+                            />
+                            <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", marginTop: 3 }}>
+                              {memePhoto ? "Seule photo" : "Avant"} · {formatDateDisplay(avant.date)}
+                            </div>
+                          </div>
+                          {!memePhoto && (
+                            <div>
+                              <div
+                                onClick={() => setZoomPhoto(apres.url)}
+                                style={{ width: "100%", aspectRatio: "3/4", borderRadius: 10, background: `url(${apres.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
+                              />
+                              <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", marginTop: 3 }}>
+                                Après · {formatDateDisplay(apres.date)}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: 9.5, color: C.textDim, textAlign: "center" }}>{cat.nom}</div>
+                        {photosCat.length > 1 && (
+                          <button
+                            onClick={() => setCatPhotoOuverte(ouverte ? null : cat.key)}
+                            style={{ background: "transparent", border: "none", color: C.blue, fontSize: 11.5, fontWeight: 700, marginTop: 6, padding: 0, cursor: "pointer" }}
+                          >
+                            {ouverte ? "Masquer" : `Voir les ${photosCat.length} photos`}
+                          </button>
+                        )}
+                        {ouverte && (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 8 }}>
+                            {photosCat.map((p) => (
+                              <div key={p.id} style={{ position: "relative" }}>
+                                <div
+                                  onClick={() => setZoomPhoto(p.url)}
+                                  style={{ width: "100%", aspectRatio: "3/4", borderRadius: 8, background: `url(${p.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
+                                />
+                                <div style={{ fontSize: 8.5, color: C.textDim, textAlign: "center", marginTop: 2 }}>{formatDateDisplay(p.date)}</div>
+                                <button
+                                  onClick={() => supprimerPhotoBilan(p)}
+                                  disabled={suppressionPhotoId === p.id}
+                                  title="Supprimer cette photo"
+                                  style={{
+                                    position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%",
+                                    background: "rgba(0,0,0,0.65)", border: "none", color: "#FFFFFF",
+                                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                                    opacity: suppressionPhotoId === p.id ? 0.5 : 1,
+                                  }}
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -8425,6 +8736,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
         {showPlanEditor && (
           <PlanAlimentaireModal
             planActuel={planAlimentaire}
+            client={client}
             onClose={() => setShowPlanEditor(false)}
             onSave={async (nouveauPlan) => {
               try {
@@ -8479,6 +8791,25 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   Non activées (le client n'a pas encore autorisé les notifications)
                 </div>
               )}
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Notifications automatiques</div>
+                  <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>
+                    {notifsCoachActivees ? "Ce client reçoit les rappels et alertes automatiques." : "Désactivées : ce client ne recevra plus aucune notification push, même si l'app le déclenche."}
+                  </div>
+                </div>
+                <button
+                  onClick={toggleNotifsCoach}
+                  disabled={savingNotifsCoach}
+                  style={{
+                    flexShrink: 0, border: "none", borderRadius: 999, padding: "8px 14px", fontSize: 12, fontWeight: 800,
+                    background: notifsCoachActivees ? C.greenSoft : C.surface, color: notifsCoachActivees ? C.green : C.textMuted,
+                    opacity: savingNotifsCoach ? 0.6 : 1,
+                  }}
+                >
+                  {notifsCoachActivees ? "Activées — couper" : "Désactivées — réactiver"}
+                </button>
+              </div>
             </Card>
             <ResetPasswordCard client={client} fireToast={fireToast} />
 
@@ -9103,6 +9434,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               groupeSuperset: ex.groupe_superset,
               echauffement: ex.series_echauffement || 0,
               objectifRepsMax: ex.objectif_reps_max || null,
+              objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [],
             })),
         }));
         setCustomProgrammes(formatted);
@@ -9858,10 +10190,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} streakEnAttente={streakNutritionEnAttente} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} streakEnAttente={streakNutritionEnAttente} />
           )}
           {tab === "seances" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
           )}
           {activeProgramme && (
             <SessionView
