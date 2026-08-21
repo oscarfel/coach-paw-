@@ -2527,6 +2527,66 @@ function RepoPickerModal({ value, onSelect, onClose }) {
   );
 }
 
+function RepRangePickerModal({ value, onSelect, onClose, titre }) {
+  const [showCustom, setShowCustom] = useState(false);
+  const [min, setMin] = useState(value?.min ?? "");
+  const [max, setMax] = useState(value?.max ?? "");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <SectionLabel icon={Target}>{titre || "Choisir la fourchette de reps"}</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+          {REP_RANGES.map((r) => {
+            const actif = value && value.min === r.min && value.max === r.max;
+            return (
+              <button
+                key={`${r.min}-${r.max}`}
+                onClick={() => { onSelect({ min: r.min, max: r.max }); onClose(); }}
+                style={{
+                  padding: "12px 0", borderRadius: 10, fontSize: 15, fontWeight: 700, fontFamily: FONT_MONO,
+                  background: actif ? C.blue : C.surface,
+                  color: actif ? "#06171F" : C.text,
+                  border: `1px solid ${actif ? C.blue : C.cardBorderLight}`,
+                }}
+              >
+                {r.min}-{r.max}
+              </button>
+            );
+          })}
+        </div>
+        {!showCustom ? (
+          <button onClick={() => setShowCustom(true)} style={{ width: "100%", marginTop: 10, background: "transparent", border: `1px dashed ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 600 }}>
+            + Fourchette personnalisée
+          </button>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
+            <input type="number" value={min} onChange={(e) => setMin(e.target.value)} placeholder="min" style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px", color: C.text, fontSize: 13, textAlign: "center" }} />
+            <span style={{ color: C.textDim }}>-</span>
+            <input type="number" value={max} onChange={(e) => setMax(e.target.value)} placeholder="max" style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px", color: C.text, fontSize: 13, textAlign: "center" }} />
+            <button
+              onClick={() => {
+                const mn = parseInt(min), mx = parseInt(max);
+                if (mn > 0 && mx >= mn) { onSelect({ min: mn, max: mx }); onClose(); }
+              }}
+              style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}
+            >
+              OK
+            </button>
+          </div>
+        )}
+        {value && (
+          <button onClick={() => { onSelect(null); onClose(); }} style={{ width: "100%", marginTop: 10, background: "transparent", border: "none", color: C.red, fontSize: 12.5, fontWeight: 600 }}>
+            Retirer la fourchette
+          </button>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function formatRepos(sec) {
   const trouve = REPOS_VALEURS.find((r) => r.val === sec);
   if (trouve) return trouve.label;
@@ -5313,6 +5373,8 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
   const [showRepoPickerIdx, setShowRepoPickerIdx] = useState(null);
   const [showRpePickerIdx, setShowRpePickerIdx] = useState(null);
   const [showTempoPickerIdx, setShowTempoPickerIdx] = useState(null);
+  const [showRangePickerSi, setShowRangePickerSi] = useState(null);
+  const [showEchauffementPicker, setShowEchauffementPicker] = useState(false);
   const [showExercicePickerPage, setShowExercicePickerPage] = useState(false);
   const [exDureeMinutes, setExDureeMinutes] = useState(15);
 
@@ -5558,38 +5620,74 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         )}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Échauffement général (optionnel)</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-            {ECHAUFFEMENT_PRESETS.map((preset) => {
-              const lignes = echauffementGeneral.split("\n").filter(Boolean);
-              const actif = lignes.includes(preset.texte);
-              return (
-                <button
-                  key={preset.key}
-                  type="button"
-                  title={preset.description}
-                  onClick={() => {
-                    const next = actif ? lignes.filter((l) => l !== preset.texte) : [...lignes, preset.texte];
-                    setEchauffementGeneral(next.join("\n"));
-                  }}
-                  style={{
-                    border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 999, padding: "6px 11px",
-                    background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted,
-                    fontSize: 11.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 5,
-                  }}
-                >
-                  {actif && <CheckCircle2 size={12} />} {preset.label}
-                </button>
-              );
-            })}
-          </div>
+          {(() => {
+            const lignes = echauffementGeneral.split("\n").filter(Boolean);
+            const presetsActifs = ECHAUFFEMENT_PRESETS.filter((p) => lignes.includes(p.texte));
+            return (
+              <button
+                type="button"
+                onClick={() => setShowEchauffementPicker(true)}
+                style={{
+                  width: "100%", textAlign: "left", background: presetsActifs.length ? C.blueSoft : C.surface,
+                  border: `1px solid ${presetsActifs.length ? C.blue : C.cardBorderLight}`, borderRadius: 10,
+                  padding: "9px 10px", color: presetsActifs.length ? C.blue : C.textDim, fontSize: 13, fontWeight: presetsActifs.length ? 700 : 400,
+                  marginBottom: 8,
+                }}
+              >
+                {presetsActifs.length === 0 ? "Choisir un type d'échauffement..." : presetsActifs.map((p) => p.label).join(" · ")}
+              </button>
+            );
+          })()}
           <textarea
             value={echauffementGeneral}
             onChange={(e) => setEchauffementGeneral(e.target.value)}
-            placeholder="ex : 5 min de vélo + rotations articulaires (épaules, hanches, chevilles) — ou coche un type ci-dessus"
+            placeholder="ex : 5 min de vélo + rotations articulaires (épaules, hanches, chevilles) — ou choisis un type ci-dessus"
             rows={2}
             style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "none" }}
           />
         </div>
+        {showEchauffementPicker && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowEchauffementPicker(false)}>
+            <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <SectionLabel icon={Flame}>Type d'échauffement</SectionLabel>
+                <button onClick={() => setShowEchauffementPicker(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {ECHAUFFEMENT_PRESETS.map((preset) => {
+                  const lignes = echauffementGeneral.split("\n").filter(Boolean);
+                  const actif = lignes.includes(preset.texte);
+                  return (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      title={preset.description}
+                      onClick={() => {
+                        const next = actif ? lignes.filter((l) => l !== preset.texte) : [...lignes, preset.texte];
+                        setEchauffementGeneral(next.join("\n"));
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, textAlign: "left",
+                        border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px",
+                        background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted,
+                        fontSize: 13, fontWeight: 700,
+                      }}
+                    >
+                      {actif ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${C.cardBorderLight}`, flexShrink: 0 }} />}
+                      <div>
+                        <div>{preset.label}</div>
+                        <div style={{ fontSize: 11, fontWeight: 400, color: C.textDim, marginTop: 1 }}>{preset.description}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={() => setShowEchauffementPicker(false)} style={{ width: "100%", marginTop: 14, background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "11px", fontWeight: 800, fontSize: 13 }}>
+                Terminé
+              </button>
+            </Card>
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <SectionLabel icon={Plus}>Exercices</SectionLabel>
           {exercices.length > 0 && (
@@ -5622,7 +5720,10 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                 ? `2px dashed ${C.blue}`
                 : ex.groupeSuperset
                   ? `3px solid ${C.blue}`
-                  : `1.5px solid ${C.blueBorder}`,
+                  : "2px solid rgba(255,180,60,0.85)",
+              boxShadow: (!ex.groupeSuperset && !(dragOverIdx === i && draggedIdx !== i))
+                ? "0 0 18px rgba(255,180,60,0.5), 0 0 8px rgba(255,210,80,0.6)"
+                : undefined,
               borderTopLeftRadius: !ex.groupeSuperset || estDebutSuperset ? 14 : 0,
               borderTopRightRadius: !ex.groupeSuperset || estDebutSuperset ? 14 : 0,
               borderBottomLeftRadius: !ex.groupeSuperset || estFinSuperset ? 14 : 0,
@@ -5684,6 +5785,19 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         {showRepoPickerIdx !== null && (
           <RepoPickerModal value={exercices[showRepoPickerIdx]?.rest} onSelect={(v) => updateExercice(showRepoPickerIdx, "rest", v)} onClose={() => setShowRepoPickerIdx(null)} />
         )}
+        {showRangePickerSi !== null && expandedIdx !== null && exercices[expandedIdx] && (
+          <RepRangePickerModal
+            titre={`Série ${showRangePickerSi + 1} — fourchette de reps`}
+            value={(exercices[expandedIdx].objectifRepsRangeParSerie || [])[showRangePickerSi] || null}
+            onSelect={(r) => {
+              const arr = [...(exercices[expandedIdx].objectifRepsRangeParSerie || [])];
+              while (arr.length < exercices[expandedIdx].sets) arr.push(null);
+              arr[showRangePickerSi] = r;
+              updateExercice(expandedIdx, "objectifRepsRangeParSerie", arr);
+            }}
+            onClose={() => setShowRangePickerSi(null)}
+          />
+        )}
         {expandedIdx !== null && exercices[expandedIdx] && (() => {
           const ex = exercices[expandedIdx];
           const i = expandedIdx;
@@ -5734,37 +5848,27 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                   ))}
                 </div>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>
-                  🎯 Fourchette de répétitions <span style={{ color: C.textDim }}>(atteindre le haut de la fourchette suggère d'augmenter la charge)</span>
+                  🎯 Répétitions par série <span style={{ color: C.textDim }}>(atteindre le haut de la fourchette suggère d'augmenter la charge)</span>
                 </div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
-                  {(() => {
-                    const range = (ex.objectifRepsRangeParSerie || [])[0] || null;
-                    const setRange = (r) => {
-                      const arr = Array.from({ length: ex.sets }, () => r);
-                      updateExercice(i, "objectifRepsRangeParSerie", arr);
-                    };
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                  {Array.from({ length: ex.sets }).map((_, si) => {
+                    const range = (ex.objectifRepsRangeParSerie || [])[si] || null;
                     return (
-                      <>
-                        {REP_RANGES.map((r) => {
-                          const actif = range && range.min === r.min && range.max === r.max;
-                          return (
-                            <button
-                              key={`${r.min}-${r.max}`}
-                              type="button"
-                              onClick={() => setRange(actif ? null : { min: r.min, max: r.max })}
-                              style={{
-                                border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 999, padding: "5px 10px",
-                                background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted, fontSize: 12, fontWeight: 700,
-                              }}
-                            >
-                              {r.min}-{r.max}
-                            </button>
-                          );
-                        })}
-                        <RepRangePersonnalise range={range} onSet={setRange} />
-                      </>
+                      <div key={si} style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3, fontWeight: 700 }}>S{si + 1}</div>
+                        <button
+                          type="button"
+                          onClick={() => setShowRangePickerSi(si)}
+                          style={{
+                            width: 56, background: range ? C.blueSoft : C.surface, border: `1px solid ${range ? C.blue : C.cardBorderLight}`,
+                            borderRadius: 8, padding: "8px 4px", color: range ? C.blue : C.textDim, fontSize: 12.5, fontWeight: 700, fontFamily: FONT_MONO,
+                          }}
+                        >
+                          {range ? `${range.min}-${range.max}` : "—"}
+                        </button>
+                      </div>
                     );
-                  })()}
+                  })}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
