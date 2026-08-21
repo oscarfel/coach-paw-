@@ -1911,7 +1911,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   );
 }
 
-function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete }) {
+function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete, profilId, coachId }) {
   const [seconds, setSeconds] = useState(0);
   // Verrou anti double-envoi : un double-tap sur "Terminer" avant le prochain rendu pouvait
   // déclencher deux sauvegardes en parallèle et laisser une séance fantôme en base.
@@ -1920,6 +1920,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   const startTimeKey = `session_start_${sessionKey}`;
   const logsKey = `session_logs_${sessionKey}`;
   const restKey = `session_rest_${sessionKey}`;
+  const alert3hKey = `session_alert3h_${sessionKey}`;
 
   // Sécurité : si une séance a été abandonnée (app fermée sans appuyer sur "Terminer"),
   // son chrono restait figé dans le localStorage. En relançant le même programme plus
@@ -1978,6 +1979,22 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Suivi côté serveur de la séance en cours : permet d'envoyer un rappel push à 3h
+  // même si l'app est totalement fermée (le timer JS ci-dessus ne peut pas tourner
+  // dans ce cas). Un cron externe (api/check-long-sessions.js) lit cette table.
+  useEffect(() => {
+    if (!profilId) return;
+    const start = localStorage.getItem(startTimeKey);
+    const demarreeA = start ? new Date(parseInt(start, 10)).toISOString() : new Date().toISOString();
+    supabase
+      .from("seances_en_cours")
+      .upsert(
+        { profil_id: profilId, coach_id: coachId || null, programme_nom: programme.nom, demarree_a: demarreeA, alerte_envoyee: false },
+        { onConflict: "profil_id" }
+      )
+      .then(({ error }) => { if (error) console.error("Erreur suivi séance en cours:", error); });
+  }, [profilId]);
 
   // Chrono de repos basé sur une horloge réelle (timestamp) : reste juste même si l'écran
   // s'éteint ou que l'app passe en arrière-plan, contrairement à un simple compteur.
@@ -2083,7 +2100,36 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     localStorage.removeItem(startTimeKey);
     localStorage.removeItem(logsKey);
     localStorage.removeItem(restKey);
+    localStorage.removeItem(alert3hKey);
+    if (profilId) {
+      supabase.from("seances_en_cours").delete().eq("profil_id", profilId).then(({ error }) => {
+        if (error) console.error("Erreur nettoyage séance en cours (serveur):", error);
+      });
+    }
   };
+
+  // Rappel à 3h de séance en cours : évite qu'une séance oubliée (app fermée sans
+  // "Terminer") reste indéfiniment invisible pour le coach. Se déclenche une seule fois
+  // par séance (marqué dans le localStorage, comme le reste de l'état de session).
+  useEffect(() => {
+    const SEUIL_RAPPEL_SECONDES = 3 * 60 * 60; // 3h
+    if (seconds < SEUIL_RAPPEL_SECONDES) return;
+    if (localStorage.getItem(alert3hKey)) return;
+    localStorage.setItem(alert3hKey, "1");
+    fireToast?.("Ta séance tourne depuis 3h — pense à la terminer et l'envoyer à ton coach.", "amber");
+    if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+    if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) {
+      try {
+        new Notification("Ta séance est toujours en cours ⏱️", {
+          body: "Ça fait 3h — pense à la terminer et l'envoyer à ton coach pour qu'il puisse l'analyser.",
+          icon: "/pwa-192x192.png",
+          requireInteraction: true,
+        });
+      } catch (err) {
+        console.error("Erreur notification rappel séance:", err);
+      }
+    }
+  }, [seconds]);
 
   const attachVideo = (ex, url) => {
     setLogs((prev) => ({ ...prev, [ex.id]: { ...prev[ex.id], video: url } }));
@@ -9826,6 +9872,8 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               onCancel={() => setActiveProgramme(null)}
               fireToast={fireToast}
               onSessionComplete={saveSession}
+              profilId={profilId}
+              coachId={profilRow.coach_id}
             />
           )}
           {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} onUpdate={updateFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} isCoach={profilRow.role === "coach"} />}

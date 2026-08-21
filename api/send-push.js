@@ -23,7 +23,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Paramètres manquants' });
   }
 
+  const profilId = clientId || coachId;
+
   try {
+    // Un profil peut avoir ses notifications automatiques coupées par le coach
+    // (notifications_actives = false) : dans ce cas on n'envoie rien du tout.
+    const { data: profil } = await supabase.from('profils').select('notifications_actives').eq('id', profilId).single();
+    if (profil && profil.notifications_actives === false) {
+      return res.status(200).json({ sent: 0, message: 'Notifications désactivées pour ce profil' });
+    }
+
     let query = supabase.from('push_subscriptions').select('*');
     query = clientId ? query.eq('profil_id', clientId) : query.eq('profil_id', coachId);
     const { data: subscriptions, error } = await query;

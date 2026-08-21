@@ -13,6 +13,8 @@ const supabase = createClient(
 );
 
 async function sendPush(profilId, title, body) {
+  const { data: profil } = await supabase.from('profils').select('notifications_actives').eq('id', profilId).single();
+  if (profil && profil.notifications_actives === false) return;
   const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('profil_id', profilId);
   if (!subs || subs.length === 0) return;
   const payload = JSON.stringify({ title, body, url: '/' });
