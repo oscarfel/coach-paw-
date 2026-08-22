@@ -8146,7 +8146,6 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   // explicite par le coach doit couper les notifs push envoyées à ce client.
   const [notifsCoachActivees, setNotifsCoachActivees] = useState(client.notifications_actives !== false);
   const [savingNotifsCoach, setSavingNotifsCoach] = useState(false);
-  const [catPhotoOuverte, setCatPhotoOuverte] = useState(null);
   const [suppressionPhotoId, setSuppressionPhotoId] = useState(null);
 
   const supprimerPhotoBilan = async (photo) => {
@@ -8734,69 +8733,33 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       .slice()
                       .sort((a, b) => new Date(a.date) - new Date(b.date));
                     if (photosCat.length === 0) return null;
-                    const avant = photosCat[0];
-                    const apres = photosCat[photosCat.length - 1];
-                    const memePhoto = avant.id === apres.id;
-                    const ouverte = catPhotoOuverte === cat.key;
                     return (
                       <div key={cat.key}>
                         <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>{cat.nom}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: memePhoto ? "1fr" : "1fr 1fr", gap: 8 }}>
-                          <div>
-                            <div
-                              onClick={() => setZoomPhoto(avant.url)}
-                              style={{ width: "100%", aspectRatio: "3/4", borderRadius: 10, background: `url(${avant.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
-                            />
-                            <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", marginTop: 3 }}>
-                              {memePhoto ? "Seule photo" : "Avant"} · {formatDateDisplay(avant.date)}
-                            </div>
-                          </div>
-                          {!memePhoto && (
-                            <div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                          {photosCat.map((p) => (
+                            <div key={p.id} style={{ position: "relative" }}>
                               <div
-                                onClick={() => setZoomPhoto(apres.url)}
-                                style={{ width: "100%", aspectRatio: "3/4", borderRadius: 10, background: `url(${apres.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
+                                onClick={() => setZoomPhoto(p.url)}
+                                style={{ width: "100%", aspectRatio: "3/4", borderRadius: 8, background: `url(${p.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
                               />
-                              <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", marginTop: 3 }}>
-                                Après · {formatDateDisplay(apres.date)}
-                              </div>
+                              <div style={{ fontSize: 8.5, color: C.textDim, textAlign: "center", marginTop: 2 }}>{formatDateDisplay(p.date)}</div>
+                              <button
+                                onClick={() => supprimerPhotoBilan(p)}
+                                disabled={suppressionPhotoId === p.id}
+                                title="Supprimer cette photo"
+                                style={{
+                                  position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%",
+                                  background: "rgba(0,0,0,0.65)", border: "none", color: "#FFFFFF",
+                                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                                  opacity: suppressionPhotoId === p.id ? 0.5 : 1,
+                                }}
+                              >
+                                <Trash2 size={11} />
+                              </button>
                             </div>
-                          )}
+                          ))}
                         </div>
-                        {photosCat.length > 1 && (
-                          <button
-                            onClick={() => setCatPhotoOuverte(ouverte ? null : cat.key)}
-                            style={{ background: "transparent", border: "none", color: C.blue, fontSize: 11.5, fontWeight: 700, marginTop: 6, padding: 0, cursor: "pointer" }}
-                          >
-                            {ouverte ? "Masquer" : `Voir les ${photosCat.length} photos`}
-                          </button>
-                        )}
-                        {ouverte && (
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 8 }}>
-                            {photosCat.map((p) => (
-                              <div key={p.id} style={{ position: "relative" }}>
-                                <div
-                                  onClick={() => setZoomPhoto(p.url)}
-                                  style={{ width: "100%", aspectRatio: "3/4", borderRadius: 8, background: `url(${p.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
-                                />
-                                <div style={{ fontSize: 8.5, color: C.textDim, textAlign: "center", marginTop: 2 }}>{formatDateDisplay(p.date)}</div>
-                                <button
-                                  onClick={() => supprimerPhotoBilan(p)}
-                                  disabled={suppressionPhotoId === p.id}
-                                  title="Supprimer cette photo"
-                                  style={{
-                                    position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%",
-                                    background: "rgba(0,0,0,0.65)", border: "none", color: "#FFFFFF",
-                                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-                                    opacity: suppressionPhotoId === p.id ? 0.5 : 1,
-                                  }}
-                                >
-                                  <Trash2 size={11} />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
