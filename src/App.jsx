@@ -1474,7 +1474,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
             </svg>
             <div style={{ position: "absolute", top: 2, left: 2, width: 52, height: 52, borderRadius: 12, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
               {ex.videoDemoUrl ? (
-                <video src={`${ex.videoDemoUrl}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <VideoThumb url={ex.videoDemoUrl} />
               ) : (
                 <Dumbbell size={22} color={C.textDim} />
               )}
@@ -1511,7 +1511,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
               {ex.videoDemoUrl ? (
-                <video src={`${ex.videoDemoUrl}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <VideoThumb url={ex.videoDemoUrl} />
               ) : (
                 <Dumbbell size={18} color={C.textDim} />
               )}
@@ -1531,12 +1531,9 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
                 Voir l'exo + vidéo d'exécution
               </button>
               {showVideoExecution && (
-                <video
-                  src={ex.videoDemoUrl}
-                  controls
-                  playsInline
-                  style={{ width: "100%", borderRadius: 12, background: "#000", maxHeight: 240, marginTop: 6 }}
-                />
+                <div style={{ marginTop: 6 }}>
+                  <VideoPlayer url={ex.videoDemoUrl} style={{ maxHeight: 240 }} />
+                </div>
               )}
             </div>
           )}
@@ -2594,6 +2591,46 @@ function formatRepos(sec) {
   const min = Math.floor(sec / 60);
   const reste = sec % 60;
   return reste === 0 ? `${min}m` : `${min}m${reste}`;
+}
+
+function getYouTubeEmbedId(url) {
+  if (!url) return null;
+  const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+  return m ? m[1] : null;
+}
+
+function VideoThumb({ url, style }) {
+  if (!url) return null;
+  const ytId = getYouTubeEmbedId(url);
+  if (ytId) {
+    return (
+      <img
+        src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+        alt="aperçu de l'exercice"
+        style={{ width: "100%", height: "100%", objectFit: "cover", ...style }}
+      />
+    );
+  }
+  return <video src={`${url}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", ...style }} />;
+}
+
+function VideoPlayer({ url, style }) {
+  if (!url) return null;
+  const ytId = getYouTubeEmbedId(url);
+  if (ytId) {
+    return (
+      <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", borderRadius: 12, overflow: "hidden", background: "#000", ...style }}>
+        <iframe
+          title="vidéo d'exécution"
+          src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+          allow="autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+  return <video src={url} controls autoPlay playsInline style={{ width: "100%", borderRadius: 12, background: "#000", ...style }} />;
 }
 
 function ExercicePickerInline({ bibliotheque, onSelect }) {
@@ -5377,11 +5414,19 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
   const [showEchauffementPicker, setShowEchauffementPicker] = useState(false);
   const [showExercicePickerPage, setShowExercicePickerPage] = useState(false);
   const [exDureeMinutes, setExDureeMinutes] = useState(15);
+  const [exObjectifRepsRangeParSerie, setExObjectifRepsRangeParSerie] = useState([null, null, null]);
+  const [showRangePickerSiNew, setShowRangePickerSiNew] = useState(null);
 
   useEffect(() => {
     setExRepsParSerie((prev) => {
       const arr = [...prev];
       while (arr.length < exSets) arr.push(10);
+      while (arr.length > exSets) arr.pop();
+      return arr;
+    });
+    setExObjectifRepsRangeParSerie((prev) => {
+      const arr = [...prev];
+      while (arr.length < exSets) arr.push(null);
       while (arr.length > exSets) arr.pop();
       return arr;
     });
@@ -5393,7 +5438,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
   const [bibliotheque, setBibliotheque] = useState([]);
   const [showNewExercice, setShowNewExercice] = useState(false);
   const [newExNom, setNewExNom] = useState("");
-  const [newExVideoFile, setNewExVideoFile] = useState(null);
+  const [newExVideoUrl, setNewExVideoUrl] = useState("");
   const [selectedExId, setSelectedExId] = useState("");
   const [showAjoutExercice, setShowAjoutExercice] = useState(false);
 
@@ -5404,30 +5449,21 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
 
   const createExercice = async () => {
     if (!newExNom.trim()) return;
+    if (newExVideoUrl.trim() && !getYouTubeEmbedId(newExVideoUrl.trim())) {
+      fireToast("Lien YouTube non reconnu — colle un lien du type youtube.com/watch?v=... ou youtu.be/...");
+      return;
+    }
     try {
-      let videoUrl = null;
-      if (newExVideoFile) {
-        if (newExVideoFile.size > 150 * 1024 * 1024) {
-          fireToast("Vidéo trop lourde (max 150 Mo) — essaie une vidéo plus courte ou compressée");
-          return;
-        }
-        const nomPropre = newExVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-        const fileName = `${Date.now()}_${nomPropre}`;
-        const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, newExVideoFile);
-        if (uploadErr) throw uploadErr;
-        const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
-        videoUrl = urlData.publicUrl;
-      }
       const { data, error } = await supabase
         .from("exercices_bibliotheque")
-        .insert({ coach_id: coachId, nom: newExNom, video_demo_url: videoUrl })
+        .insert({ coach_id: coachId, nom: newExNom, video_demo_url: newExVideoUrl.trim() || null })
         .select()
         .single();
       if (error) throw error;
       setBibliotheque((prev) => [...prev, data]);
       setSelectedExId(data.id);
       setNewExNom("");
-      setNewExVideoFile(null);
+      setNewExVideoUrl("");
       setShowNewExercice(false);
       fireToast("Exercice ajouté à la bibliothèque", "green");
     } catch (err) {
@@ -5448,10 +5484,12 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
       type: exType, dureeMinutes: exType === "cardio" ? exDureeMinutes : null,
       echauffement: exType === "cardio" ? 0 : (parseInt(exEchauffement) || 0),
       objectifRepsMax: exObjectifActif ? (parseInt(exObjectifReps) || null) : null,
+      objectifRepsRangeParSerie: exType === "cardio" ? [] : exObjectifRepsRangeParSerie,
     }]);
     setSelectedExId("");
     setExSets(3);
     setExRepsParSerie([10, 10, 10]);
+    setExObjectifRepsRangeParSerie([null, null, null]);
     setExRest(90);
     setExTempo("");
     setExRpe("");
@@ -5919,7 +5957,13 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
               {showNewExercice ? (
                 <div style={{ background: C.surface, borderRadius: 10, padding: 10, marginBottom: 8 }}>
                   <input type="text" placeholder="Nom du nouvel exercice" value={newExNom} onChange={(e) => setNewExNom(e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 6 }} />
-                  <input type="file" accept="video/*" onChange={(e) => setNewExVideoFile(e.target.files[0])} style={{ width: "100%", marginBottom: 8, fontSize: 12, color: C.textMuted }} />
+                  <input
+                    type="text"
+                    placeholder="Lien YouTube non répertorié (optionnel)"
+                    value={newExVideoUrl}
+                    onChange={(e) => setNewExVideoUrl(e.target.value)}
+                    style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 8 }}
+                  />
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => setShowNewExercice(false)} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 8, padding: "8px", fontSize: 12 }}>Annuler</button>
                     <button onClick={createExercice} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "8px", fontSize: 12, fontWeight: 700 }}>Ajouter</button>
@@ -6006,19 +6050,21 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                       </div>
                     )}
                   </div>
+                  <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>🎯 RÉPÉTITIONS PAR SÉRIE</div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                    {exRepsParSerie.map((r, i) => (
-                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                        <span style={{ fontSize: 10, color: C.textMuted }}>Série {i + 1}</span>
-                        <input
-                          type="number"
-                          value={r}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setExRepsParSerie((prev) => prev.map((x, idx) => (idx === i ? val : x)));
+                    {exObjectifRepsRangeParSerie.map((range, i) => (
+                      <div key={i} style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3, fontWeight: 700 }}>S{i + 1}</div>
+                        <button
+                          type="button"
+                          onClick={() => setShowRangePickerSiNew(i)}
+                          style={{
+                            width: 56, background: range ? C.blueSoft : C.surface, border: `1px solid ${range ? C.blue : C.cardBorderLight}`,
+                            borderRadius: 8, padding: "8px 4px", color: range ? C.blue : C.textDim, fontSize: 12.5, fontWeight: 700, fontFamily: FONT_MONO,
                           }}
-                          style={{ width: 50, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }}
-                        />
+                        >
+                          {range ? `${range.min}-${range.max}` : "—"}
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -6045,6 +6091,14 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         {showRpePickerNew && <RPEPickerModal value={exRpe} onSelect={setExRpe} onClose={() => setShowRpePickerNew(false)} />}
         {showTempoPickerNew && <TempoPickerModal value={exTempo} onSelect={setExTempo} onClose={() => setShowTempoPickerNew(false)} />}
         {showRepoPickerNew && <RepoPickerModal value={exRest} onSelect={setExRest} onClose={() => setShowRepoPickerNew(false)} />}
+        {showRangePickerSiNew !== null && (
+          <RepRangePickerModal
+            titre={`Série ${showRangePickerSiNew + 1} — fourchette de reps`}
+            value={exObjectifRepsRangeParSerie[showRangePickerSiNew] || null}
+            onSelect={(r) => setExObjectifRepsRangeParSerie((prev) => prev.map((x, idx) => (idx === showRangePickerSiNew ? r : x)))}
+            onClose={() => setShowRangePickerSiNew(null)}
+          />
+        )}
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14 }}>Annuler</button>
           <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : editingProgramme?.id ? "Enregistrer" : "Créer"}</button>
@@ -7346,7 +7400,7 @@ function VODView({ coachId, fireToast }) {
             style={{ width: 36, height: 36, borderRadius: 8, background: C.card, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: ex.video_demo_url ? "pointer" : "default" }}
           >
             {ex.video_demo_url ? (
-              <video src={`${ex.video_demo_url}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <VideoThumb url={ex.video_demo_url} />
             ) : (
               <Dumbbell size={16} color={C.textDim} />
             )}
@@ -7475,7 +7529,7 @@ function VODView({ coachId, fireToast }) {
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
               <button onClick={() => setPreviewVideoUrl(null)} style={{ background: "transparent", border: "none", color: "#FFFFFF" }}><X size={22} /></button>
             </div>
-            <video src={previewVideoUrl} controls autoPlay playsInline style={{ width: "100%", borderRadius: 12, background: "#000" }} />
+            <VideoPlayer url={previewVideoUrl} />
           </div>
         </div>
       )}
@@ -8037,7 +8091,7 @@ function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repas
                       <div key={ei} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", gap: 10 }}>
                         <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, background: C.card, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                           {ex.video ? (
-                            <video src={`${ex.video}#t=0.1`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <VideoThumb url={ex.video} />
                           ) : (
                             <VideoIcon size={16} color={C.textDim} />
                           )}
