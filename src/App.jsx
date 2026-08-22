@@ -5402,8 +5402,6 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
   const [exRepsParSerie, setExRepsParSerie] = useState([10, 10, 10]);
   const [exType, setExType] = useState("muscu");
   const [exEchauffement, setExEchauffement] = useState(0);
-  const [exObjectifActif, setExObjectifActif] = useState(false);
-  const [exObjectifReps, setExObjectifReps] = useState(12);
   const [showRpePickerNew, setShowRpePickerNew] = useState(false);
   const [showTempoPickerNew, setShowTempoPickerNew] = useState(false);
   const [showRepoPickerNew, setShowRepoPickerNew] = useState(false);
@@ -5483,7 +5481,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
       rest: exRest, tempo: exTempo, rpe: exRpe, note: exNote, ordre: prev.length,
       type: exType, dureeMinutes: exType === "cardio" ? exDureeMinutes : null,
       echauffement: exType === "cardio" ? 0 : (parseInt(exEchauffement) || 0),
-      objectifRepsMax: exObjectifActif ? (parseInt(exObjectifReps) || null) : null,
+      objectifRepsMax: null,
       objectifRepsRangeParSerie: exType === "cardio" ? [] : exObjectifRepsRangeParSerie,
     }]);
     setSelectedExId("");
@@ -5497,8 +5495,6 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
     setExType("muscu");
     setExDureeMinutes(15);
     setExEchauffement(0);
-    setExObjectifActif(false);
-    setExObjectifReps(12);
   };
 
   const removeExercice = (idx) => {
@@ -6037,20 +6033,9 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                       ))}
                     </div>
                   </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                      <input type="checkbox" checked={exObjectifActif} onChange={(e) => setExObjectifActif(e.target.checked)} />
-                      <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>🎯 Objectif de progression (augmenter la charge à un nombre de reps)</span>
-                    </label>
-                    {exObjectifActif && (
-                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 12, color: C.textMuted }}>À partir de</span>
-                        <input type="number" value={exObjectifReps} onChange={(e) => setExObjectifReps(parseInt(e.target.value) || 12)} style={{ width: 60, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px", color: C.text, fontSize: 13, textAlign: "center" }} />
-                        <span style={{ fontSize: 12, color: C.textMuted }}>répétitions, augmenter la charge</span>
-                      </div>
-                    )}
+                  <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>
+                    🎯 RÉPÉTITIONS PAR SÉRIE <span style={{ color: C.textDim, fontWeight: 400, textTransform: "none" }}>(choisis une fourchette pour activer l'objectif de progression — laisse vide sinon)</span>
                   </div>
-                  <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>🎯 RÉPÉTITIONS PAR SÉRIE</div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                     {exObjectifRepsRangeParSerie.map((range, i) => (
                       <div key={i} style={{ textAlign: "center" }}>
