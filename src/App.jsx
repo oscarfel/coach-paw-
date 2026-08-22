@@ -1691,7 +1691,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
             </div>
             <div>
               <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>
-                RÉPÉTITIONS{rangeActuelle && <span style={{ color: C.blue, fontWeight: 600 }}> · vise {rangeActuelle.min}-{rangeActuelle.max}</span>}
+                RÉPÉTITIONS{rangeActuelle && <span style={{ color: "#FF9500", fontWeight: 800, fontSize: 15, textShadow: "0 0 3px rgba(255,149,0,0.5)" }}> · vise {rangeActuelle.min}-{rangeActuelle.max}</span>}
               </div>
               <input
                 type="number"
@@ -7233,15 +7233,15 @@ function VODView({ coachId, fireToast }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [nomExercice, setNomExercice] = useState("");
+  const [nouvelExVideoUrl, setNouvelExVideoUrl] = useState("");
   const [groupeExercice, setGroupeExercice] = useState(GROUPES_MUSCULAIRES[0]);
   const [editingId, setEditingId] = useState(null);
   const [editingNom, setEditingNom] = useState("");
   const [editingGroupe, setEditingGroupe] = useState(GROUPES_MUSCULAIRES[0]);
   const [selectedGroupeVOD, setSelectedGroupeVOD] = useState(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
-  const fileRef = useRef(null);
-  const editFileRef = useRef(null);
-  const [showEnregistreurVOD, setShowEnregistreurVOD] = useState(null); // null | "nouveau" | exerciceId
+  const [editingVideoId, setEditingVideoId] = useState(null);
+  const [editingVideoUrl, setEditingVideoUrl] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -7258,27 +7258,20 @@ function VODView({ coachId, fireToast }) {
   };
   useEffect(() => { load(); }, [coachId]);
 
-  const upload = async (file) => {
-    if (!nomExercice.trim()) { fireToast("Donne un nom à l'exercice avant de l'envoyer"); return; }
-    if (file && file.size > 150 * 1024 * 1024) {
-      fireToast("Vidéo trop lourde (max 150 Mo) — essaie une vidéo plus courte ou compressée");
+  const upload = async () => {
+    if (!nomExercice.trim()) { fireToast("Donne un nom à l'exercice avant de l'ajouter"); return; }
+    const lien = nouvelExVideoUrl.trim();
+    if (lien && !getYouTubeEmbedId(lien)) {
+      fireToast("Lien YouTube non reconnu — colle un lien du type youtube.com/watch?v=... ou youtu.be/...");
       return;
     }
     setUploading(true);
     try {
-      let videoUrl = null;
-      if (file) {
-        const nomPropre = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-        const fileName = `bibliotheque/${coachId}/${Date.now()}_${nomPropre}`;
-        const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, file);
-        if (uploadErr) throw uploadErr;
-        const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
-        videoUrl = urlData.publicUrl;
-      }
-      const { error } = await supabase.from("exercices_bibliotheque").insert({ coach_id: coachId, nom: nomExercice, video_demo_url: videoUrl, groupe_musculaire: groupeExercice });
+      const { error } = await supabase.from("exercices_bibliotheque").insert({ coach_id: coachId, nom: nomExercice, video_demo_url: lien || null, groupe_musculaire: groupeExercice });
       if (error) throw error;
       fireToast("Exercice ajouté", "green");
       setNomExercice("");
+      setNouvelExVideoUrl("");
       load();
     } catch (err) {
       console.error(err);
@@ -7304,29 +7297,24 @@ function VODView({ coachId, fireToast }) {
     }
   };
 
-  const replaceVideo = async (id, file) => {
-    if (!file) return;
-    if (file.size > 150 * 1024 * 1024) {
-      fireToast("Vidéo trop lourde (max 150 Mo) — essaie une vidéo plus courte ou compressée");
+  const replaceVideo = async (id, url) => {
+    const lien = (url || "").trim();
+    if (lien && !getYouTubeEmbedId(lien)) {
+      fireToast("Lien YouTube non reconnu — colle un lien du type youtube.com/watch?v=... ou youtu.be/...");
       return;
     }
     try {
       const exerciceConcerne = exercices.find((ex) => ex.id === id);
-      const nomPropre = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-      const fileName = `bibliotheque/${coachId}/${Date.now()}_${nomPropre}`;
-      const { error: uploadErr } = await supabase.storage.from("videos").upload(fileName, file);
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("videos").getPublicUrl(fileName);
-      const { error } = await supabase.from("exercices_bibliotheque").update({ video_demo_url: urlData.publicUrl }).eq("id", id);
+      const { error } = await supabase.from("exercices_bibliotheque").update({ video_demo_url: lien || null }).eq("id", id);
       if (error) throw error;
-      setExercices((prev) => prev.map((ex) => (ex.id === id ? { ...ex, video_demo_url: urlData.publicUrl } : ex)));
+      setExercices((prev) => prev.map((ex) => (ex.id === id ? { ...ex, video_demo_url: lien || null } : ex)));
 
       // Propage aussi vers toutes les séances déjà créées avec cet exercice (sinon les clients
       // qui l'avaient déjà dans leur programme gardent l'ancienne version, sans vidéo)
       if (exerciceConcerne) {
         const { error: propagErr } = await supabase
           .from("programme_exercices")
-          .update({ video_demo_url: urlData.publicUrl })
+          .update({ video_demo_url: lien || null })
           .eq("nom", exerciceConcerne.nom);
         if (propagErr) console.error("Erreur propagation vidéo:", propagErr);
       }
@@ -7334,7 +7322,7 @@ function VODView({ coachId, fireToast }) {
       fireToast("Vidéo mise à jour partout où l'exercice est utilisé", "green");
     } catch (err) {
       console.error(err);
-      fireToast("Erreur : " + (err.message || "envoi vidéo"));
+      fireToast("Erreur : " + (err.message || "mise à jour vidéo"));
     }
   };
 
@@ -7391,23 +7379,11 @@ function VODView({ coachId, fireToast }) {
             )}
           </div>
           <div style={{ flex: 1, fontSize: 13, color: C.text, fontWeight: 600 }}>{ex.nom}</div>
-          <button onClick={() => setShowEnregistreurVOD(ex.id)} style={{ background: "transparent", border: "none", color: C.blue, padding: 4 }}><VideoIcon size={15} /></button>
-          <button onClick={() => editFileRef.current && (editFileRef.current.dataset.exId = ex.id, editFileRef.current.click())} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11 }}>
+          <button onClick={() => { setEditingVideoId(ex.id); setEditingVideoUrl(ex.video_demo_url || ""); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11 }}>
             {ex.video_demo_url ? "Changer vidéo" : "+ Vidéo"}
           </button>
           <button onClick={() => startEdit(ex)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 15 }}>✎</button>
           <button onClick={() => remove(ex.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
-          {showEnregistreurVOD === ex.id && (
-            <EnregistreurVideoModal
-              onClose={() => setShowEnregistreurVOD(null)}
-              onRecorded={async (blob, mimeType) => {
-                const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-                const fichier = new File([blob], `enregistrement.${ext}`, { type: mimeType });
-                setShowEnregistreurVOD(null);
-                await replaceVideo(ex.id, fichier);
-              }}
-            />
-          )}
         </div>
       )}
     </Card>
@@ -7429,39 +7405,20 @@ function VODView({ coachId, fireToast }) {
         <select value={groupeExercice} onChange={(e) => setGroupeExercice(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}>
           {GROUPES_MUSCULAIRES.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
+        <input
+          type="text"
+          value={nouvelExVideoUrl}
+          onChange={(e) => setNouvelExVideoUrl(e.target.value)}
+          placeholder="Lien YouTube non répertorié (optionnel)"
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}
+        />
         <button
-          onClick={() => setShowEnregistreurVOD("nouveau")}
+          onClick={upload}
           disabled={uploading}
-          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1, marginBottom: 8 }}
+          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: uploading ? 0.6 : 1 }}
         >
-          <VideoIcon size={16} /> {uploading ? "Envoi..." : "Filmer (qualité réduite)"}
+          {uploading ? "Ajout..." : "+ Ajouter l'exercice"}
         </button>
-        <button
-          onClick={() => fileRef.current && fileRef.current.click()}
-          disabled={uploading}
-          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "11px", fontWeight: 700, fontSize: 12.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1, marginBottom: 8 }}
-        >
-          <Upload size={14} /> Choisir un fichier vidéo
-        </button>
-        <button
-          onClick={() => upload(null)}
-          disabled={uploading}
-          style={{ width: "100%", background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "10px", fontWeight: 600, fontSize: 12.5 }}
-        >
-          Ajouter sans vidéo pour l'instant
-        </button>
-        <input ref={fileRef} type="file" accept="video/*" style={{ display: "none" }} onChange={(e) => upload(e.target.files[0])} />
-        {showEnregistreurVOD === "nouveau" && (
-          <EnregistreurVideoModal
-            onClose={() => setShowEnregistreurVOD(null)}
-            onRecorded={async (blob, mimeType) => {
-              const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-              const fichier = new File([blob], `enregistrement.${ext}`, { type: mimeType });
-              setShowEnregistreurVOD(null);
-              await upload(fichier);
-            }}
-          />
-        )}
       </Card>
 
       {loading ? (
@@ -7497,17 +7454,37 @@ function VODView({ coachId, fireToast }) {
           ))}
         </div>
       )}
-      <input
-        ref={editFileRef}
-        type="file"
-        accept="video/*"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const id = editFileRef.current.dataset.exId;
-          const file = e.target.files[0];
-          if (id && file) replaceVideo(id, file);
-        }}
-      />
+      {editingVideoId !== null && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditingVideoId(null)}>
+          <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <SectionLabel icon={VideoIcon}>Lien vidéo de l'exercice</SectionLabel>
+              <button onClick={() => setEditingVideoId(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            <input
+              type="text"
+              autoFocus
+              value={editingVideoUrl}
+              onChange={(e) => setEditingVideoUrl(e.target.value)}
+              placeholder="Lien YouTube non répertorié"
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 12 }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              {editingVideoUrl && (
+                <button onClick={() => { setEditingVideoUrl(""); }} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.red, borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 600 }}>
+                  Retirer
+                </button>
+              )}
+              <button
+                onClick={async () => { await replaceVideo(editingVideoId, editingVideoUrl); setEditingVideoId(null); }}
+                style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 700 }}
+              >
+                Enregistrer
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
       {previewVideoUrl && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPreviewVideoUrl(null)}>
           <div style={{ width: "100%", maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
