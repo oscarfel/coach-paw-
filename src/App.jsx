@@ -10151,12 +10151,21 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         const log = logs[ex.id];
         if (!log || !log.sets.length) continue;
         log.sets.forEach((set, idx) => {
+          // Chaque champ numérique est blindé individuellement : une valeur vide/NaN/undefined
+          // (champ laissé vide par le client, série d'échauffement sans RPE, etc.) ne doit
+          // jamais partir telle quelle vers une colonne numérique Postgres — ça fait échouer
+          // l'insertion de TOUTE la séance d'un coup, charges et répétitions comprises.
+          const poidsSafe = Number.isFinite(Number(set.poids)) ? Number(set.poids) : 0;
+          const repsSafe = Number.isFinite(Number(set.reps)) ? Number(set.reps) : 0;
+          const rpeSafe = set.rpe === "" || set.rpe === undefined || set.rpe === null || Number.isNaN(Number(set.rpe))
+            ? null
+            : String(set.rpe);
           rows.push({
             seance_id: seanceId,
             exercice_nom: ex.nom,
-            poids: set.poids,
-            reps: set.reps,
-            rpe: set.rpe === "" || set.rpe === undefined || set.rpe === null ? null : String(set.rpe),
+            poids: poidsSafe,
+            reps: repsSafe,
+            rpe: rpeSafe,
             tempo: set.tempo || "",
             video_url: log.video || null,
             numero_serie: idx + 1,
