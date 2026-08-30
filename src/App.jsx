@@ -1972,6 +1972,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
 
 function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete, profilId, coachId }) {
   const [seconds, setSeconds] = useState(0);
+  const [saveStatus, setSaveStatus] = useState("pending"); // "pending" | "ok" | "error"
   // Verrou anti double-envoi : un double-tap sur "Terminer" avant le prochain rendu pouvait
   // déclencher deux sauvegardes en parallèle et laisser une séance fantôme en base.
   const dejaEnvoyeRef = useRef(false);
@@ -2214,11 +2215,31 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   if (finished) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16, textAlign: "center" }}>
-        <div style={{ width: 72, height: 72, borderRadius: "50%", background: C.greenSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Send size={30} color={C.green} />
+        <div style={{ width: 72, height: 72, borderRadius: "50%", background: saveStatus === "error" ? C.redSoft : C.greenSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Send size={30} color={saveStatus === "error" ? C.red : C.green} />
         </div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.textOnBg }}>Séance envoyée à ton coach</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.textOnBg }}>
+          {saveStatus === "error" ? "Échec de l'envoi" : saveStatus === "pending" ? "Envoi en cours..." : "Séance envoyée à ton coach"}
+        </div>
         <div style={{ fontSize: 13, color: C.textOnBgMuted, maxWidth: 280 }}>{programme.nom}</div>
+
+        {saveStatus === "error" && (
+          <div style={{ background: C.redSoft, border: `1px solid ${C.red}`, borderRadius: 12, padding: "12px 16px", maxWidth: 300, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 12.5, color: C.red, fontWeight: 600 }}>
+              Ta séance n'a pas pu être envoyée à ton coach — vérifie ta connexion et réessaie.
+            </div>
+            <button
+              onClick={async () => {
+                setSaveStatus("pending");
+                const ok = await onSessionComplete?.({ programme, logs, seconds });
+                setSaveStatus(ok ? "ok" : "error");
+              }}
+              style={{ background: C.red, border: "none", color: "#FFFFFF", borderRadius: 10, padding: "9px", fontWeight: 700, fontSize: 13 }}
+            >
+              Réessayer l'envoi
+            </button>
+          </div>
+        )}
 
         <Card style={{ width: "100%", maxWidth: 320 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
@@ -2369,12 +2390,14 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         })()}
       </div>
       <button
-        onClick={() => {
+        onClick={async () => {
           if (dejaEnvoyeRef.current) return;
           dejaEnvoyeRef.current = true;
           setFinished(true);
           nettoyerStockageSession();
-          onSessionComplete?.({ programme, logs, seconds });
+          setSaveStatus("pending");
+          const ok = await onSessionComplete?.({ programme, logs, seconds });
+          setSaveStatus(ok ? "ok" : "error");
         }}
         disabled={totalSets === 0}
         style={{
@@ -8305,36 +8328,17 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
     return () => { active = false; };
   }, [client.id]);
 
-  // Nettoyage automatique des séances "fantômes" : un bug côté chrono pouvait laisser
-  // plusieurs séances pour un même programme (une vide/aberrante en plus de la vraie).
-  // On ne garde qu'une seule séance par programme — en priorité celle qui a des séries
-  // enregistrées — et on supprime les doublons en base pour que l'historique affiché
-  // au coach reflète ce que le client a réellement fait.
+  // Nettoyage automatique des séances "fantômes" : uniquement les séances totalement
+  // vides, sans aucune série enregistrée (artefact d'un double envoi réseau — le bouton
+  // "Terminer" côté client est désactivé tant qu'aucune série n'est validée, donc une
+  // séance vide en base est forcément un artefact). On ne supprime jamais une séance qui
+  // contient des séries : chaque séance réellement terminée par le client garde sa place
+  // dans l'historique, y compris quand plusieurs séances existent pour le même programme.
   useEffect(() => {
     if (loading || seances.length === 0) return;
-    const parProgramme = {};
-    for (const s of seances) {
-      const cle = s.programme_id || s.nom_programme;
-      if (!parProgramme[cle]) parProgramme[cle] = [];
-      parProgramme[cle].push(s);
-    }
-    const aSupprimer = [];
-    for (const groupe of Object.values(parProgramme)) {
-      if (groupe.length === 1) {
-        // Séance isolée sans aucune série : le bouton "Terminer" côté client est
-        // désactivé tant qu'aucune série n'est validée, donc une séance vide en base est
-        // forcément un artefact (double envoi réseau, etc.) — rien d'utile à garder.
-        const seule = groupe[0];
-        if ((seriesBySeance[seule.id] || []).length === 0) aSupprimer.push(seule.id);
-        continue;
-      }
-      const trie = [...groupe].sort((a, b) => new Date(b.date) - new Date(a.date));
-      const avecSeries = trie.find((s) => (seriesBySeance[s.id] || []).length > 0);
-      const aGarder = avecSeries || trie[0];
-      for (const s of trie) {
-        if (s.id !== aGarder.id) aSupprimer.push(s.id);
-      }
-    }
+    const aSupprimer = seances
+      .filter((s) => (seriesBySeance[s.id] || []).length === 0)
+      .map((s) => s.id);
     if (aSupprimer.length === 0) return;
     (async () => {
       const { error } = await supabase.from("seances").delete().in("id", aSupprimer);
@@ -10136,71 +10140,31 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   };
 
   const saveSession = async ({ programme, logs, seconds }) => {
-    if (!profilId) return;
+    if (!profilId) return false;
     try {
-      // Une seule séance est conservée par programme (pas d'historique qui s'accumule),
-      // mais on la MET À JOUR en place plutôt que de la supprimer et tout recréer : sinon,
-      // les exercices non refaits aujourd'hui (un exercice ajouté au programme mais pas
-      // encore testé, un exercice sauté ce jour-là...) perdaient leurs séries précédentes
-      // et leur "dernière performance" disparaissait pour rien.
-      const nomsExercicesLogges = new Set(
-        programme.exercices.filter((ex) => (logs[ex.id]?.sets?.length || 0) > 0).map((ex) => ex.nom)
-      );
-
-      let requeteAnciennes = supabase.from("seances").select("id").eq("profil_id", profilId);
-      requeteAnciennes = programme.id
-        ? requeteAnciennes.or(`programme_id.eq.${programme.id},nom_programme.eq."${programme.nom}"`)
-        : requeteAnciennes.eq("nom_programme", programme.nom);
-      const { data: anciennes, error: rechercheErr } = await requeteAnciennes;
-      if (rechercheErr) console.error("Erreur recherche anciennes séances:", rechercheErr);
-
-      let seanceId;
-      if (anciennes && anciennes.length > 0) {
-        seanceId = anciennes[0].id;
-        // S'il traînait plusieurs séances pour ce programme (bug déjà corrigé par ailleurs),
-        // on garde la première et on nettoie le reste.
-        const autresIds = anciennes.slice(1).map((s) => s.id);
-        if (autresIds.length > 0) {
-          const { error: nettoyageErr } = await supabase.from("seances").delete().in("id", autresIds);
-          if (nettoyageErr) console.error("Erreur nettoyage doublons séances:", nettoyageErr);
-        }
-
-        const { error: updErr } = await supabase
-          .from("seances")
-          .update({ nom_programme: programme.nom, programme_id: programme.id || null, duree_secondes: seconds, date: todayIso() })
-          .eq("id", seanceId);
-        if (updErr) throw updErr;
-
-        // Ne remplace que les séries des exercices refaits aujourd'hui : celles des
-        // exercices non touchés cette fois restent en place avec leur dernière valeur.
-        if (nomsExercicesLogges.size > 0) {
-          const { error: delSeriesErr } = await supabase
-            .from("series")
-            .delete()
-            .eq("seance_id", seanceId)
-            .in("exercice_nom", [...nomsExercicesLogges]);
-          if (delSeriesErr) throw delSeriesErr;
-        }
-      } else {
-        const { data: seance, error: seanceErr } = await supabase
-          .from("seances")
-          .insert({
-            profil_id: profilId,
-            nom_programme: programme.nom,
-            programme_id: programme.id || null,
-            duree_secondes: seconds,
-            date: todayIso(),
-          })
-          .select("*")
-          .single();
-        if (seanceErr) throw seanceErr;
-        seanceId = seance.id;
-      }
+      // Chaque séance terminée crée son propre enregistrement, avec uniquement les
+      // exercices réellement remplis cette fois-ci — jamais mélangé avec les séries
+      // d'une séance précédente. La "dernière performance" affichée pour les exercices
+      // non touchés aujourd'hui vient de exerciseHistory (calculée sur l'historique
+      // complet), pas d'un report des anciennes séries dans la séance du jour.
+      const { data: seance, error: seanceErr } = await supabase
+        .from("seances")
+        .insert({
+          profil_id: profilId,
+          nom_programme: programme.nom,
+          programme_id: programme.id || null,
+          duree_secondes: seconds,
+          date: todayIso(),
+        })
+        .select("*")
+        .single();
+      if (seanceErr) throw seanceErr;
+      const seanceId = seance.id;
 
       const rows = [];
       for (const ex of programme.exercices) {
         const log = logs[ex.id];
-        if (!log) continue;
+        if (!log || !log.sets.length) continue;
         log.sets.forEach((set, idx) => {
           rows.push({
             seance_id: seanceId,
@@ -10231,9 +10195,11 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         }
         return next;
       });
+      return true;
     } catch (err) {
       console.error(err);
-      fireToast("Erreur envoi séance");
+      fireToast("Erreur envoi séance — vérifie ta connexion et réessaie");
+      return false;
     }
   };
 
@@ -10282,7 +10248,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               programme={activeProgramme}
               history={exerciseHistory}
               setHistory={setExerciseHistory}
-              onFinish={() => { setActiveProgramme(null); fireToast("Séance envoyée au coach ✅", "green"); }}
+              onFinish={() => setActiveProgramme(null)}
               onCancel={() => setActiveProgramme(null)}
               fireToast={fireToast}
               onSessionComplete={saveSession}
