@@ -9972,8 +9972,20 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
                 numeroSerie: row.numero_serie || (history[k].sets.length + 1),
               });
             }
+            // Les séries d'échauffement sont toujours enregistrées en premier (numero_serie
+            // le plus bas) : on les retire du rappel "la dernière fois", sinon le nombre de
+            // séries affichées pendant la séance en cours (grille S1, S2...) inclut les
+            // séries d'échauffement de la séance précédente et n'a plus le bon compte.
+            const echauffementParCle = {};
+            for (const p of customProgrammes) {
+              for (const ex of p.exercices || []) {
+                echauffementParCle[`${p.nom}::${ex.nom}`] = ex.echauffement || 0;
+              }
+            }
             for (const k of Object.keys(history)) {
               history[k].sets.sort((a, b) => a.numeroSerie - b.numeroSerie);
+              const nbEchauffement = echauffementParCle[k] || 0;
+              if (nbEchauffement > 0) history[k].sets = history[k].sets.slice(nbEchauffement);
             }
             setExerciseHistory(history);
           }
