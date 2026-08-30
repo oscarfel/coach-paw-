@@ -2270,12 +2270,21 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
           </div>
         )}
 
-        <button
-          onClick={onFinish}
-          style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "12px 24px", fontWeight: 800 }}
-        >
-          Retour à mes séances
-        </button>
+        {saveStatus === "pending" ? (
+          // Le bouton de retour n'apparaît qu'une fois l'envoi réellement terminé (succès
+          // ou échec) : s'il était affiché tout de suite, le client pourrait quitter l'écran
+          // avant que la séance ait fini d'être enregistrée côté serveur.
+          <div style={{ fontSize: 12.5, color: C.textOnBgMuted, fontWeight: 600 }}>
+            Envoi de la séance en cours, un instant...
+          </div>
+        ) : (
+          <button
+            onClick={onFinish}
+            style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "12px 24px", fontWeight: 800 }}
+          >
+            Retour à mes séances
+          </button>
+        )}
       </div>
     );
   }
@@ -10311,7 +10320,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         for (const ex of programme.exercices) {
           const log = logs[ex.id];
           if (log?.sets.length) {
-            next[`${programme.nom}::${ex.nom}`] = { date: displayDate, sets: log.sets.map((s) => ({ poids: s.poids, reps: s.reps })) };
+            // Même filtre que pour l'historique chargé depuis la base : les séries
+            // d'échauffement sont toujours en premier, on les retire du rappel "la
+            // dernière fois" pour ne garder que les séries de travail effectives.
+            const nbEchauffement = ex.echauffement || 0;
+            const setsEffectifs = nbEchauffement > 0 ? log.sets.slice(nbEchauffement) : log.sets;
+            if (setsEffectifs.length) {
+              next[`${programme.nom}::${ex.nom}`] = { date: displayDate, sets: setsEffectifs.map((s) => ({ poids: s.poids, reps: s.reps })) };
+            }
           }
         }
         return next;
