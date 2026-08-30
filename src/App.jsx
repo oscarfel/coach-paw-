@@ -10156,7 +10156,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             exercice_nom: ex.nom,
             poids: set.poids,
             reps: set.reps,
-            rpe: String(set.rpe),
+            rpe: set.rpe === "" || set.rpe === undefined || set.rpe === null ? null : String(set.rpe),
             tempo: set.tempo || "",
             video_url: log.video || null,
             numero_serie: idx + 1,
