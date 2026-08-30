@@ -10174,6 +10174,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           programme_id: programme.id || null,
           duree_secondes: seconds,
           date: todayIso(),
+          envoyee_au_coach: true,
         })
         .select("*")
         .single();
