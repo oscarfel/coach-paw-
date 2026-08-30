@@ -8418,28 +8418,44 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 // les groupes superset à partir de la définition du programme.
                 const seriesDeLaSeance = seriesBySeance[s.id] || [];
                 const groupeSupersetParNom = {};
+                const echauffementParNom = {};
+                const objectifParNom = {};
                 for (const pe of selectedProgramme.programme_exercices || []) {
                   if (pe.groupe_superset) groupeSupersetParNom[pe.nom] = pe.groupe_superset;
+                  echauffementParNom[pe.nom] = pe.series_echauffement || 0;
+                  objectifParNom[pe.nom] = { rpe: pe.rpe || null, tempo: pe.tempo || null };
                 }
                 const parExercice = [];
                 for (const sr of seriesDeLaSeance) {
                   let entry = parExercice.find((e) => e.nom === sr.exercice_nom);
                   if (!entry) {
-                    entry = { nom: sr.exercice_nom, series: [], groupeSuperset: groupeSupersetParNom[sr.exercice_nom] || null };
+                    entry = { nom: sr.exercice_nom, series: [], groupeSuperset: groupeSupersetParNom[sr.exercice_nom] || null, objectif: objectifParNom[sr.exercice_nom] || null };
                     parExercice.push(entry);
                   }
                   entry.series.push(sr);
                 }
+                // Les séries d'échauffement sont toujours enregistrées en premier (numero_serie
+                // le plus bas) : on retire ce nombre de séries par exercice, connu depuis la
+                // définition du programme, pour n'afficher au coach que les vraies séries de travail.
+                for (const entry of parExercice) {
+                  entry.series.sort((a, b) => (a.numero_serie || 0) - (b.numero_serie || 0));
+                  const nbEchauffement = echauffementParNom[entry.nom] || 0;
+                  if (nbEchauffement > 0) entry.series = entry.series.slice(nbEchauffement);
+                }
+                // Un exercice dont il ne reste plus aucune série après retrait de l'échauffement
+                // (le client n'a validé que l'échauffement, sans série de travail) ne doit pas
+                // afficher une carte vide.
+                const parExerciceAffiche = parExercice.filter((e) => e.series.length > 0);
                 // Regroupe les blocs consécutifs de même superset
                 const blocs = [];
                 let bi = 0;
-                while (bi < parExercice.length) {
-                  const ex = parExercice[bi];
+                while (bi < parExerciceAffiche.length) {
+                  const ex = parExerciceAffiche[bi];
                   if (ex.groupeSuperset) {
                     const groupe = [ex];
                     let bj = bi + 1;
-                    while (bj < parExercice.length && parExercice[bj].groupeSuperset === ex.groupeSuperset) {
-                      groupe.push(parExercice[bj]);
+                    while (bj < parExerciceAffiche.length && parExerciceAffiche[bj].groupeSuperset === ex.groupeSuperset) {
+                      groupe.push(parExerciceAffiche[bj]);
                       bj++;
                     }
                     blocs.push({ type: "superset", exs: groupe });
@@ -8451,16 +8467,25 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 }
 
                 const renderExercice = (ex) => {
+                  const objectifTexte = ex.objectif && (ex.objectif.tempo || ex.objectif.rpe)
+                    ? [ex.objectif.tempo ? `Tempo imposé ${ex.objectif.tempo}` : null, ex.objectif.rpe ? `RPE cible ${ex.objectif.rpe}` : null].filter(Boolean).join(" · ")
+                    : null;
                   return (
                   <div key={ex.nom} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px" }}>
-                    <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>{ex.nom}</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: objectifTexte ? 2 : 6 }}>{ex.nom}</div>
+                    {objectifTexte && (
+                      <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 6, fontStyle: "italic" }}>{objectifTexte}</div>
+                    )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                       {ex.series.map((sr, i) => {
                         const couleur = getProgressionColor(historiqueFiltré, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
                         return (
-                          <span key={i} style={{ fontSize: 11.5, color: "#FFFFFF", background: couleur, borderRadius: 8, padding: "5px 9px", fontFamily: FONT_MONO, fontWeight: 700 }}>
-                            {sr.poids}kg × {sr.reps} <span style={{ opacity: 0.85 }}>RPE{sr.rpe}</span>
-                          </span>
+                          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11.5, color: "#FFFFFF", background: couleur, borderRadius: 8, padding: "6px 10px", fontFamily: FONT_MONO, fontWeight: 700 }}>
+                            <span style={{ opacity: 0.85, fontWeight: 600 }}>S{i + 1}</span>
+                            <span>{sr.poids}kg × {sr.reps}</span>
+                            <span style={{ opacity: 0.85 }}>RPE {sr.rpe ?? "—"}</span>
+                            <span style={{ opacity: 0.85 }}>{sr.tempo || "—"}</span>
+                          </div>
                         );
                       })}
                     </div>
@@ -10166,6 +10191,27 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       // d'une séance précédente. La "dernière performance" affichée pour les exercices
       // non touchés aujourd'hui vient de exerciseHistory (calculée sur l'historique
       // complet), pas d'un report des anciennes séries dans la séance du jour.
+      //
+      // S'il existe déjà une séance envoyée aujourd'hui pour ce même programme (renvoi
+      // après un test, session relancée deux fois...), on la supprime avant d'insérer la
+      // nouvelle : le coach ne doit voir qu'une seule séance par programme et par jour,
+      // toujours la plus récente — jamais un doublon qui traîne.
+      const todayStr = todayIso();
+      let doublonsQuery = supabase
+        .from("seances")
+        .select("id")
+        .eq("profil_id", profilId)
+        .eq("date", todayStr);
+      doublonsQuery = programme.id
+        ? doublonsQuery.eq("programme_id", programme.id)
+        : doublonsQuery.eq("nom_programme", programme.nom);
+      const { data: doublons } = await doublonsQuery;
+      if (doublons && doublons.length > 0) {
+        const idsASupprimer = doublons.map((d) => d.id);
+        await supabase.from("series").delete().in("seance_id", idsASupprimer);
+        await supabase.from("seances").delete().in("id", idsASupprimer);
+      }
+
       const { data: seance, error: seanceErr } = await supabase
         .from("seances")
         .insert({
@@ -10217,6 +10263,33 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           await supabase.from("seances").delete().eq("id", seanceId);
           throw seriesErr;
         }
+      }
+
+      // Historique borné : on garde seulement les N séances les plus récentes par
+      // programme. Le minimum technique est 2 — la couleur Progrès/Stagnation/Régression
+      // compare toujours la séance du jour à celle d'avant, donc les deux doivent exister
+      // en base en même temps. Avec 1 seule séance gardée, il n'y a plus jamais de séance
+      // "d'avant" disponible pour la comparaison, et la coloration ne s'affiche plus jamais.
+      const RETENTION_SEANCES_PAR_PROGRAMME = 2;
+      try {
+        let historiqueQuery = supabase
+          .from("seances")
+          .select("id")
+          .eq("profil_id", profilId)
+          .order("date", { ascending: false });
+        historiqueQuery = programme.id
+          ? historiqueQuery.eq("programme_id", programme.id)
+          : historiqueQuery.eq("nom_programme", programme.nom);
+        const { data: historiqueSeances } = await historiqueQuery;
+        if (historiqueSeances && historiqueSeances.length > RETENTION_SEANCES_PAR_PROGRAMME) {
+          const idsAPurger = historiqueSeances.slice(RETENTION_SEANCES_PAR_PROGRAMME).map((s) => s.id);
+          await supabase.from("series").delete().in("seance_id", idsAPurger);
+          await supabase.from("seances").delete().in("id", idsAPurger);
+        }
+      } catch (purgeErr) {
+        // Un échec de purge ne doit jamais faire échouer l'envoi de la séance elle-même —
+        // au pire l'historique garde une séance de trop, ce n'est pas grave.
+        console.error("Erreur purge historique séances:", purgeErr);
       }
 
       setStats((s) => ({ ...s, seancesRealisees: s.seancesRealisees + 1 }));
