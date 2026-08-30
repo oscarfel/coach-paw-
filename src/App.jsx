@@ -8328,34 +8328,19 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
     return () => { active = false; };
   }, [client.id]);
 
-  // Nettoyage automatique des séances "fantômes" : uniquement les séances totalement
-  // vides, sans aucune série enregistrée (artefact d'un double envoi réseau — le bouton
-  // "Terminer" côté client est désactivé tant qu'aucune série n'est validée, donc une
-  // séance vide en base est forcément un artefact). On ne supprime jamais une séance qui
-  // contient des séries : chaque séance réellement terminée par le client garde sa place
-  // dans l'historique, y compris quand plusieurs séances existent pour le même programme.
-  useEffect(() => {
-    if (loading || seances.length === 0) return;
-    const aSupprimer = seances
-      .filter((s) => (seriesBySeance[s.id] || []).length === 0)
-      .map((s) => s.id);
-    if (aSupprimer.length === 0) return;
-    (async () => {
-      const { error } = await supabase.from("seances").delete().in("id", aSupprimer);
-      if (error) {
-        console.error("Erreur nettoyage séances fantômes:", error);
-        return;
-      }
-      setSeances((prev) => prev.filter((s) => !aSupprimer.includes(s.id)));
-      setSeriesBySeance((prev) => {
-        const next = { ...prev };
-        for (const id of aSupprimer) delete next[id];
-        return next;
-      });
-    })();
-  }, [loading, seances, seriesBySeance]);
+  // NOTE : il y avait ici un nettoyage automatique qui supprimait en base les séances
+  // sans aucune série enregistrée. Supprimé : ce nettoyage tournait dès le premier
+  // chargement de l'écran coach, et rien ne garantissait que la série d'une séance tout
+  // juste envoyée par le client avait fini d'arriver avant ce contrôle — un simple écart
+  // de timing suffisait à faire disparaître une séance pourtant réelle. On ne supprime
+  // plus jamais rien automatiquement ; une séance sans série est simplement masquée à
+  // l'affichage ci-dessous (voir seancesAvecSeries), sans toucher à la base.
+  const seancesAvecSeries = useMemo(
+    () => seances.filter((s) => (seriesBySeance[s.id] || []).length > 0),
+    [seances, seriesBySeance]
+  );
 
-  const seancesDatesSet = useMemo(() => new Set(seances.map((s) => s.date)), [seances]);
+  const seancesDatesSet = useMemo(() => new Set(seancesAvecSeries.map((s) => s.date)), [seancesAvecSeries]);
   const poidsDatesSet = useMemo(() => new Set(poidsRawDates), [poidsRawDates]);
   const nutritionDatesSet = useMemo(() => new Set(repas.map((r) => r.date)), [repas]);
   const [selectedJourDetail, setSelectedJourDetail] = useState(null);
@@ -8369,7 +8354,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   ];
 
   if (selectedProgramme) {
-    const historiqueFiltré = seances.filter((s) => s.programme_id === selectedProgramme.id || s.nom_programme === selectedProgramme.nom);
+    const historiqueFiltré = seancesAvecSeries.filter((s) => s.programme_id === selectedProgramme.id || s.nom_programme === selectedProgramme.nom);
     return (
       <div style={appShellStyle}>
         <FontImports />
@@ -8539,7 +8524,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               lundi.setDate(now.getDate() - decalage);
               const lundiIso = `${lundi.getFullYear()}-${String(lundi.getMonth() + 1).padStart(2, "0")}-${String(lundi.getDate()).padStart(2, "0")}`;
               const joursValidesCetteSemaine = new Set();
-              for (const s of seances) {
+              for (const s of seancesAvecSeries) {
                 const dateSeanceIso = String(s.date).slice(0, 10);
                 if (dateSeanceIso < lundiIso) continue;
                 const p = avecJour.find((prog) => prog.id === s.programme_id) || avecJour.find((prog) => prog.nom === s.nom_programme);
@@ -10180,7 +10165,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       }
       if (rows.length) {
         const { error: seriesErr } = await supabase.from("series").insert(rows);
-        if (seriesErr) throw seriesErr;
+        if (seriesErr) {
+          // Si l'enregistrement des séries échoue, on ne laisse jamais traîner la séance
+          // vide créée juste avant : sans ce nettoyage immédiat, elle resterait en base
+          // sans aucune série, invisible ou trompeuse pour le coach, sans que le client
+          // sache qu'il doit réessayer.
+          await supabase.from("seances").delete().eq("id", seanceId);
+          throw seriesErr;
+        }
       }
 
       setStats((s) => ({ ...s, seancesRealisees: s.seancesRealisees + 1 }));
@@ -10197,7 +10189,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       });
       return true;
     } catch (err) {
-      console.error(err);
+      console.error("Erreur saveSession:", err?.message || err, err);
       fireToast("Erreur envoi séance — vérifie ta connexion et réessaie");
       return false;
     }
