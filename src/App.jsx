@@ -8340,6 +8340,40 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
     [seances, seriesBySeance]
   );
 
+  // Rafraîchit l'historique des séances à chaque fois que le coach ouvre le détail d'un
+  // programme. Sans ça, l'écran restait figé sur les données chargées à l'ouverture de la
+  // fiche client (un seul fetch au montage, aucun abonnement temps réel) : si le client
+  // envoyait sa séance pendant que le coach avait déjà cette page ouverte — le cas le plus
+  // courant en usage réel —, "le client n'a pas encore réalisé cette séance" restait affiché
+  // indéfiniment jusqu'à un rechargement complet de la page. C'est ce vieux problème de
+  // fraîcheur des données, pas un bug d'enregistrement, qui causait ce symptôme précis.
+  useEffect(() => {
+    if (!selectedProgramme) return;
+    let active = true;
+    (async () => {
+      const { data: seancesFraiches } = await supabase
+        .from("seances")
+        .select("*")
+        .eq("profil_id", client.id)
+        .order("date", { ascending: false })
+        .limit(10);
+      if (!active || !seancesFraiches) return;
+      setSeances(seancesFraiches);
+      if (seancesFraiches.length > 0) {
+        const ids = seancesFraiches.map((s) => s.id);
+        const { data: seriesFraiches } = await supabase.from("series").select("*").in("seance_id", ids);
+        if (!active) return;
+        const grouped = {};
+        for (const row of seriesFraiches || []) {
+          if (!grouped[row.seance_id]) grouped[row.seance_id] = [];
+          grouped[row.seance_id].push(row);
+        }
+        setSeriesBySeance(grouped);
+      }
+    })();
+    return () => { active = false; };
+  }, [selectedProgramme?.id, client.id]);
+
   const seancesDatesSet = useMemo(() => new Set(seancesAvecSeries.map((s) => s.date)), [seancesAvecSeries]);
   const poidsDatesSet = useMemo(() => new Set(poidsRawDates), [poidsRawDates]);
   const nutritionDatesSet = useMemo(() => new Set(repas.map((r) => r.date)), [repas]);
