@@ -1362,7 +1362,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
 /* ------------------------------------------------------------------ */
 /*  ENTRAINEMENT — SESSION EN COURS                                    */
 /* ------------------------------------------------------------------ */
-function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
+function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onSaveNotePerso }) {
   const [open, setOpen] = useState(false);
   const [poids, setPoids] = useState("");
   const [reps, setReps] = useState("");
@@ -1371,6 +1371,9 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
   const [showTempoExplication, setShowTempoExplication] = useState(false);
   const [showVideoExecution, setShowVideoExecution] = useState(false);
   const [showEnregistreur, setShowEnregistreur] = useState(false);
+  const [showNotePerso, setShowNotePerso] = useState(false);
+  const [notePersoDraft, setNotePersoDraft] = useState(ex.notePerso || "");
+  const [savingNotePerso, setSavingNotePerso] = useState(false);
   const fileRef = useRef(null);
   const hasVideo = !!log.video;
   const historique = history[`${programmeNom}::${ex.nom}`]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
@@ -1497,12 +1500,57 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom }) {
             </div>
           </div>
         </div>
-        <ChevronDown
-          size={18}
-          color={C.textMuted}
-          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <div
+            role="button"
+            onClick={(e) => { e.stopPropagation(); setNotePersoDraft(ex.notePerso || ""); setShowNotePerso(true); }}
+            title="Ma note perso"
+            style={{ background: "transparent", border: "none", padding: 4, color: ex.notePerso ? C.amber : C.textDim, opacity: ex.notePerso ? 1 : 0.55, display: "flex" }}
+          >
+            <FileText size={15} />
+          </div>
+          <ChevronDown
+            size={18}
+            color={C.textMuted}
+            style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}
+          />
+        </div>
       </button>
+
+      {showNotePerso && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 175, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowNotePerso(false)}>
+          <Card style={{ width: "100%", maxWidth: 360, padding: "16px 14px" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 800, color: C.text }}>
+                <FileText size={15} color={C.amber} /> Ma note perso — {ex.nom}
+              </div>
+              <button onClick={() => setShowNotePerso(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+            </div>
+            <div style={{ fontSize: 11.5, color: C.textMuted, marginBottom: 8 }}>
+              Visible seulement par toi — réglage de machine, hauteur de siège, repère technique...
+            </div>
+            <textarea
+              value={notePersoDraft}
+              onChange={(e) => setNotePersoDraft(e.target.value)}
+              placeholder="Ex : siège position 4, dossier incliné 2"
+              rows={3}
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "vertical", boxSizing: "border-box" }}
+            />
+            <button
+              onClick={async () => {
+                setSavingNotePerso(true);
+                const ok = await onSaveNotePerso?.(ex.id, notePersoDraft.trim());
+                setSavingNotePerso(false);
+                if (ok) setShowNotePerso(false);
+              }}
+              disabled={savingNotePerso}
+              style={{ marginTop: 10, width: "100%", background: C.amber, border: "none", color: "#2B1B00", borderRadius: 10, padding: "10px", fontWeight: 800, fontSize: 13 }}
+            >
+              {savingNotePerso ? "Enregistrement..." : "Enregistrer"}
+            </button>
+          </Card>
+        </div>
+      )}
 
       {open && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setOpen(false)}>
@@ -1970,7 +2018,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   );
 }
 
-function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete, profilId, coachId }) {
+function SessionView({ programme, history, setHistory, onFinish, onCancel, fireToast, onSessionComplete, profilId, coachId, onSaveNotePerso }) {
   const [seconds, setSeconds] = useState(0);
   const [saveStatus, setSaveStatus] = useState("pending"); // "pending" | "ok" | "error"
   // Verrou anti double-envoi : un double-tap sur "Terminer" avant le prochain rendu pouvait
@@ -2381,6 +2429,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
                     onValidate={validateSet}
                     onVideo={attachVideo}
                     programmeNom={programme.nom}
+                    onSaveNotePerso={onSaveNotePerso}
                   />
                 ))}
               </div>
@@ -2393,6 +2442,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
                 onValidate={validateSet}
                 onVideo={attachVideo}
                 programmeNom={programme.nom}
+                onSaveNotePerso={onSaveNotePerso}
               />
             )
           );
@@ -9567,6 +9617,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               tempo: ex.tempo,
               rpe: ex.rpe,
               note: ex.note,
+              notePerso: ex.note_perso || "",
               videoDemoUrl: ex.video_demo_url,
               type: ex.type_exercice || "muscu",
               dureeMinutes: ex.duree_minutes,
@@ -9607,6 +9658,26 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customProgrammes]);
   const [exerciseHistory, setExerciseHistory] = useState({});
+
+  // Note personnelle par exercice : un mémo privé du client (réglage de machine, hauteur
+  // de siège...) qui n'a rien à voir avec la note technique du coach — stocké directement
+  // sur sa propre ligne programme_exercices (chaque client a ses propres lignes), donc rien
+  // à créer côté coach ni aucun risque de le mélanger avec un autre client.
+  const saveExerciceNotePerso = async (exId, notePerso) => {
+    try {
+      const { error } = await supabase.from("programme_exercices").update({ note_perso: notePerso }).eq("id", exId);
+      if (error) throw error;
+      const appliquer = (p) => ({ ...p, exercices: p.exercices.map((e) => (e.id === exId ? { ...e, notePerso } : e)) });
+      setCustomProgrammes((prev) => prev.map(appliquer));
+      setActiveProgrammeState((prev) => (prev ? appliquer(prev) : prev));
+      return true;
+    } catch (err) {
+      console.error("Erreur enregistrement note personnelle:", err);
+      fireToast("Erreur enregistrement de la note");
+      return false;
+    }
+  };
+
   const [meals, setMeals] = useState(EMPTY_MEALS);
   const [objectifsNutrition, setObjectifsNutrition] = useState(() => ({
     kcal: profilRow.objectif_calories || 2400,
@@ -10391,6 +10462,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               onSessionComplete={saveSession}
               profilId={profilId}
               coachId={profilRow.coach_id}
+              onSaveNotePerso={saveExerciceNotePerso}
             />
           )}
           {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} onUpdate={updateFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} isCoach={profilRow.role === "coach"} />}
