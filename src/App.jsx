@@ -9658,6 +9658,26 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customProgrammes]);
   const [exerciseHistory, setExerciseHistory] = useState({});
+  // Vue affichable de exerciseHistory : retire les séries d'échauffement (toujours
+  // enregistrées en premier) avant que le rappel "la dernière fois" ne soit montré pendant
+  // la séance en cours. Recalculé à chaque changement de customProgrammes, donc toujours
+  // correct même si le chargement des programmes et celui des séries se terminent dans un
+  // ordre imprévisible au démarrage de l'app.
+  const exerciseHistoryFiltered = useMemo(() => {
+    const echauffementParCle = {};
+    for (const p of customProgrammes) {
+      for (const ex of p.exercices || []) {
+        echauffementParCle[`${p.nom}::${ex.nom}`] = ex.echauffement || 0;
+      }
+    }
+    const out = {};
+    for (const k of Object.keys(exerciseHistory)) {
+      const nb = echauffementParCle[k] || 0;
+      const sets = nb > 0 ? exerciseHistory[k].sets.slice(nb) : exerciseHistory[k].sets;
+      if (sets.length > 0) out[k] = { ...exerciseHistory[k], sets };
+    }
+    return out;
+  }, [exerciseHistory, customProgrammes]);
 
   // Note personnelle par exercice : un mémo privé du client (réglage de machine, hauteur
   // de siège...) qui n'a rien à voir avec la note technique du coach — stocké directement
@@ -10052,20 +10072,15 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
                 numeroSerie: row.numero_serie || (history[k].sets.length + 1),
               });
             }
-            // Les séries d'échauffement sont toujours enregistrées en premier (numero_serie
-            // le plus bas) : on les retire du rappel "la dernière fois", sinon le nombre de
-            // séries affichées pendant la séance en cours (grille S1, S2...) inclut les
-            // séries d'échauffement de la séance précédente et n'a plus le bon compte.
-            const echauffementParCle = {};
-            for (const p of customProgrammes) {
-              for (const ex of p.exercices || []) {
-                echauffementParCle[`${p.nom}::${ex.nom}`] = ex.echauffement || 0;
-              }
-            }
+            // Stocké BRUT (échauffement compris) : les séries d'échauffement sont retirées
+            // au moment de l'affichage par exerciseHistoryFiltered (useMemo plus bas), jamais
+            // ici. Ce fetch et celui de customProgrammes tournent en parallèle au démarrage de
+            // l'app ; si on filtrait ici avec un echauffementParCle basé sur customProgrammes,
+            // on risquait de figer un résultat non filtré si ce fetch gagnait la course — un
+            // filtrage réactif (qui se recalcule dès que customProgrammes arrive) est fiable
+            // dans tous les cas, un filtrage ponctuel au chargement ne l'est pas.
             for (const k of Object.keys(history)) {
               history[k].sets.sort((a, b) => a.numeroSerie - b.numeroSerie);
-              const nbEchauffement = echauffementParCle[k] || 0;
-              if (nbEchauffement > 0) history[k].sets = history[k].sets.slice(nbEchauffement);
             }
             setExerciseHistory(history);
           }
@@ -10386,19 +10401,14 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
 
       setStats((s) => ({ ...s, seancesRealisees: s.seancesRealisees + 1 }));
       const displayDate = formatDateDisplay(todayIso());
+      // Stocké BRUT (échauffement compris) ici aussi — voir exerciseHistoryFiltered, seul
+      // endroit qui retire les séries d'échauffement avant affichage.
       setExerciseHistory((prev) => {
         const next = { ...prev };
         for (const ex of programme.exercices) {
           const log = logs[ex.id];
           if (log?.sets.length) {
-            // Même filtre que pour l'historique chargé depuis la base : les séries
-            // d'échauffement sont toujours en premier, on les retire du rappel "la
-            // dernière fois" pour ne garder que les séries de travail effectives.
-            const nbEchauffement = ex.echauffement || 0;
-            const setsEffectifs = nbEchauffement > 0 ? log.sets.slice(nbEchauffement) : log.sets;
-            if (setsEffectifs.length) {
-              next[`${programme.nom}::${ex.nom}`] = { date: displayDate, sets: setsEffectifs.map((s) => ({ poids: s.poids, reps: s.reps })) };
-            }
+            next[`${programme.nom}::${ex.nom}`] = { date: displayDate, sets: log.sets.map((s) => ({ poids: s.poids, reps: s.reps })) };
           }
         }
         return next;
@@ -10454,7 +10464,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           {activeProgramme && (
             <SessionView
               programme={activeProgramme}
-              history={exerciseHistory}
+              history={exerciseHistoryFiltered}
               setHistory={setExerciseHistory}
               onFinish={() => setActiveProgramme(null)}
               onCancel={() => setActiveProgramme(null)}
