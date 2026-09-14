@@ -4,7 +4,7 @@ import {
   Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
   Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
-  ShoppingCart, Pill, ScanLine, MoreVertical, Edit3,
+  ShoppingCart, Pill, ScanLine, MoreVertical, Edit3, Lock,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -424,6 +424,20 @@ const MEAL_DEFS = [
   { key: "diner", nom: "Dîner", emoji: "🌙" },
 ];
 
+// Bibliothèque générique d'exercices de mobilité, groupée par zone. Le coach compose ses
+// routines ("mix chevilles + lombaires", etc.) en piochant dedans — pas de gestion de
+// bibliothèque à faire de son côté, juste choisir et assembler.
+const MOBILITE_CATALOGUE = {
+  "Chevilles": ["Cercles de cheville", "Flexion dorsale genou au mur", "Balancés talon-pointe", "Rotation de cheville assise"],
+  "Genoux": ["Cercles de genou", "Fentes dynamiques légères", "Flexion-extension assise"],
+  "Hanches": ["Cercles de hanche", "Fentes avec rotation du buste", "90/90 hanche", "Balancés de jambe avant-arrière", "Balancés de jambe latéraux"],
+  "Lombaires / dos": ["Chat-vache", "Rotation du tronc assis", "Extension lombaire douce (cobra)", "Torsion allongée au sol"],
+  "Thoracique": ["Rotation thoracique à 4 pattes", "Ouverture de bras allongé sur le côté", "Extension thoracique sur banc"],
+  "Épaules": ["Cercles de bras", "Rotation externe avec élastique", "Étirement croisé de l'épaule", "Balancés de bras avant-arrière"],
+  "Cou": ["Rotation lente du cou", "Flexion latérale du cou", "Rétraction du menton"],
+  "Poignets": ["Cercles de poignet", "Étirement flexion/extension du poignet"],
+};
+
 const ECHAUFFEMENT_PRESETS = [
   { key: "articulaireHaut", label: "Articulaire — haut du corps", description: "Rotations épaules, coudes, poignets", texte: "• Échauffement articulaire haut du corps (rotations épaules, coudes, poignets) — 3 min" },
   { key: "articulaireBas", label: "Articulaire — bas du corps", description: "Rotations hanches, genoux, chevilles", texte: "• Échauffement articulaire bas du corps (rotations hanches, genoux, chevilles) — 3 min" },
@@ -695,11 +709,18 @@ function CalendrierSeances({ recentSeances }) {
     </div>
   );
 }
-function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition, streak = 0, streakEnAttente = false }) {
+function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition, streak = 0, streakEnAttente = false, routinesDuJour = [], onLaunchRoutine, onManageRoutines, prochaineRoutine = null, toutesRoutines = [], onVoirRoutines }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
   const [draggedProgIdx, setDraggedProgIdx] = useState(null);
   const [dragOverProgIdx, setDragOverProgIdx] = useState(null);
   const progCardRefs = useRef([]);
+  // Ensemble des jours de la semaine où au moins une routine de mobilité est prévue, pour la
+  // mini frise Lun-Dim affichée à côté de "Routine du jour".
+  const joursAvecRoutine = useMemo(() => {
+    const set = new Set();
+    toutesRoutines.forEach((r) => (r.jours || []).forEach((j) => set.add(j)));
+    return set;
+  }, [toutesRoutines]);
 
   const handleReorderDrop = async (dropIdx, explicitFromIdx = null) => {
     const fromIdx = explicitFromIdx !== null ? explicitFromIdx : draggedProgIdx;
@@ -936,8 +957,146 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
               {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <RotateCcw size={13} color={C.blue} />
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.textMuted }}>
+                  Routine du jour
+                </span>
+              </div>
+              {toutesRoutines.length > 0 && (
+                <div style={{ display: "flex", gap: 4 }}>
+                  {JOURS_SEMAINE.map((j) => {
+                    const actif = joursAvecRoutine.has(j);
+                    const estAujourdhui = j === jourDuJourFr();
+                    return (
+                      <div key={j} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                        <div style={{ fontSize: 8.5, fontWeight: 800, color: estAujourdhui ? C.text : "rgba(255,255,255,0.45)" }}>
+                          {JOURS_SEMAINE_LABEL[j][0]}
+                        </div>
+                        <div
+                          title={JOURS_SEMAINE_LABEL[j]}
+                          style={{
+                            width: 21,
+                            height: 21,
+                            borderRadius: 6,
+                            background: actif ? "rgba(58,214,160,0.28)" : "rgba(255,255,255,0.07)",
+                            border: estAujourdhui ? `1.3px solid ${C.text}` : "1px solid transparent",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {actif ? <Check size={11} color={C.green} strokeWidth={3.5} /> : <X size={9} color="rgba(255,255,255,0.3)" strokeWidth={3.5} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {routinesDuJour.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {routinesDuJour.map((routine) => (
+                  <div
+                    key={routine.id}
+                    onClick={() => onLaunchRoutine?.(routine)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px",
+                      borderRadius: 14,
+                      background: "rgba(255,255,255,0.1)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <RotateCcw size={17} color={C.text} />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 14.5, color: C.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {routine.nom}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                        {routine.exercices.length} exercice{routine.exercices.length > 1 ? "s" : ""} · {routine.duree_travail}s effort / {routine.duree_repos}s repos
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      {isCoach && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onManageRoutines?.(); }}
+                          style={{ background: "rgba(255,255,255,0.18)", border: "none", color: C.text, borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Wrench size={12} />
+                        </button>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#06171F", fontWeight: 800, background: C.text, padding: "9px 15px", borderRadius: 999 }}>
+                        <Play size={11} fill="#06171F" /> Lancer
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : prochaineRoutine ? (
+              <div
+                onClick={() => onVoirRoutines?.()}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 14, background: "linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.04))", border: "1px solid rgba(255,255,255,0.18)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)", cursor: "pointer" }}
+              >
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Lock size={15} color={C.textDim} />
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 13.5, color: C.text, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{prochaineRoutine.routine.nom}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                    Prochaine · {prochaineRoutine.jour.charAt(0).toUpperCase() + prochaineRoutine.jour.slice(1)}
+                  </div>
+                </div>
+                {isCoach ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onManageRoutines?.(); }}
+                    style={{ background: "rgba(255,255,255,0.18)", border: "none", color: C.text, borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                  >
+                    <Wrench size={12} />
+                  </button>
+                ) : (
+                  <ChevronRight size={16} color={C.textDim} style={{ flexShrink: 0 }} />
+                )}
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 14, background: "rgba(255,255,255,0.06)" }}>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <RotateCcw size={17} color={C.textDim} />
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.35 }}>
+                    {isCoach ? "Aucune routine prévue." : "Pas encore de routine pour toi. Ton coach ne t'a pas encore donné de routine."}
+                  </div>
+                </div>
+                {isCoach && (
+                  <button
+                    onClick={() => onManageRoutines?.()}
+                    style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "9px 14px", fontWeight: 700, fontSize: 12, flexShrink: 0 }}
+                  >
+                    Gérer
+                  </button>
+                )}
+              </div>
+            )}
+            {routinesDuJour.length > 0 && !isCoach && toutesRoutines.length > routinesDuJour.length && (
+              <button
+                onClick={() => onVoirRoutines?.()}
+                style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 10, background: "transparent", border: "none", color: C.text, opacity: 0.85, fontWeight: 700, fontSize: 12, padding: 0 }}
+              >
+                Voir toutes mes routines <ChevronRight size={13} />
+              </button>
+            )}
+          </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowBadgeDetail(true)}>
+            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(255,140,26,0.75)", boxShadow: "0 0 0 1.5px rgba(255,140,26,0.45), 0 0 26px rgba(255,140,26,0.55), 0 0 10px rgba(255,166,64,0.65), 0 4px 24px rgba(201,110,30,0.25)" }} onClick={() => setShowBadgeDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Award size={14} color={tierInfo.color} />
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Palier du mois</span>
@@ -962,7 +1121,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 {tierInfo.label} · {Math.round(badgeScore)}%
               </div>
             </Card>
-            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("nutrition")}>
+            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(255,140,26,0.75)", boxShadow: "0 0 0 1.5px rgba(255,140,26,0.45), 0 0 26px rgba(255,140,26,0.55), 0 0 10px rgba(255,166,64,0.65), 0 4px 24px rgba(201,110,30,0.25)" }} onClick={() => setTab("nutrition")}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Flame size={14} color={C.blue} />
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Calories</span>
@@ -1373,8 +1532,37 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
   const [showEnregistreur, setShowEnregistreur] = useState(false);
   const [showNotePerso, setShowNotePerso] = useState(false);
   const [notePersoDraft, setNotePersoDraft] = useState(ex.notePerso || "");
-  const [savingNotePerso, setSavingNotePerso] = useState(false);
+  const [notePersoStatus, setNotePersoStatus] = useState("idle"); // idle | saving | enregistre
+  const notePersoTimeoutRef = useRef(null);
   const fileRef = useRef(null);
+
+  // Auto-sauvegarde de la note perso : dès que le coach/client arrête de taper pendant ~700ms,
+  // on enregistre automatiquement (pas de bouton "Enregistrer" à cliquer) — la note doit être
+  // là au prochain passage sur cette séance, sans action supplémentaire.
+  useEffect(() => {
+    if (!showNotePerso) return;
+    if (notePersoDraft.trim() === (ex.notePerso || "").trim()) return;
+    setNotePersoStatus("saving");
+    if (notePersoTimeoutRef.current) clearTimeout(notePersoTimeoutRef.current);
+    notePersoTimeoutRef.current = setTimeout(async () => {
+      await onSaveNotePerso?.(ex.id, notePersoDraft.trim());
+      setNotePersoStatus("enregistre");
+    }, 700);
+    return () => clearTimeout(notePersoTimeoutRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notePersoDraft, showNotePerso]);
+
+  const closeNotePerso = async () => {
+    if (notePersoTimeoutRef.current) {
+      clearTimeout(notePersoTimeoutRef.current);
+      notePersoTimeoutRef.current = null;
+    }
+    if (notePersoDraft.trim() !== (ex.notePerso || "").trim()) {
+      await onSaveNotePerso?.(ex.id, notePersoDraft.trim());
+    }
+    setShowNotePerso(false);
+    setNotePersoStatus("idle");
+  };
   const hasVideo = !!log.video;
   const historique = history[`${programmeNom}::${ex.nom}`]; // { date, sets: [{poids, reps, numeroSerie}, ...] }
   const nbEchauffement = ex.echauffement || 0;
@@ -1503,7 +1691,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           <div
             role="button"
-            onClick={(e) => { e.stopPropagation(); setNotePersoDraft(ex.notePerso || ""); setShowNotePerso(true); }}
+            onClick={(e) => { e.stopPropagation(); setNotePersoDraft(ex.notePerso || ""); setNotePersoStatus("idle"); setShowNotePerso(true); }}
             title="Ma note perso"
             style={{ background: "transparent", border: "none", padding: 4, color: ex.notePerso ? C.amber : C.textDim, opacity: ex.notePerso ? 1 : 0.55, display: "flex" }}
           >
@@ -1518,13 +1706,13 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
       </button>
 
       {showNotePerso && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 175, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowNotePerso(false)}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 175, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={closeNotePerso}>
           <Card style={{ width: "100%", maxWidth: 360, padding: "16px 14px" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 800, color: C.text }}>
                 <FileText size={15} color={C.amber} /> Ma note perso — {ex.nom}
               </div>
-              <button onClick={() => setShowNotePerso(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+              <button onClick={closeNotePerso} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 11.5, color: C.textMuted, marginBottom: 8 }}>
               Visible seulement par toi — réglage de machine, hauteur de siège, repère technique...
@@ -1534,20 +1722,19 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
               onChange={(e) => setNotePersoDraft(e.target.value)}
               placeholder="Ex : siège position 4, dossier incliné 2"
               rows={3}
+              autoFocus
               style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "vertical", boxSizing: "border-box" }}
             />
-            <button
-              onClick={async () => {
-                setSavingNotePerso(true);
-                const ok = await onSaveNotePerso?.(ex.id, notePersoDraft.trim());
-                setSavingNotePerso(false);
-                if (ok) setShowNotePerso(false);
-              }}
-              disabled={savingNotePerso}
-              style={{ marginTop: 10, width: "100%", background: C.amber, border: "none", color: "#2B1B00", borderRadius: 10, padding: "10px", fontWeight: 800, fontSize: 13 }}
-            >
-              {savingNotePerso ? "Enregistrement..." : "Enregistrer"}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5, marginTop: 8, minHeight: 16 }}>
+              {notePersoStatus === "saving" && (
+                <span style={{ fontSize: 11, color: C.textDim }}>Enregistrement...</span>
+              )}
+              {notePersoStatus === "enregistre" && (
+                <span style={{ fontSize: 11, color: C.green, display: "flex", alignItems: "center", gap: 3 }}>
+                  <CheckCircle2 size={12} /> Enregistré automatiquement
+                </span>
+              )}
+            </div>
           </Card>
         </div>
       )}
@@ -2014,6 +2201,368 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
       >
         {rest.termine ? "Continuer la séance" : "Terminer le repos"}
       </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  ROUTINES MOBILITÉ                                                  */
+/* ------------------------------------------------------------------ */
+
+// Minuteur circuit effort/repos pour une routine de mobilité. Purement un outil live :
+// aucune écriture en base à la fin, pas d'historique — le coach n'a pas demandé de suivi
+// ici, juste un guide pour enchaîner les exercices.
+function RoutineMobilitePlayer({ routine, onClose }) {
+  const [index, setIndex] = useState(0);
+  const [phase, setPhase] = useState("travail"); // "travail" | "repos" | "fini"
+  const [secondsLeft, setSecondsLeft] = useState(routine.duree_travail || 30);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => { unlockAudio(); }, []);
+
+  useEffect(() => {
+    if (phase === "fini" || paused) return;
+    if (secondsLeft <= 0) {
+      playBeep();
+      if (navigator.vibrate) navigator.vibrate(200);
+      const dernierExercice = index >= routine.exercices.length - 1;
+      if (phase === "travail") {
+        if (dernierExercice) {
+          setPhase("fini");
+        } else {
+          setPhase("repos");
+          setSecondsLeft(routine.duree_repos || 30);
+        }
+      } else if (phase === "repos") {
+        setIndex((i) => i + 1);
+        setPhase("travail");
+        setSecondsLeft(routine.duree_travail || 30);
+      }
+      return;
+    }
+    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [secondsLeft, phase, paused, index, routine]);
+
+  const passer = () => {
+    playBeep();
+    const dernierExercice = index >= routine.exercices.length - 1;
+    if (phase === "travail") {
+      if (dernierExercice) { setPhase("fini"); return; }
+      setPhase("repos");
+      setSecondsLeft(routine.duree_repos || 30);
+    } else {
+      setIndex((i) => i + 1);
+      setPhase("travail");
+      setSecondsLeft(routine.duree_travail || 30);
+    }
+  };
+
+  if (phase === "fini") {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(6,12,28,0.94)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <div style={{ fontSize: 44 }}>🎉</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: "#FFFFFF" }}>Routine terminée</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{routine.nom}</div>
+          <button onClick={onClose} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "12px 28px", fontWeight: 800, marginTop: 8 }}>Fermer</button>
+        </div>
+      </div>
+    );
+  }
+
+  const exerciceActuel = routine.exercices[index];
+  const prochainExercice = routine.exercices[index + 1];
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", padding: 24,
+        background: phase === "travail" ? "#0A1E46" : "#1F1503",
+        transition: "background 0.3s",
+      }}
+    >
+      <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, background: "transparent", border: "none", color: "rgba(255,255,255,0.6)" }}><X size={24} /></button>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: phase === "travail" ? "#6FA8FF" : C.amber, marginBottom: 10 }}>
+        {phase === "travail" ? "Effort" : "Repos"} · {index + 1}/{routine.exercices.length}
+      </div>
+      <div style={{ fontFamily: FONT_MONO, fontSize: 72, fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>{secondsLeft}</div>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, fontWeight: 800, color: "#FFFFFF", marginTop: 20, textAlign: "center" }}>{exerciceActuel}</div>
+      {phase === "repos" && prochainExercice && (
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 8 }}>Ensuite : {prochainExercice}</div>
+      )}
+      <div style={{ display: "flex", gap: 10, marginTop: 32 }}>
+        <button onClick={() => setPaused((p) => !p)} style={{ background: "rgba(255,255,255,0.14)", border: "none", color: "#FFFFFF", borderRadius: 999, padding: "12px 20px", fontWeight: 700 }}>{paused ? "Reprendre" : "Pause"}</button>
+        <button onClick={passer} style={{ background: "rgba(255,255,255,0.14)", border: "none", color: "#FFFFFF", borderRadius: 999, padding: "12px 20px", fontWeight: 700 }}>Passer</button>
+      </div>
+    </div>
+  );
+}
+
+// Liste complète des routines du client (pas seulement celle du jour) : celles prévues
+// aujourd'hui se lancent directement, les autres affichent un cadenas et n'ouvrent qu'un
+// aperçu en lecture seule (pas de minuteur) via onPreview.
+function RoutinesListeClientModal({ routines, onLaunch, onPreview, onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <SectionLabel icon={RotateCcw}>Mes routines</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        {routines.length === 0 ? (
+          <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune routine pour l'instant.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {routines.map((r) => {
+              const estAujourdhui = (r.jours || []).includes(jourDuJourFr());
+              return (
+                <div
+                  key={r.id}
+                  onClick={() => (estAujourdhui ? onLaunch(r) : onPreview(r))}
+                  style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 14, padding: 12, cursor: "pointer" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text, marginBottom: 3 }}>{r.nom}</div>
+                      <div style={{ fontSize: 11.5, color: C.textMuted }}>
+                        {r.exercices.length} exercice{r.exercices.length > 1 ? "s" : ""} · {r.duree_travail}s effort / {r.duree_repos}s repos
+                      </div>
+                      <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                        {JOURS_SEMAINE.map((j) => (
+                          <span key={j} style={{ fontSize: 10, fontWeight: 700, padding: "3px 6px", borderRadius: 6, background: r.jours.includes(j) ? C.blueSoft : "transparent", color: r.jours.includes(j) ? C.blue : C.textDim }}>
+                            {JOURS_SEMAINE_LABEL[j]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ flexShrink: 0 }}>
+                      {estAujourdhui ? (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#06171F", background: C.blue, padding: "6px 12px", borderRadius: 999, whiteSpace: "nowrap" }}>Lancer</div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }}>
+                          <Lock size={13} color={C.textDim} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// Aperçu en lecture seule d'une routine qui n'est pas prévue aujourd'hui : le client voit
+// le contenu (exercices, durées) mais ne peut pas lancer le minuteur avant le bon jour.
+function RoutinePreviewModal({ routine, onClose }) {
+  const joursLabel = JOURS_SEMAINE.filter((j) => routine.jours.includes(j)).map((j) => JOURS_SEMAINE_LABEL[j]).join(", ");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <SectionLabel icon={RotateCcw}>{routine.nom}</SectionLabel>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "8px 12px", marginBottom: 14 }}>
+          <Lock size={13} color={C.textDim} />
+          <div style={{ fontSize: 12, color: C.textMuted }}>
+            Prévue {joursLabel || "aucun jour"} · pas encore lançable aujourd'hui
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
+          {routine.exercices.length} exercice{routine.exercices.length > 1 ? "s" : ""} · {routine.duree_travail}s effort / {routine.duree_repos}s repos
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {routine.exercices.map((ex, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: C.surface }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.blueSoft, color: C.blue, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ fontSize: 13, color: C.text }}>{ex}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+const JOURS_SEMAINE = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+const JOURS_SEMAINE_LABEL = { lundi: "Lun", mardi: "Mar", mercredi: "Mer", jeudi: "Jeu", vendredi: "Ven", samedi: "Sam", dimanche: "Dim" };
+const jourDuJourFr = () => JOURS_SEMAINE[(new Date().getDay() + 6) % 7];
+
+// Configuration macro par défaut pour un jour qui n'en a pas encore (nouveau jour, ou données
+// pré-existantes migrées depuis l'ancien système global % / poids de corps).
+function configMacroParDefaut(planActuel) {
+  return {
+    macroMode: planActuel?.protParKg != null || planActuel?.lipParKg != null ? "poids" : "pourcentage",
+    pctProt: planActuel?.pctProt ?? 30,
+    pctGluc: planActuel?.pctGluc ?? 45,
+    pctLip: planActuel?.pctLip ?? 25,
+    gProt: planActuel?.prot ?? 0,
+    gGluc: planActuel?.gluc ?? 0,
+    gLip: planActuel?.lip ?? 0,
+    protParKg: planActuel?.protParKg ?? 2,
+    lipParKg: planActuel?.lipParKg ?? 1,
+  };
+}
+
+// Calcule protéines/glucides/lipides (en grammes) pour un nombre de calories et une config macro
+// (% / grammes / poids de corps) donnés. Utilisé à la fois dans l'éditeur (aperçu par jour) et
+// côté client pour dériver les objectifs du jour à partir de "nutrition_par_jour".
+function calculerMacros(kcal, cfg, poidsActuel) {
+  const k = parseInt(kcal) || 0;
+  if (!cfg) return { prot: 0, gluc: 0, lip: 0 };
+  if (cfg.macroMode === "poids") {
+    const prot = Math.round((parseFloat(cfg.protParKg) || 0) * (poidsActuel || 0));
+    const lip = Math.round((parseFloat(cfg.lipParKg) || 0) * (poidsActuel || 0));
+    const gluc = Math.max(0, Math.round((k - prot * 4 - lip * 4) / 4));
+    return { prot, gluc, lip };
+  }
+  if (cfg.macroMode === "grammes") {
+    const total = (parseFloat(cfg.gProt) || 0) * 4 + (parseFloat(cfg.gGluc) || 0) * 4 + (parseFloat(cfg.gLip) || 0) * 9 || 1;
+    const rProt = ((parseFloat(cfg.gProt) || 0) * 4) / total;
+    const rGluc = ((parseFloat(cfg.gGluc) || 0) * 4) / total;
+    const rLip = ((parseFloat(cfg.gLip) || 0) * 9) / total;
+    return { prot: Math.round((k * rProt) / 4), gluc: Math.round((k * rGluc) / 4), lip: Math.round((k * rLip) / 9) };
+  }
+  const pctProt = parseFloat(cfg.pctProt) || 0, pctGluc = parseFloat(cfg.pctGluc) || 0, pctLip = parseFloat(cfg.pctLip) || 0;
+  return {
+    prot: Math.round((k * pctProt / 100) / 4),
+    gluc: Math.round((k * pctGluc / 100) / 4),
+    lip: Math.round((k * pctLip / 100) / 9),
+  };
+}
+
+// Formulaire coach : composer une routine de mobilité en piochant dans MOBILITE_CATALOGUE,
+// choisir les jours où elle doit apparaître sur l'accueil du client, et les durées du
+// minuteur effort/repos.
+function RoutineMobiliteModal({ routineActuelle, onSave, onClose }) {
+  const [nom, setNom] = useState(routineActuelle?.nom || "");
+  const [jours, setJours] = useState(routineActuelle?.jours || []);
+  const [dureeTravail, setDureeTravail] = useState(routineActuelle?.duree_travail || 30);
+  const [dureeRepos, setDureeRepos] = useState(routineActuelle?.duree_repos || 30);
+  const [exercices, setExercices] = useState(routineActuelle?.exercices || []);
+  const [saving, setSaving] = useState(false);
+  const [erreur, setErreur] = useState(null);
+  const [manqueMessage, setManqueMessage] = useState(null);
+
+  const toggleJour = (j) => setJours((prev) => (prev.includes(j) ? prev.filter((x) => x !== j) : [...prev, j]));
+  const toggleExercice = (nomEx) => setExercices((prev) => (prev.includes(nomEx) ? prev.filter((x) => x !== nomEx) : [...prev, nomEx]));
+
+  const valide = nom.trim() && exercices.length > 0 && jours.length > 0;
+
+  const save = async () => {
+    setErreur(null);
+    if (!valide) {
+      const manques = [];
+      if (!nom.trim()) manques.push("un nom");
+      if (jours.length === 0) manques.push("au moins un jour");
+      if (exercices.length === 0) manques.push("au moins un exercice");
+      setManqueMessage(`Il manque : ${manques.join(", ")}.`);
+      return;
+    }
+    setManqueMessage(null);
+    setSaving(true);
+    try {
+      await onSave({
+        nom: nom.trim(),
+        jours,
+        duree_travail: parseInt(dureeTravail) || 30,
+        duree_repos: parseInt(dureeRepos) || 30,
+        exercices,
+      });
+    } catch (err) {
+      console.error("Erreur enregistrement routine (modal):", err);
+      setErreur(err?.message || "Erreur inconnue lors de l'enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <SectionLabel icon={RotateCcw}>{routineActuelle ? "Modifier la routine" : "Nouvelle routine mobilité"}</SectionLabel>
+
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4, marginTop: 10 }}>Nom</div>
+        <input
+          value={nom}
+          onChange={(e) => setNom(e.target.value)}
+          placeholder="Ex : Mix chevilles + lombaires"
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14, marginBottom: 14, boxSizing: "border-box" }}
+        />
+
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>Jours</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          {JOURS_SEMAINE.map((j) => (
+            <button
+              key={j}
+              onClick={() => toggleJour(j)}
+              style={{
+                background: jours.includes(j) ? C.blue : C.surface,
+                border: `1px solid ${jours.includes(j) ? C.blue : C.cardBorderLight}`,
+                color: jours.includes(j) ? "#06171F" : C.textMuted,
+                borderRadius: 8, padding: "7px 10px", fontSize: 12, fontWeight: 700,
+              }}
+            >
+              {JOURS_SEMAINE_LABEL[j]}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Effort (sec)</div>
+            <input type="number" value={dureeTravail} onChange={(e) => setDureeTravail(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14, fontFamily: FONT_MONO, boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Repos (sec)</div>
+            <input type="number" value={dureeRepos} onChange={(e) => setDureeRepos(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14, fontFamily: FONT_MONO, boxSizing: "border-box" }} />
+          </div>
+        </div>
+
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>
+          Exercices ({exercices.length} sélectionné{exercices.length > 1 ? "s" : ""})
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, maxHeight: 260, overflowY: "auto", border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10 }}>
+          {Object.entries(MOBILITE_CATALOGUE).map(([zone, exs]) => (
+            <div key={zone}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{zone}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {exs.map((exNom) => {
+                  const selected = exercices.includes(exNom);
+                  return (
+                    <button key={exNom} onClick={() => toggleExercice(exNom)} style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", padding: "3px 0", textAlign: "left" }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selected ? C.blue : C.cardBorderLight}`, background: selected ? C.blue : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {selected && <Check size={11} color="#06171F" />}
+                      </div>
+                      <span style={{ fontSize: 12.5, color: C.text }}>{exNom}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {manqueMessage && (
+          <div style={{ fontSize: 12.5, color: "#F5A623", marginBottom: 10, fontWeight: 600 }}>{manqueMessage}</div>
+        )}
+        {erreur && (
+          <div style={{ fontSize: 12.5, color: "#FF5A5A", marginBottom: 10, fontWeight: 600 }}>{erreur}</div>
+        )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} disabled={saving} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "12px", fontWeight: 600, fontSize: 14 }}>Annuler</button>
+          <button onClick={save} disabled={saving} style={{ flex: 1, background: valide ? C.blue : C.surface, border: "none", color: valide ? "#06171F" : C.textDim, borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, opacity: saving ? 0.7 : 1 }}>
+            {saving ? "Enregistrement..." : "Enregistrer"}
+          </button>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -3744,7 +4293,7 @@ function CoursesEtSupplements({ profilId, fireToast }) {
   );
 }
 
-function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater, isCoach = false }) {
+function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater, isCoach = false, selfClientPlan = null, onSaveParJour, onSaveParKg, onSaveNutritionParJour }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showNutriDetail, setShowNutriDetail] = useState(false);
   const totals = useMemo(() => {
@@ -3939,7 +4488,19 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
           </Card>
         </div>
       )}
-      {showGoalEditor && (
+      {showGoalEditor && selfClientPlan ? (
+        // Le coach, sur sa propre nutrition, a le même éditeur complet que celui qu'il utilise
+        // pour ses clients (par jour de la semaine, ou par poids de corps).
+        <PlanAlimentaireModal
+          planActuel={objectifs}
+          client={selfClientPlan}
+          onClose={() => setShowGoalEditor(false)}
+          onSave={(np) => { saveObjectifsNutrition(np); setShowGoalEditor(false); }}
+          onSaveParJour={(k) => { onSaveParJour?.(k); setShowGoalEditor(false); }}
+          onSaveParKg={(k) => { onSaveParKg?.(k); setShowGoalEditor(false); }}
+          onSaveNutritionParJour={(cfg) => { onSaveNutritionParJour?.(cfg); }}
+        />
+      ) : showGoalEditor ? (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowGoalEditor(false)}>
           <Card style={{ width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
             <SectionLabel icon={Flame}>Objectif calorique</SectionLabel>
@@ -3969,7 +4530,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
             }} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
           </Card>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -7815,8 +8376,9 @@ function CalculateurCalories({ client, onUtiliser }) {
   );
 }
 
-function PlanAlimentaireModal({ planActuel, onSave, onClose, client }) {
-  const [mode, setMode] = useState("pourcentage"); // "pourcentage" | "grammes" | "calculateur"
+function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, onSaveNutritionParJour, onClose, client }) {
+  const supportsParJour = !!(client && onSaveParJour);
+  const [mode, setMode] = useState(supportsParJour ? "parJour" : "pourcentage"); // "pourcentage" | "grammes" | "calculateur" | "parJour"
   const [kcal, setKcal] = useState(planActuel.kcal);
   const [pctProt, setPctProt] = useState(planActuel.pctProt);
   const [pctGluc, setPctGluc] = useState(planActuel.pctGluc);
@@ -7824,11 +8386,54 @@ function PlanAlimentaireModal({ planActuel, onSave, onClose, client }) {
   const [gProt, setGProt] = useState(planActuel.prot);
   const [gGluc, setGGluc] = useState(planActuel.gluc);
   const [gLip, setGLip] = useState(planActuel.lip);
-
+  const poidsClient = client?.poids_actuel || 0;
   const kcalDepuisGrammes = (parseFloat(gProt) || 0) * 4 + (parseFloat(gGluc) || 0) * 4 + (parseFloat(gLip) || 0) * 9;
   const pctTotal = (parseFloat(pctProt) || 0) + (parseFloat(pctGluc) || 0) + (parseFloat(pctLip) || 0);
 
+  // Chaque jour a sa PROPRE config macro (% / grammes / poids de corps), indépendante des
+  // autres jours — construite à partir de "nutrition_par_jour" si déjà réglé, sinon migrée
+  // depuis l'ancien système global (mêmes valeurs pour tous les jours au départ, puis
+  // modifiables jour par jour).
+  const buildInitialJoursConfig = () => {
+    let parsedNutrition = {};
+    try { parsedNutrition = client?.nutrition_par_jour ? JSON.parse(client.nutrition_par_jour) : {}; } catch { /* ignore */ }
+    let parsedKcal = {};
+    try { parsedKcal = client?.objectifs_kcal_par_jour ? JSON.parse(client.objectifs_kcal_par_jour) : {}; } catch { /* ignore */ }
+    const defaultCfg = configMacroParDefaut(planActuel);
+    const base = {};
+    for (const j of JOURS_SEMAINE) {
+      base[j] = parsedNutrition[j] ? { ...defaultCfg, ...parsedNutrition[j] } : { ...defaultCfg, kcal: parsedKcal[j] ?? planActuel.kcal };
+    }
+    return base;
+  };
+  const [joursConfig, setJoursConfig] = useState(buildInitialJoursConfig);
+  const [semaineCfg, setSemaineCfg] = useState(() => buildInitialJoursConfig()[JOURS_SEMAINE[0]]);
+  // "Semaine" = même config (calories + macros) tous les jours ; "Jour" = réglages indépendants
+  // par jour. Détection automatique au départ selon si les 7 jours sont déjà identiques.
+  const [kcalMode, setKcalMode] = useState(() => {
+    const cfg = buildInitialJoursConfig();
+    const sig = (c) => JSON.stringify([c.kcal, c.macroMode, c.pctProt, c.pctGluc, c.pctLip, c.gProt, c.gGluc, c.gLip, c.protParKg, c.lipParKg]);
+    const sigs = JOURS_SEMAINE.map((j) => sig(cfg[j]));
+    return sigs.every((s) => s === sigs[0]) ? "semaine" : "jour";
+  });
+  const [expandedJour, setExpandedJour] = useState(null);
+  const moyenneKcalSemaine = Math.round(JOURS_SEMAINE.reduce((sum, j) => sum + (parseInt(joursConfig[j].kcal) || 0), 0) / 7);
+
   const save = () => {
+    if (mode === "parJour") {
+      const finalConfig = {};
+      if (kcalMode === "semaine") {
+        const sc = { ...semaineCfg, kcal: parseInt(semaineCfg.kcal) || planActuel.kcal };
+        for (const j of JOURS_SEMAINE) finalConfig[j] = sc;
+      } else {
+        for (const j of JOURS_SEMAINE) finalConfig[j] = { ...joursConfig[j], kcal: parseInt(joursConfig[j].kcal) || planActuel.kcal };
+      }
+      const kcalParJourOnly = {};
+      for (const j of JOURS_SEMAINE) kcalParJourOnly[j] = finalConfig[j].kcal;
+      onSaveParJour?.(kcalParJourOnly);
+      onSaveNutritionParJour?.(finalConfig);
+      return;
+    }
     if (mode === "pourcentage") {
       onSave({
         kcal: parseInt(kcal) || planActuel.kcal,
@@ -7847,19 +8452,128 @@ function PlanAlimentaireModal({ planActuel, onSave, onClose, client }) {
     }
   };
 
+  // Petit éditeur inline de macros (% / grammes / poids) pour UN jour donné (ou pour la
+  // config "semaine"). `cfg` et `setCfg` ciblent soit joursConfig[jour], soit semaineCfg.
+  const renderMacroInputs = (cfg, setCfg) => (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <PillButton active={cfg.macroMode === "pourcentage"} onClick={() => setCfg({ ...cfg, macroMode: "pourcentage" })} style={{ flex: 1, textAlign: "center", padding: "6px 8px", fontSize: 11 }}>%</PillButton>
+        <PillButton active={cfg.macroMode === "grammes"} onClick={() => setCfg({ ...cfg, macroMode: "grammes" })} style={{ flex: 1, textAlign: "center", padding: "6px 8px", fontSize: 11 }}>Grammes</PillButton>
+        <PillButton active={cfg.macroMode === "poids"} onClick={() => setCfg({ ...cfg, macroMode: "poids" })} style={{ flex: 1, textAlign: "center", padding: "6px 8px", fontSize: 11 }}>Poids</PillButton>
+      </div>
+      {cfg.macroMode === "pourcentage" && (
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["P %", "pctProt"], ["G %", "pctGluc"], ["L %", "pctLip"]].map(([label, key]) => (
+            <div key={key} style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: C.textDim, marginBottom: 2 }}>{label}</div>
+              <input type="number" value={cfg[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, boxSizing: "border-box" }} />
+            </div>
+          ))}
+        </div>
+      )}
+      {cfg.macroMode === "grammes" && (
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["P g", "gProt"], ["G g", "gGluc"], ["L g", "gLip"]].map(([label, key]) => (
+            <div key={key} style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: C.textDim, marginBottom: 2 }}>{label}</div>
+              <input type="number" value={cfg[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO, boxSizing: "border-box" }} />
+            </div>
+          ))}
+        </div>
+      )}
+      {cfg.macroMode === "poids" && (
+        <>
+          {!poidsClient && <div style={{ fontSize: 10.5, color: C.red, marginBottom: 6 }}>Poids actuel non renseigné.</div>}
+          <div style={{ display: "flex", gap: 6 }}>
+            {[["P g/kg", "protParKg"], ["L g/kg", "lipParKg"]].map(([label, key]) => (
+              <div key={key} style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: C.textDim, marginBottom: 2 }}>{label}</div>
+                <input type="number" step="0.1" value={cfg[key]} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value })} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO, boxSizing: "border-box" }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>Glucides = reste des calories du jour</div>
+        </>
+      )}
+    </div>
+  );
+
+  // Une ligne "jour" (ou "semaine") : label + champ kcal + aperçu des macros calculées, avec
+  // l'éditeur macro qui s'ouvre au clic sur la ligne.
+  const renderJourRow = (keyName, label, cfg, setCfg, isOpen, onToggle) => {
+    const m = calculerMacros(cfg.kcal, cfg, poidsClient);
+    return (
+      <div key={keyName} style={{ background: C.surface, borderRadius: 10, padding: "8px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={onToggle}>
+          <div style={{ fontSize: 13, color: C.text, fontWeight: 600, width: 66, textTransform: "capitalize", flexShrink: 0 }}>{label}</div>
+          <input
+            type="number"
+            value={cfg.kcal}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setCfg({ ...cfg, kcal: e.target.value })}
+            style={{ flex: 1, background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO, boxSizing: "border-box" }}
+          />
+          <span style={{ fontSize: 10, color: C.textDim, width: 22, flexShrink: 0 }}>kcal</span>
+          <ChevronDown size={14} color={C.textDim} style={{ transform: isOpen ? "rotate(180deg)" : "none", flexShrink: 0 }} />
+        </div>
+        <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 4, marginLeft: 66 }}>
+          P {m.prot}g · G {m.gluc}g · L {m.lip}g
+        </div>
+        {isOpen && renderMacroInputs(cfg, setCfg)}
+      </div>
+    );
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 380, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
         <SectionLabel icon={Flame}>Plan alimentaire</SectionLabel>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <PillButton active={mode === "pourcentage"} onClick={() => setMode("pourcentage")} style={{ flex: 1, textAlign: "center" }}>En %</PillButton>
-          <PillButton active={mode === "grammes"} onClick={() => setMode("grammes")} style={{ flex: 1, textAlign: "center" }}>En grammes</PillButton>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+          {supportsParJour ? (
+            <PillButton active={mode === "parJour"} onClick={() => setMode("parJour")} style={{ flex: 1, textAlign: "center" }}>Par jour</PillButton>
+          ) : (
+            <>
+              <PillButton active={mode === "pourcentage"} onClick={() => setMode("pourcentage")} style={{ flex: 1, textAlign: "center" }}>En %</PillButton>
+              <PillButton active={mode === "grammes"} onClick={() => setMode("grammes")} style={{ flex: 1, textAlign: "center" }}>En grammes</PillButton>
+            </>
+          )}
           {client && <PillButton active={mode === "calculateur"} onClick={() => setMode("calculateur")} style={{ flex: 1, textAlign: "center" }}>Calculateur</PillButton>}
         </div>
 
         {mode === "calculateur" && client ? (
-          <CalculateurCalories client={client} onUtiliser={(resultat) => { setKcal(resultat); setMode("pourcentage"); }} />
+          <CalculateurCalories client={client} onUtiliser={(resultat) => {
+            if (supportsParJour) setJoursConfig((prev) => ({ ...prev, [jourDuJourFr()]: { ...prev[jourDuJourFr()], kcal: resultat } }));
+            else setKcal(resultat);
+            setMode(supportsParJour ? "parJour" : "pourcentage");
+          }} />
+        ) : mode === "parJour" ? (
+          <>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <PillButton active={kcalMode === "semaine"} onClick={() => setKcalMode("semaine")} style={{ flex: 1, textAlign: "center" }}>Fixe toute la semaine</PillButton>
+              <PillButton active={kcalMode === "jour"} onClick={() => setKcalMode("jour")} style={{ flex: 1, textAlign: "center" }}>Par jour</PillButton>
+            </div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 8, fontWeight: 700, textTransform: "uppercase" }}>
+              Calories — clique sur un jour pour régler ses macros
+            </div>
+            {kcalMode === "semaine" ? (
+              renderJourRow("semaine", "Semaine", semaineCfg, setSemaineCfg, expandedJour === "semaine", () => setExpandedJour(expandedJour === "semaine" ? null : "semaine"))
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {JOURS_SEMAINE.map((j) =>
+                  renderJourRow(
+                    j, j, joursConfig[j],
+                    (newCfg) => setJoursConfig((prev) => ({ ...prev, [j]: newCfg })),
+                    expandedJour === j,
+                    () => setExpandedJour(expandedJour === j ? null : j)
+                  )
+                )}
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: C.text, fontWeight: 700, marginTop: 12, background: C.surface, borderRadius: 10, padding: "8px 10px" }}>
+              Moyenne : {kcalMode === "semaine" ? (parseInt(semaineCfg.kcal) || 0) : moyenneKcalSemaine} kcal / jour
+            </div>
+          </>
         ) : mode === "pourcentage" ? (
           <>
             <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Objectif calorique</div>
@@ -7905,7 +8619,7 @@ function PlanAlimentaireModal({ planActuel, onSave, onClose, client }) {
         )}
 
         {mode !== "calculateur" && (
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "12px", fontWeight: 600, fontSize: 14 }}>Annuler</button>
             <button onClick={save} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
           </div>
@@ -8317,18 +9031,78 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
       setDeleting(false);
     }
   };
+  const [routinesMobilite, setRoutinesMobilite] = useState([]);
+  const [showRoutineModal, setShowRoutineModal] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    supabase.from("routines_mobilite").select("*").eq("profil_id", client.id).order("created_at", { ascending: true }).then(({ data, error }) => {
+      if (!active) return;
+      if (error) { console.error("Erreur chargement routines mobilité:", error); return; }
+      setRoutinesMobilite((data || []).map((r) => ({
+        ...r,
+        jours: typeof r.jours === "string" ? JSON.parse(r.jours) : (r.jours || []),
+        exercices: typeof r.exercices === "string" ? JSON.parse(r.exercices) : (r.exercices || []),
+      })));
+    });
+    return () => { active = false; };
+  }, [client.id]);
+
+  const saveRoutineMobilite = async (routine) => {
+    try {
+      if (editingRoutine?.id) {
+        const { error } = await supabase.from("routines_mobilite").update({
+          nom: routine.nom, jours: JSON.stringify(routine.jours), duree_travail: routine.duree_travail,
+          duree_repos: routine.duree_repos, exercices: JSON.stringify(routine.exercices),
+        }).eq("id", editingRoutine.id);
+        if (error) throw error;
+        setRoutinesMobilite((prev) => prev.map((r) => (r.id === editingRoutine.id ? { ...r, ...routine } : r)));
+      } else {
+        const { data, error } = await supabase.from("routines_mobilite").insert({
+          profil_id: client.id, coach_id: client.coach_id, nom: routine.nom, jours: JSON.stringify(routine.jours),
+          duree_travail: routine.duree_travail, duree_repos: routine.duree_repos, exercices: JSON.stringify(routine.exercices),
+        }).select("*").single();
+        if (error) throw error;
+        setRoutinesMobilite((prev) => [...prev, { ...data, jours: routine.jours, exercices: routine.exercices }]);
+      }
+      fireToast("Routine enregistrée", "green");
+      setShowRoutineModal(false);
+      setEditingRoutine(null);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement de la routine");
+      throw err;
+    }
+  };
+
+  const supprimerRoutineMobilite = async (id) => {
+    if (!confirm("Supprimer cette routine ?")) return;
+    try {
+      const { error } = await supabase.from("routines_mobilite").delete().eq("id", id);
+      if (error) throw error;
+      setRoutinesMobilite((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression de la routine");
+    }
+  };
+
   const [showPlanEditor, setShowPlanEditor] = useState(false);
   const [planAlimentaire, setPlanAlimentaire] = useState(() => {
     const kcal = client.objectif_calories || 2400;
     const pctProt = client.pct_prot || 30;
     const pctGluc = client.pct_gluc || 45;
     const pctLip = client.pct_lip || 25;
-    return {
-      kcal, pctProt, pctGluc, pctLip,
-      prot: Math.round((kcal * pctProt / 100) / 4),
-      gluc: Math.round((kcal * pctGluc / 100) / 4),
-      lip: Math.round((kcal * pctLip / 100) / 9),
-    };
+    const protParKg = client.prot_par_kg ?? null;
+    const lipParKg = client.lip_par_kg ?? null;
+    const poidsClient = client.poids_actuel || 0;
+    const prot = protParKg != null ? Math.round(protParKg * poidsClient) : Math.round((kcal * pctProt / 100) / 4);
+    const lip = lipParKg != null ? Math.round(lipParKg * poidsClient) : Math.round((kcal * pctLip / 100) / 9);
+    const gluc = (protParKg != null || lipParKg != null)
+      ? Math.max(0, Math.round((kcal - prot * 4 - lip * 4) / 4))
+      : Math.round((kcal * pctGluc / 100) / 4);
+    return { kcal, pctProt, pctGluc, pctLip, protParKg, lipParKg, prot, gluc, lip };
   });
   useEffect(() => {
     let active = true;
@@ -8441,6 +9215,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
 
   const detailTabs = [
     { key: "programme", label: "Programme", icon: Dumbbell },
+    { key: "routines", label: "Routine", icon: RotateCcw },
     { key: "bilans", label: "Bilans", icon: TrendingUp },
     { key: "nutrition", label: "Nutrition", icon: Apple },
     { key: "profil", label: "Profil", icon: User },
@@ -8714,6 +9489,49 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               );
             })()}
           </div>
+        ) : tab === "routines" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13 }}
+            >
+              <Plus size={16} /> Ajouter une routine
+            </button>
+            {routinesMobilite.length === 0 ? (
+              <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucune routine de mobilité pour ce client</div></Card>
+            ) : (
+              routinesMobilite.map((r) => (
+                <Card key={r.id}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text, marginBottom: 3 }}>{r.nom}</div>
+                      <div style={{ fontSize: 11.5, color: C.textMuted }}>
+                        {r.exercices.length} exercice{r.exercices.length > 1 ? "s" : ""} · {r.duree_travail}s effort / {r.duree_repos}s repos
+                      </div>
+                      <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                        {JOURS_SEMAINE.map((j) => (
+                          <span key={j} style={{ fontSize: 10, fontWeight: 700, padding: "3px 6px", borderRadius: 6, background: r.jours.includes(j) ? C.blueSoft : C.surface, color: r.jours.includes(j) ? C.blue : C.textDim }}>
+                            {JOURS_SEMAINE_LABEL[j]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => { setEditingRoutine(r); setShowRoutineModal(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+                      <button onClick={() => supprimerRoutineMobilite(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+            {showRoutineModal && (
+              <RoutineMobiliteModal
+                routineActuelle={editingRoutine}
+                onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }}
+                onSave={saveRoutineMobilite}
+              />
+            )}
+          </div>
         ) : tab === "bilans" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <MiniCalendarClient seancesDates={seancesDatesSet} poidsDates={poidsDatesSet} bilansDates={bilansDatesSet} nutritionDates={nutritionDatesSet} onSelectDay={setSelectedJourDetail} />
@@ -8914,6 +9732,11 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 <span>Glucides <strong style={{ color: C.green }}>{planAlimentaire.gluc}g</strong></span>
                 <span>Lipides <strong style={{ color: C.amber }}>{planAlimentaire.lip}g</strong></span>
               </div>
+              {(planAlimentaire.protParKg != null || planAlimentaire.lipParKg != null) && (
+                <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 6 }}>
+                  Basé sur le poids de corps ({client.poids_actuel || "-"} kg) · glucides = reste des calories
+                </div>
+              )}
             </Card>
             {repas.length === 0 ? (
               <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucun repas enregistré</div></Card>
@@ -8929,15 +9752,22 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             onClose={() => setShowPlanEditor(false)}
             onSave={async (nouveauPlan) => {
               try {
+                // Repasser en mode % désactive le mode "par poids de corps" s'il était actif.
                 const { error } = await supabase.from("profils").update({
                   objectif_calories: nouveauPlan.kcal,
                   pct_prot: nouveauPlan.pctProt,
                   pct_gluc: nouveauPlan.pctGluc,
                   pct_lip: nouveauPlan.pctLip,
+                  prot_par_kg: null,
+                  lip_par_kg: null,
                 }).eq("id", client.id);
                 if (error) throw error;
+                client.prot_par_kg = null;
+                client.lip_par_kg = null;
                 setPlanAlimentaire({
                   ...nouveauPlan,
+                  protParKg: null,
+                  lipParKg: null,
                   prot: Math.round((nouveauPlan.kcal * nouveauPlan.pctProt / 100) / 4),
                   gluc: Math.round((nouveauPlan.kcal * nouveauPlan.pctGluc / 100) / 4),
                   lip: Math.round((nouveauPlan.kcal * nouveauPlan.pctLip / 100) / 9),
@@ -8947,6 +9777,73 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               } catch (err) {
                 console.error(err);
                 fireToast("Erreur mise à jour du plan");
+              }
+            }}
+            onSaveParJour={async (kcalParJour) => {
+              try {
+                const { error } = await supabase.from("profils").update({
+                  objectifs_kcal_par_jour: JSON.stringify(kcalParJour),
+                }).eq("id", client.id);
+                if (error) throw error;
+                client.objectifs_kcal_par_jour = JSON.stringify(kcalParJour);
+                setPlanAlimentaire((prev) => ({ ...prev, kcal: kcalParJour[jourDuJourFr()] ?? prev.kcal }));
+                fireToast("Calories par jour mises à jour", "green");
+                setShowPlanEditor(false);
+              } catch (err) {
+                console.error(err);
+                fireToast("Erreur mise à jour du plan par jour");
+              }
+            }}
+            onSaveParKg={async ({ protParKg, lipParKg }) => {
+              try {
+                const { error } = await supabase.from("profils").update({
+                  prot_par_kg: protParKg,
+                  lip_par_kg: lipParKg,
+                }).eq("id", client.id);
+                if (error) throw error;
+                client.prot_par_kg = protParKg;
+                client.lip_par_kg = lipParKg;
+                const poidsClient = client.poids_actuel || 0;
+                const prot = Math.round(protParKg * poidsClient);
+                const lip = Math.round(lipParKg * poidsClient);
+                setPlanAlimentaire((prev) => ({
+                  ...prev,
+                  protParKg,
+                  lipParKg,
+                  prot,
+                  lip,
+                  gluc: Math.max(0, Math.round((prev.kcal - prot * 4 - lip * 4) / 4)),
+                }));
+                fireToast("Objectifs par poids de corps mis à jour", "green");
+                setShowPlanEditor(false);
+              } catch (err) {
+                console.error(err);
+                fireToast("Erreur mise à jour des objectifs par poids");
+              }
+            }}
+            onSaveNutritionParJour={async (joursConfig) => {
+              try {
+                const { error } = await supabase.from("profils").update({
+                  nutrition_par_jour: JSON.stringify(joursConfig),
+                }).eq("id", client.id);
+                if (error) throw error;
+                client.nutrition_par_jour = JSON.stringify(joursConfig);
+                const cfgToday = joursConfig[jourDuJourFr()];
+                if (cfgToday) {
+                  const m = calculerMacros(cfgToday.kcal, cfgToday, client.poids_actuel || 0);
+                  setPlanAlimentaire((prev) => ({
+                    ...prev,
+                    kcal: parseInt(cfgToday.kcal) || prev.kcal,
+                    protParKg: cfgToday.macroMode === "poids" ? cfgToday.protParKg : null,
+                    lipParKg: cfgToday.macroMode === "poids" ? cfgToday.lipParKg : null,
+                    prot: m.prot, gluc: m.gluc, lip: m.lip,
+                  }));
+                }
+                fireToast("Répartition des macros mise à jour", "green");
+                setShowPlanEditor(false);
+              } catch (err) {
+                console.error(err);
+                fireToast("Erreur mise à jour de la répartition des macros");
               }
             }}
           />
@@ -9699,28 +10596,161 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   };
 
   const [meals, setMeals] = useState(EMPTY_MEALS);
-  const [objectifsNutrition, setObjectifsNutrition] = useState(() => ({
-    kcal: profilRow.objectif_calories || 2400,
-    pctProt: profilRow.pct_prot || 30,
-    pctGluc: profilRow.pct_gluc || 45,
-    pctLip: profilRow.pct_lip || 25,
-    get prot() { return Math.round((this.kcal * this.pctProt / 100) / 4); },
-    get gluc() { return Math.round((this.kcal * this.pctGluc / 100) / 4); },
-    get lip() { return Math.round((this.kcal * this.pctLip / 100) / 9); },
-  }));
+  // Réglages nutrition bruts (tels que stockés en base). On dérive kcal du jour / prot / gluc /
+  // lip via un useMemo plutôt que des getters sur un objet d'état : un getter capturé dans un
+  // spread ({...prev, x}) se fige à sa valeur du moment et ne se recalcule plus ensuite, ce qui
+  // cassait le recalcul après une sauvegarde partielle (ex: changer juste le poids/kg sans
+  // retoucher le %). Le useMemo ci-dessous est toujours correct, quel que soit le champ modifié.
+  const [nutriParams, setNutriParams] = useState(() => {
+    let kcalParJour = {};
+    try { kcalParJour = profilRow.objectifs_kcal_par_jour ? JSON.parse(profilRow.objectifs_kcal_par_jour) : {}; } catch { /* ignore */ }
+    let nutritionParJour = {};
+    try { nutritionParJour = profilRow.nutrition_par_jour ? JSON.parse(profilRow.nutrition_par_jour) : {}; } catch { /* ignore */ }
+    return {
+      kcalParJour,
+      nutritionParJour,
+      objectifCaloriesDefaut: profilRow.objectif_calories ?? 2400,
+      pctProt: profilRow.pct_prot || 30,
+      pctGluc: profilRow.pct_gluc || 45,
+      pctLip: profilRow.pct_lip || 25,
+      protParKg: profilRow.prot_par_kg ?? null,
+      lipParKg: profilRow.lip_par_kg ?? null,
+      poidsActuel: profilRow.poids_actuel || 0,
+    };
+  });
+  const objectifsNutrition = useMemo(() => {
+    const { kcalParJour, nutritionParJour, objectifCaloriesDefaut, pctProt, pctGluc, pctLip, protParKg, lipParKg, poidsActuel } = nutriParams;
+    const cfgAujourdhui = nutritionParJour?.[jourDuJourFr()];
+    if (cfgAujourdhui) {
+      // Réglage propre à aujourd'hui (per-day macros) — prioritaire sur tout le reste.
+      const m = calculerMacros(cfgAujourdhui.kcal, cfgAujourdhui, poidsActuel);
+      return {
+        kcal: parseInt(cfgAujourdhui.kcal) || 0,
+        pctProt: cfgAujourdhui.pctProt, pctGluc: cfgAujourdhui.pctGluc, pctLip: cfgAujourdhui.pctLip,
+        protParKg: cfgAujourdhui.macroMode === "poids" ? cfgAujourdhui.protParKg : null,
+        lipParKg: cfgAujourdhui.macroMode === "poids" ? cfgAujourdhui.lipParKg : null,
+        poidsActuel, prot: m.prot, gluc: m.gluc, lip: m.lip,
+        kcalParJourRaw: JSON.stringify(kcalParJour),
+        nutritionParJourRaw: JSON.stringify(nutritionParJour),
+      };
+    }
+    // Repli sur l'ancien système (kcal par jour + % ou poids global) pour les profils pas
+    // encore migrés vers "nutrition_par_jour".
+    const kcal = kcalParJour[jourDuJourFr()] ?? objectifCaloriesDefaut;
+    const parPoids = protParKg != null || lipParKg != null;
+    const prot = parPoids ? Math.round((protParKg || 0) * poidsActuel) : Math.round((kcal * pctProt / 100) / 4);
+    const lip = parPoids ? Math.round((lipParKg || 0) * poidsActuel) : Math.round((kcal * pctLip / 100) / 9);
+    const gluc = parPoids ? Math.max(0, Math.round((kcal - prot * 4 - lip * 4) / 4)) : Math.round((kcal * pctGluc / 100) / 4);
+    return {
+      kcal, pctProt, pctGluc, pctLip, protParKg, lipParKg, poidsActuel, prot, gluc, lip,
+      kcalParJourRaw: JSON.stringify(kcalParJour),
+      nutritionParJourRaw: JSON.stringify(nutritionParJour),
+    };
+  }, [nutriParams]);
+
+  // Routines de mobilité assignées par le coach, filtrées sur celles du jour — affichées en
+  // bannière pleine largeur tout en haut de l'accueil. Pur outil live (minuteur), rien n'est
+  // enregistré en base à la fin d'une routine.
+  const [routinesMobilite, setRoutinesMobilite] = useState([]);
+  const [activeRoutine, setActiveRoutine] = useState(null);
+  useEffect(() => {
+    if (!profilId) return;
+    supabase.from("routines_mobilite").select("*").eq("profil_id", profilId).then(({ data, error }) => {
+      if (error) { console.error("Erreur chargement routines mobilité:", error); return; }
+      setRoutinesMobilite((data || []).map((r) => ({
+        ...r,
+        jours: typeof r.jours === "string" ? JSON.parse(r.jours) : (r.jours || []),
+        exercices: typeof r.exercices === "string" ? JSON.parse(r.exercices) : (r.exercices || []),
+      })));
+    });
+  }, [profilId]);
+  const routinesDuJour = useMemo(() => routinesMobilite.filter((r) => r.jours.includes(jourDuJourFr())), [routinesMobilite]);
+  // Quand rien n'est prévu aujourd'hui : la prochaine routine à venir (jour le plus proche,
+  // strictement dans le futur), tous jours confondus, pour l'afficher sur l'accueil.
+  const prochaineRoutine = useMemo(() => {
+    if (routinesMobilite.length === 0) return null;
+    const todayIdx = JOURS_SEMAINE.indexOf(jourDuJourFr());
+    let meilleure = null;
+    routinesMobilite.forEach((r) => {
+      (r.jours || []).forEach((j) => {
+        const idx = JOURS_SEMAINE.indexOf(j);
+        if (idx < 0) return;
+        let delta = idx - todayIdx;
+        if (delta <= 0) delta += 7;
+        if (!meilleure || delta < meilleure.delta) meilleure = { routine: r, jour: j, delta };
+      });
+    });
+    return meilleure;
+  }, [routinesMobilite]);
+  const [showRoutinesListeClient, setShowRoutinesListeClient] = useState(false);
+  const [previewRoutine, setPreviewRoutine] = useState(null);
+
+  // Gestion des routines par le coach sur SON PROPRE profil (viewMode "client" sur lui-même) —
+  // même CRUD que celui utilisé côté fiche client, mais ciblant profilId (son propre id).
+  const [showRoutineManager, setShowRoutineManager] = useState(false);
+  const [showRoutineFormSelf, setShowRoutineFormSelf] = useState(false);
+  const [editingRoutineSelf, setEditingRoutineSelf] = useState(null);
+
+  const saveRoutineMobiliteSelf = async (routine) => {
+    try {
+      if (editingRoutineSelf?.id) {
+        const { error } = await supabase.from("routines_mobilite").update({
+          nom: routine.nom, jours: JSON.stringify(routine.jours), duree_travail: routine.duree_travail,
+          duree_repos: routine.duree_repos, exercices: JSON.stringify(routine.exercices),
+        }).eq("id", editingRoutineSelf.id);
+        if (error) throw error;
+        setRoutinesMobilite((prev) => prev.map((r) => (r.id === editingRoutineSelf.id ? { ...r, ...routine } : r)));
+      } else {
+        const { data, error } = await supabase.from("routines_mobilite").insert({
+          profil_id: profilId, coach_id: profilRow.coach_id || null, nom: routine.nom, jours: JSON.stringify(routine.jours),
+          duree_travail: routine.duree_travail, duree_repos: routine.duree_repos, exercices: JSON.stringify(routine.exercices),
+        }).select("*").single();
+        if (error) throw error;
+        setRoutinesMobilite((prev) => [...prev, { ...data, jours: routine.jours, exercices: routine.exercices }]);
+      }
+      fireToast("Routine enregistrée", "green");
+      setShowRoutineFormSelf(false);
+      setEditingRoutineSelf(null);
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement de la routine");
+      throw err;
+    }
+  };
+  const supprimerRoutineMobiliteSelf = async (id) => {
+    if (!confirm("Supprimer cette routine ?")) return;
+    try {
+      const { error } = await supabase.from("routines_mobilite").delete().eq("id", id);
+      if (error) throw error;
+      setRoutinesMobilite((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur suppression de la routine");
+    }
+  };
 
   const saveObjectifsNutrition = async (updates) => {
     if (!profilId) return;
-    const merged = { ...objectifsNutrition, ...updates };
-    setObjectifsNutrition((prev) => ({ ...prev, ...updates }));
+    // Repasser en mode %/kcal unique désactive le mode "par poids de corps" s'il était actif.
+    setNutriParams((prev) => ({
+      ...prev,
+      objectifCaloriesDefaut: updates.kcal ?? prev.objectifCaloriesDefaut,
+      pctProt: updates.pctProt ?? prev.pctProt,
+      pctGluc: updates.pctGluc ?? prev.pctGluc,
+      pctLip: updates.pctLip ?? prev.pctLip,
+      protParKg: null,
+      lipParKg: null,
+    }));
     try {
       const { error } = await supabase
         .from("profils")
         .update({
-          objectif_calories: merged.kcal,
-          pct_prot: merged.pctProt,
-          pct_gluc: merged.pctGluc,
-          pct_lip: merged.pctLip,
+          objectif_calories: updates.kcal,
+          pct_prot: updates.pctProt,
+          pct_gluc: updates.pctGluc,
+          pct_lip: updates.pctLip,
+          prot_par_kg: null,
+          lip_par_kg: null,
         })
         .eq("id", profilId);
       if (error) throw error;
@@ -9728,6 +10758,53 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     } catch (err) {
       console.error(err);
       fireToast("Erreur mise à jour objectifs");
+    }
+  };
+
+  // Les deux fonctions suivantes ne sont utilisées que par le coach quand il visualise/édite
+  // sa PROPRE nutrition (viewMode "client" sur son propre profil) : même éditeur complet
+  // (par jour / par poids de corps) que celui qu'il utilise pour ses clients.
+  const saveObjectifsKcalParJourSelf = async (kcalParJour) => {
+    if (!profilId) return;
+    setNutriParams((prev) => ({ ...prev, kcalParJour }));
+    try {
+      const { error } = await supabase.from("profils").update({
+        objectifs_kcal_par_jour: JSON.stringify(kcalParJour),
+      }).eq("id", profilId);
+      if (error) throw error;
+      fireToast("Calories par jour mises à jour", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur mise à jour du plan par jour");
+    }
+  };
+  const saveObjectifsParKgSelf = async ({ protParKg, lipParKg }) => {
+    if (!profilId) return;
+    setNutriParams((prev) => ({ ...prev, protParKg, lipParKg }));
+    try {
+      const { error } = await supabase.from("profils").update({
+        prot_par_kg: protParKg,
+        lip_par_kg: lipParKg,
+      }).eq("id", profilId);
+      if (error) throw error;
+      fireToast("Objectifs par poids de corps mis à jour", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur mise à jour des objectifs par poids");
+    }
+  };
+  const saveNutritionParJourSelf = async (joursConfig) => {
+    if (!profilId) return;
+    setNutriParams((prev) => ({ ...prev, nutritionParJour: joursConfig }));
+    try {
+      const { error } = await supabase.from("profils").update({
+        nutrition_par_jour: JSON.stringify(joursConfig),
+      }).eq("id", profilId);
+      if (error) throw error;
+      fireToast("Répartition des macros mise à jour", "green");
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur mise à jour de la répartition des macros");
     }
   };
   const [weightHistory, setWeightHistory] = useState([]);
@@ -10456,7 +11533,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} streakEnAttente={streakNutritionEnAttente} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} streakEnAttente={streakNutritionEnAttente} routinesDuJour={routinesDuJour} onLaunchRoutine={setActiveRoutine} onManageRoutines={() => setShowRoutineManager(true)} prochaineRoutine={prochaineRoutine} toutesRoutines={routinesMobilite} onVoirRoutines={() => setShowRoutinesListeClient(true)} />
           )}
           {tab === "seances" && !activeProgramme && (
             <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
@@ -10475,7 +11552,91 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               onSaveNotePerso={saveExerciceNotePerso}
             />
           )}
-          {tab === "nutrition" && <Nutrition meals={meals} onAdd={addFood} onRemove={removeFood} onUpdate={updateFood} objectifs={objectifsNutrition} profilId={profilId} fireToast={fireToast} saveObjectifsNutrition={saveObjectifsNutrition} eauVerres={eauVerres} onChangeWater={onChangeWater} isCoach={profilRow.role === "coach"} />}
+          {activeRoutine && (
+            <RoutineMobilitePlayer routine={activeRoutine} onClose={() => setActiveRoutine(null)} />
+          )}
+          {showRoutinesListeClient && (
+            <RoutinesListeClientModal
+              routines={routinesMobilite}
+              onClose={() => setShowRoutinesListeClient(false)}
+              onLaunch={(r) => { setShowRoutinesListeClient(false); setActiveRoutine(r); }}
+              onPreview={(r) => { setShowRoutinesListeClient(false); setPreviewRoutine(r); }}
+            />
+          )}
+          {previewRoutine && (
+            <RoutinePreviewModal routine={previewRoutine} onClose={() => setPreviewRoutine(null)} />
+          )}
+          {showRoutineManager && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowRoutineManager(false)}>
+              <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <SectionLabel icon={RotateCcw}>Mes routines</SectionLabel>
+                  <button onClick={() => setShowRoutineManager(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+                </div>
+                <button
+                  onClick={() => { setEditingRoutineSelf(null); setShowRoutineFormSelf(true); }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13, marginBottom: 12 }}
+                >
+                  <Plus size={16} /> Ajouter une routine
+                </button>
+                {routinesMobilite.length === 0 ? (
+                  <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune routine pour l'instant</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {routinesMobilite.map((r) => (
+                      <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 14, padding: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div>
+                            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text, marginBottom: 3 }}>{r.nom}</div>
+                            <div style={{ fontSize: 11.5, color: C.textMuted }}>
+                              {r.exercices.length} exercice{r.exercices.length > 1 ? "s" : ""} · {r.duree_travail}s effort / {r.duree_repos}s repos
+                            </div>
+                            <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                              {JOURS_SEMAINE.map((j) => (
+                                <span key={j} style={{ fontSize: 10, fontWeight: 700, padding: "3px 6px", borderRadius: 6, background: r.jours.includes(j) ? C.blueSoft : "transparent", color: r.jours.includes(j) ? C.blue : C.textDim }}>
+                                  {JOURS_SEMAINE_LABEL[j]}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            <button onClick={() => { setEditingRoutineSelf(r); setShowRoutineFormSelf(true); }} style={{ background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
+                            <button onClick={() => supprimerRoutineMobiliteSelf(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
+          {showRoutineFormSelf && (
+            <RoutineMobiliteModal
+              routineActuelle={editingRoutineSelf}
+              onClose={() => { setShowRoutineFormSelf(false); setEditingRoutineSelf(null); }}
+              onSave={saveRoutineMobiliteSelf}
+            />
+          )}
+          {tab === "nutrition" && (
+            <Nutrition
+              meals={meals}
+              onAdd={addFood}
+              onRemove={removeFood}
+              onUpdate={updateFood}
+              objectifs={objectifsNutrition}
+              profilId={profilId}
+              fireToast={fireToast}
+              saveObjectifsNutrition={saveObjectifsNutrition}
+              eauVerres={eauVerres}
+              onChangeWater={onChangeWater}
+              isCoach={profilRow.role === "coach"}
+              selfClientPlan={profilRow.role === "coach" ? { poids_actuel: objectifsNutrition.poidsActuel, objectifs_kcal_par_jour: objectifsNutrition.kcalParJourRaw, nutrition_par_jour: objectifsNutrition.nutritionParJourRaw } : null}
+              onSaveParJour={saveObjectifsKcalParJourSelf}
+              onSaveParKg={saveObjectifsParKgSelf}
+              onSaveNutritionParJour={saveNutritionParJourSelf}
+            />
+          )}
           {tab === "bilans" && (
             <Bilans
               weightHistory={weightHistory}
