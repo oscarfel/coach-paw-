@@ -2577,7 +2577,6 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   const startTimeKey = `session_start_${sessionKey}`;
   const logsKey = `session_logs_${sessionKey}`;
   const restKey = `session_rest_${sessionKey}`;
-  const alert3hKey = `session_alert3h_${sessionKey}`;
 
   // Sécurité : si une séance a été abandonnée (app fermée sans appuyer sur "Terminer"),
   // son chrono restait figé dans le localStorage. En relançant le même programme plus
@@ -2618,6 +2617,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     }
   });
   const [finished, setFinished] = useState(false);
+  const [autoEnvoyee, setAutoEnvoyee] = useState(false);
 
   // Persiste la progression à chaque changement : permet de quitter puis revenir sans rien perdre
   useEffect(() => {
@@ -2757,7 +2757,6 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     localStorage.removeItem(startTimeKey);
     localStorage.removeItem(logsKey);
     localStorage.removeItem(restKey);
-    localStorage.removeItem(alert3hKey);
     if (profilId) {
       supabase.from("seances_en_cours").delete().eq("profil_id", profilId).then(({ error }) => {
         if (error) console.error("Erreur nettoyage séance en cours (serveur):", error);
@@ -2765,27 +2764,27 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     }
   };
 
-  // Rappel à 3h de séance en cours : évite qu'une séance oubliée (app fermée sans
-  // "Terminer") reste indéfiniment invisible pour le coach. Se déclenche une seule fois
-  // par séance (marqué dans le localStorage, comme le reste de l'état de session).
+  // Auto-envoi à 3h de séance en cours : plutôt que de compter sur une notification que le
+  // client doit remarquer et suivre, on clôture et on envoie automatiquement ce qui a été
+  // fait. S'il n'y a rien eu de loggé (aucune série validée), il n'y a rien à envoyer — on
+  // referme simplement la séance fantôme sans créer d'entrée vide côté coach.
   useEffect(() => {
-    const SEUIL_RAPPEL_SECONDES = 3 * 60 * 60; // 3h
-    if (seconds < SEUIL_RAPPEL_SECONDES) return;
-    if (localStorage.getItem(alert3hKey)) return;
-    localStorage.setItem(alert3hKey, "1");
-    fireToast?.("Ta séance tourne depuis 3h — pense à la terminer et l'envoyer à ton coach.", "amber");
-    if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
-    if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) {
-      try {
-        new Notification("Ta séance est toujours en cours ⏱️", {
-          body: "Ça fait 3h — pense à la terminer et l'envoyer à ton coach pour qu'il puisse l'analyser.",
-          icon: "/pwa-192x192.png",
-          requireInteraction: true,
-        });
-      } catch (err) {
-        console.error("Erreur notification rappel séance:", err);
+    const SEUIL_AUTO_ENVOI_SECONDES = 3 * 60 * 60; // 3h
+    if (seconds < SEUIL_AUTO_ENVOI_SECONDES) return;
+    if (dejaEnvoyeRef.current) return;
+    dejaEnvoyeRef.current = true;
+    (async () => {
+      nettoyerStockageSession();
+      if (totalSets === 0) {
+        onFinish?.();
+        return;
       }
-    }
+      setAutoEnvoyee(true);
+      setFinished(true);
+      setSaveStatus("pending");
+      const ok = await onSessionComplete?.({ programme, logs, seconds });
+      setSaveStatus(ok ? "ok" : "error");
+    })();
   }, [seconds]);
 
   const attachVideo = (ex, url) => {
@@ -2816,8 +2815,11 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
           <Send size={30} color={saveStatus === "error" ? C.red : C.green} />
         </div>
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.textOnBg }}>
-          {saveStatus === "error" ? "Échec de l'envoi" : saveStatus === "pending" ? "Envoi en cours..." : "Séance envoyée à ton coach"}
+          {saveStatus === "error" ? "Échec de l'envoi" : saveStatus === "pending" ? "Envoi en cours..." : autoEnvoyee ? "Séance envoyée automatiquement" : "Séance envoyée à ton coach"}
         </div>
+        {autoEnvoyee && saveStatus === "ok" && (
+          <div style={{ fontSize: 12, color: C.amber, marginTop: -8 }}>Envoyée après 3h sans clôture manuelle</div>
+        )}
         <div style={{ fontSize: 13, color: C.textOnBgMuted, maxWidth: 280 }}>{programme.nom}</div>
 
         {saveStatus === "error" && (
