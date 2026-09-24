@@ -3441,8 +3441,29 @@ function ScannerCodeBarres({ onClose, onScan }) {
     scannerRef.current = html5Qrcode;
     html5Qrcode
       .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 260, height: 160 } },
+        {
+          facingMode: "environment",
+          // Résolution plus haute + mise au point continue : le code-barres reste net et
+          // lisible sans avoir à rapprocher l'emballage à quelques centimètres de l'appareil,
+          // et l'appareil refait la mise au point tout seul si le client s'approche quand même.
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          advanced: [{ focusMode: "continuous" }],
+        },
+        {
+          fps: 10,
+          // Zone de scan plus large (proportionnelle à l'écran, jusqu'à une taille max) : le
+          // code-barres peut remplir la zone à une distance plus confortable, sans avoir à
+          // coller le produit à la caméra.
+          qrbox: (viewfinderWidth, viewfinderHeight) => ({
+            width: Math.min(320, Math.floor(viewfinderWidth * 0.9)),
+            height: Math.min(200, Math.floor(viewfinderHeight * 0.5)),
+          }),
+          aspectRatio: 1.5,
+          // Utilise le détecteur de codes-barres natif du téléphone quand il est disponible
+          // (plus rapide et plus tolérant à la distance/l'angle que le décodeur JS pur).
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        },
         (decodedText) => {
           if (scannerRef.current && scannerRef.current.isScanning) {
             scannerRef.current.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
@@ -3464,9 +3485,14 @@ function ScannerCodeBarres({ onClose, onScan }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, background: "transparent", border: "none", color: "#FFFFFF" }}><X size={26} /></button>
-      <div style={{ fontSize: 14, color: "#FFFFFF", marginBottom: 16, fontWeight: 700, textAlign: "center" }}>
+      <div style={{ fontSize: 14, color: "#FFFFFF", marginBottom: 6, fontWeight: 700, textAlign: "center" }}>
         Scanne le code-barres de l'emballage
       </div>
+      {!erreur && (
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 14, textAlign: "center", maxWidth: 280 }}>
+          Tiens le produit à 15-20 cm de la caméra, pas plus près
+        </div>
+      )}
       {erreur ? (
         <div style={{ color: "#FF5D6C", fontSize: 13, textAlign: "center", maxWidth: 280 }}>{erreur}</div>
       ) : (
