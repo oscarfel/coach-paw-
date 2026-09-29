@@ -42,9 +42,9 @@ const C = {
   redSoft: "rgba(255,93,108,0.16)",
 };
 
-// Police identique au visuel de référence : SF Pro (police système Apple) sur iPhone/Mac,
-// Inter en secours partout ailleurs (Android, Windows).
-const FONT_SANS = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif";
+// Police du visuel de référence : Inter (formes, chiffres proportionnels, titres gras à
+// approche serrée). Un seul jeu de police pour tout : titres, texte et chiffres.
+const FONT_SANS = "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif";
 const FONT_DISPLAY = FONT_SANS;
 const SIGNED_URL_EXPIRY = 315360000; // ~10 ans, pour les fichiers sur buckets privés (photos-bilan, documents-coach)
 const FONT_BODY = FONT_SANS;
@@ -100,7 +100,10 @@ const FontImports = () => (
     input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: ${C.cardBorderLight}; }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -6px; width: 16px; height: 16px; border-radius: 50%; background: ${C.blue}; box-shadow: 0 0 0 4px ${C.blueSoft}; }
     button { font-family: ${FONT_BODY}; cursor: pointer; }
-    body { font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+    html, body, #root { font-family: ${FONT_BODY}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-feature-settings: 'cv11', 'ss03'; }
+    /* Approche serrée typique du visuel (Inter, -0.01em partout) ; les libellés en capitales
+       gardent leur espacement large défini au cas par cas (letterSpacing inline prioritaire). */
+    *, *::before, *::after { letter-spacing: -0.011em; }
     @keyframes pulseGlow { 0%,100% { opacity:.55; } 50% { opacity:1; } }
     @keyframes slideUp { from { transform: translateY(12px); opacity:0; } to { transform: translateY(0); opacity:1; } }
     @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
