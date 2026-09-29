@@ -15,38 +15,41 @@ import { supabase } from "./supabaseClient";
 /* ------------------------------------------------------------------ */
 /*  DESIGN TOKENS                                                      */
 /* ------------------------------------------------------------------ */
+// Palette "séance" premium (fond bleu nuit profond, cartes ardoise, accents bleu/jaune) —
+// alignée sur la charte des visuels marketing (fond sombre, gros titres très gras, badges
+// arrondis, checks bleus, accent jaune pour les moments clés type "surcharge progressive").
 const C = {
-  bg: "#EAF2FE",
-  bgGradA: "#EAF2FE",
-  bgGradB: "#EAF2FE",
-  surface: "#3E7DEB",
-  card: "#3E7DEB",
-  cardBorder: "rgba(0,178,255,0.6)",
-  cardBorderLight: "rgba(0,200,255,0.85)",
+  bg: "#080B1A",
+  bgGradA: "#0C1330",
+  bgGradB: "#050710",
+  surface: "#131A33",
+  card: "#161D3D",
+  cardBorder: "rgba(90,130,255,0.22)",
+  cardBorderLight: "rgba(120,150,255,0.4)",
   text: "#FFFFFF",
-  textOnBg: "#132345",
-  textOnBgMuted: "#5F7391",
-  textMuted: "#DCE9FA",
-  textDim: "#E4ECFB",
-  blue: "#1E56C9",
-  blueSoft: "rgba(30,86,201,0.18)",
-  blueBorder: "rgba(30,86,201,0.5)",
-  amber: "#F0AE4D",
-  amberSoft: "rgba(240,174,77,0.18)",
+  textOnBg: "#FFFFFF",
+  textOnBgMuted: "#9AA6C7",
+  textMuted: "#B9C4E0",
+  textDim: "#7C88AD",
+  blue: "#3B6FE0",
+  blueSoft: "rgba(59,111,224,0.18)",
+  blueBorder: "rgba(59,111,224,0.5)",
+  amber: "#F5B833",
+  amberSoft: "rgba(245,184,51,0.18)",
   green: "#3AD6A0",
   greenSoft: "rgba(58,214,160,0.16)",
   red: "#FF5D6C",
   redSoft: "rgba(255,93,108,0.16)",
 };
 
-const FONT_DISPLAY = "'Inter', sans-serif";
+const FONT_DISPLAY = "'Manrope', sans-serif";
 const SIGNED_URL_EXPIRY = 315360000; // ~10 ans, pour les fichiers sur buckets privés (photos-bilan, documents-coach)
-const FONT_BODY = "'Inter', sans-serif";
+const FONT_BODY = "'Manrope', sans-serif";
 const FONT_MONO = "'JetBrains Mono', monospace";
 
 const FontImports = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
     html, body {
       touch-action: pan-x pan-y;
       overscroll-behavior: none;
@@ -110,7 +113,7 @@ const Card = React.forwardRef(({ children, style, ...rest }, ref) => (
       border: `1px solid ${C.cardBorder}`,
       borderRadius: 20,
       padding: 16,
-      boxShadow: "0 0 0 1.5px rgba(0,178,255,0.4), 0 0 26px rgba(0,178,255,0.5), 0 0 10px rgba(0,200,255,0.6), 0 4px 24px rgba(30,86,201,0.2)",
+      boxShadow: `0 0 0 1px ${C.cardBorder}, 0 10px 28px rgba(0,0,0,0.45), 0 0 18px rgba(59,111,224,0.18)`,
       ...style,
     }}
     {...rest}
@@ -161,14 +164,14 @@ const PillButton = ({ children, onClick, active, color = C.blue, style, disabled
     style={{
       padding: "8px 14px",
       borderRadius: 999,
-      border: `2px solid ${active ? "#00B2FF" : C.cardBorderLight}`,
-      background: active ? "#1E56C9" : "transparent",
+      border: `2px solid ${active ? C.blue : C.cardBorderLight}`,
+      background: active ? C.blue : "transparent",
       color: active ? "#FFFFFF" : (onBg ? C.textOnBgMuted : C.textMuted),
       fontSize: 13,
       fontWeight: 700,
       opacity: disabled ? 0.4 : 1,
       transition: "all .15s ease",
-      boxShadow: active ? "0 0 12px rgba(0,178,255,0.7)" : "none",
+      boxShadow: active ? "0 0 12px rgba(59,111,224,0.55)" : "none",
       ...style,
     }}
   >
@@ -536,7 +539,7 @@ const BottomNav = ({ active, setActive }) => {
         justifyContent: "space-around",
         alignItems: "center",
         zIndex: 50,
-        boxShadow: "0 0 22px rgba(0,178,255,0.6), 0 0 8px rgba(0,200,255,0.8), 0 8px 28px rgba(10,30,70,0.3)",
+        boxShadow: "0 0 18px rgba(59,111,224,0.35), 0 -8px 28px rgba(0,0,0,0.5)",
       }}
     >
       {/* Bulle qui glisse d'un onglet à l'autre */}
@@ -1798,7 +1801,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
                 borderRadius: 14,
                 padding: enEchauffement ? "9px 11px" : "12px 14px",
                 fontSize: enEchauffement ? 11 : 13,
-                color: C.textOnBg,
+                color: "#132345", // carte volontairement blanche (badge de rappel) : texte foncé fixe, indépendant du thème
                 boxShadow: "0 0 16px rgba(240,178,92,0.5), 0 4px 12px rgba(10,30,70,0.2)",
                 opacity: enEchauffement ? 0.75 : 1,
               }}
@@ -2087,7 +2090,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
 
   if (!ex) {
     return (
-      <div style={{ position: "fixed", inset: 0, background: "#CFE4FC", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
+      <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
         <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.textOnBg }}>Repos</span>
         <button onClick={onSkip} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "14px 28px", fontWeight: 800, fontSize: 15 }}>
           Continuer
@@ -2114,7 +2117,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   const ringOffset = ringCirc - (pct / 100) * ringCirc;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#CFE4FC", zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>Repos</span>
         <button onClick={onSkip} style={{ background: "transparent", border: "none", color: C.textOnBg }}><X size={22} /></button>
@@ -4045,10 +4048,10 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
               )}
 
               <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                <button onClick={() => setModeQuantite("grammes")} style={{ flex: 1, background: modeQuantite === "grammes" ? "#1E56C9" : "transparent", border: `2px solid ${modeQuantite === "grammes" ? "#00B2FF" : C.cardBorderLight}`, color: modeQuantite === "grammes" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "grammes" ? "0 0 12px rgba(0,178,255,0.7)" : "none" }}>
+                <button onClick={() => setModeQuantite("grammes")} style={{ flex: 1, background: modeQuantite === "grammes" ? C.blue : "transparent", border: `2px solid ${modeQuantite === "grammes" ? C.blue : C.cardBorderLight}`, color: modeQuantite === "grammes" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "grammes" ? "0 0 12px rgba(59,111,224,0.55)" : "none" }}>
                   Grammes
                 </button>
-                <button onClick={() => setModeQuantite("portion")} style={{ flex: 1, background: modeQuantite === "portion" ? "#1E56C9" : "transparent", border: `2px solid ${modeQuantite === "portion" ? "#00B2FF" : C.cardBorderLight}`, color: modeQuantite === "portion" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "portion" ? "0 0 12px rgba(0,178,255,0.7)" : "none" }}>
+                <button onClick={() => setModeQuantite("portion")} style={{ flex: 1, background: modeQuantite === "portion" ? C.blue : "transparent", border: `2px solid ${modeQuantite === "portion" ? C.blue : C.cardBorderLight}`, color: modeQuantite === "portion" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "portion" ? "0 0 12px rgba(59,111,224,0.55)" : "none" }}>
                   Par portion (tranche, unité...)
                 </button>
               </div>
@@ -4233,7 +4236,7 @@ function CoursesEtSupplements({ profilId, fireToast }) {
           width: 38, height: 38, borderRadius: "50%",
           background: C.blue, border: `2px solid ${C.cardBorderLight}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 0 10px rgba(0,178,255,0.5), 0 4px 12px rgba(10,30,70,0.35)",
+          boxShadow: "0 0 10px rgba(59,111,224,0.4), 0 4px 12px rgba(0,0,0,0.4)",
         }}
       >
         <ShoppingCart size={17} color="#06171F" />
@@ -5546,7 +5549,7 @@ function CGUModal({ onClose }) {
 const appShellStyle = {
   minHeight: "100vh",
   width: "100%",
-  background: C.bg,
+  background: `radial-gradient(circle at 50% 0%, ${C.bgGradA} 0%, ${C.bgGradB} 60%)`,
   fontFamily: FONT_BODY,
   color: C.text,
   display: "flex",
@@ -8503,7 +8506,7 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
           const next = MACRO_MODES[(idx + 1) % MACRO_MODES.length];
           setCfg({ ...cfg, macroMode: next.key });
         }}
-        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderRadius: 999, border: "2px solid #00B2FF", background: "#1E56C9", color: "#FFFFFF", fontSize: 12.5, fontWeight: 700, boxShadow: "0 0 12px rgba(0,178,255,0.7)", marginBottom: 8 }}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderRadius: 999, border: `2px solid ${C.blue}`, background: C.blue, color: "#FFFFFF", fontSize: 12.5, fontWeight: 700, boxShadow: "0 0 12px rgba(59,111,224,0.55)", marginBottom: 8 }}
       >
         <span>{MACRO_MODES.find((m) => m.key === cfg.macroMode)?.label || "Pourcentage (%)"}</span>
         <ChevronDown size={14} />
