@@ -7371,12 +7371,12 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
   if (formMode === "pickClient") {
     return (
       <div>
-        <button onClick={() => { setFormMode(null); setEditingModele(null); }} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => { setFormMode(null); setEditingModele(null); }} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
         <SectionLabel onBg icon={User}>Assigner « {editingModele.nom} » à...</SectionLabel>
         {clients.length === 0 ? (
-          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client pour le moment</div></Card>
+          <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun client pour le moment</div></Card>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
             {clients.map((c) => (
@@ -7398,11 +7398,11 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
   if (formMode === "nouvelleSemaine") {
     return (
       <div>
-        <button onClick={() => setFormMode(null)} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => setFormMode(null)} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
-        <SectionLabel onBg icon={Calendar}>Nouvelle semaine type</SectionLabel>
-        <div style={{ fontSize: 12, color: C.textOnBgMuted, marginBottom: 12 }}>
+        <SectionHead icon={Calendar} title="Nouvelle semaine type" />
+        <div style={{ fontSize: 13.5, color: C.textOnBgMuted, marginBottom: 12 }}>
           ex : "Programme épaule faible", "Prise de masse débutant"...
         </div>
         <input
@@ -7417,9 +7417,9 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
           onChange={(e) => setDescSemaine(e.target.value)}
           placeholder="Description (optionnel)"
           rows={2}
-          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, resize: "none", marginBottom: 14 }}
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14.5, resize: "none", marginBottom: 14 }}
         />
-        <button onClick={creerSemaine} disabled={savingSemaine || !nomSemaine.trim()} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, opacity: savingSemaine || !nomSemaine.trim() ? 0.6 : 1 }}>
+        <button onClick={creerSemaine} disabled={savingSemaine || !nomSemaine.trim()} style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", opacity: savingSemaine || !nomSemaine.trim() ? 0.6 : 1 }}>
           {savingSemaine ? "Création..." : "Créer et ajouter les séances"}
         </button>
       </div>
@@ -7430,14 +7430,14 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
     const seances7 = modelesDeSemaine(selectedSemaine.id);
     return (
       <div>
-        <button onClick={() => { setFormMode(null); setSelectedSemaine(null); }} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => { setFormMode(null); setSelectedSemaine(null); }} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <SectionLabel onBg icon={Calendar}>{selectedSemaine.nom}</SectionLabel>
           <button onClick={() => supprimerSemaine(selectedSemaine.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={16} /></button>
         </div>
-        {selectedSemaine.description && <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>{selectedSemaine.description}</div>}
+        {selectedSemaine.description && <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>{selectedSemaine.description}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
           {JOURS_ORDRE_MODELE.map((jour) => {
             const seance = seances7.find((s) => s.jour_fixe === jour);
@@ -7448,10 +7448,10 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
                 style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
               >
                 <div>
-                  <div style={{ fontSize: 11.5, fontWeight: 600, color: C.textMuted, textTransform: "capitalize", letterSpacing: 0, marginBottom: 2 }}>{jour}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.textMuted, textTransform: "capitalize", letterSpacing: 0, marginBottom: 2 }}>{jour}</div>
                   <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: seance ? C.text : C.textDim }}>{seance ? seance.nom : "Repos — appuyer pour créer"}</div>
                   {seance && (
-                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
+                    <div style={{ fontSize: 12.5, color: C.textDim, marginTop: 2 }}>
                       {(seance.exercices || []).length} exercices · {(seance.exercices || []).reduce((sum, ex) => sum + (Number(ex.sets) || 0), 0)} séries
                     </div>
                   )}
@@ -7464,7 +7464,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         <button
           onClick={() => setFormMode("pickClientSemaine")}
           disabled={seances7.length === 0}
-          style={{ width: "100%", background: seances7.length === 0 ? C.surface : C.blue, border: "none", color: seances7.length === 0 ? C.textDim : "#06171F", borderRadius: 12, padding: "13px", fontWeight: 800, fontSize: 14 }}
+          style={{ width: "100%", background: seances7.length === 0 ? C.surface : C.blue, border: "none", color: seances7.length === 0 ? C.textDim : "#FFFFFF", borderRadius: 12, padding: "13px", fontWeight: 800, fontSize: 14 }}
         >
           Assigner cette semaine type à un client
         </button>
@@ -7475,15 +7475,15 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
   if (formMode === "pickClientSemaine" && selectedSemaine) {
     return (
       <div>
-        <button onClick={() => setFormMode("detailSemaine")} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <button onClick={() => setFormMode("detailSemaine")} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
         <SectionLabel onBg icon={User}>Assigner « {selectedSemaine.nom} » à...</SectionLabel>
-        <div style={{ fontSize: 11.5, color: C.textOnBgMuted, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: C.textOnBgMuted, marginBottom: 12 }}>
           Toutes les séances de cette semaine type seront ajoutées au programme du client, avec leurs jours fixes.
         </div>
         {clients.length === 0 ? (
-          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun client pour le moment</div></Card>
+          <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun client pour le moment</div></Card>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {clients.map((c) => (
@@ -7513,24 +7513,33 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         <>
           <button
             onClick={() => { setEditingModele(null); setSelectedSemaine(null); setFormMode("modele"); }}
-            style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+            style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
           >
             <Plus size={18} /> Créer un modèle
           </button>
           {loading ? (
             <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
           ) : modelesSansSemaine.length === 0 ? (
-            <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun modèle individuel pour le moment</div></Card>
+            <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun modèle individuel pour le moment</div></Card>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {modelesSansSemaine.map((m) => (
-                <Card key={m.id}>
-                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{m.nom}</div>
-                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>{m.muscle} · {(m.exercices || []).length} exercices · {(m.exercices || []).reduce((sum, ex) => sum + (Number(ex.sets) || 0), 0)} séries</div>
-                  {m.updated_at && <div style={{ fontSize: 10, color: C.textDim, marginBottom: 8 }}>Modifié le {formatDateDisplay(m.updated_at)}</div>}
+                <Card key={m.id} style={{ padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, textAlign: "left" }}>
+                    <IconBadge icon={Dumbbell} color="#7FA0FF" size={46} iconSize={22} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: C.text }}>{m.nom}</div>
+                      {m.muscle && <div style={{ fontSize: 13.5, color: C.textMuted, marginTop: 1 }}>{m.muscle}</div>}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 10px" }}>{(m.exercices || []).length} exercices</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 10px" }}>{(m.exercices || []).reduce((sum, ex) => sum + (Number(ex.sets) || 0), 0)} séries</span>
+                    {m.updated_at && <span style={{ fontSize: 12.5, fontWeight: 600, color: C.textDim, padding: "3px 4px" }}>Modifié le {formatDateDisplay(m.updated_at)}</span>}
+                  </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => { setEditingModele(m); setFormMode("modele"); }} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 0", color: C.text, fontSize: 12.5, fontWeight: 600 }}>Modifier</button>
-                    <button onClick={() => { setEditingModele(m); setFormMode("pickClient"); }} style={{ flex: 1, background: C.blueSoft, border: "none", borderRadius: 10, padding: "8px 0", color: C.blue, fontSize: 12.5, fontWeight: 700 }}>Assigner</button>
+                    <button onClick={() => { setEditingModele(m); setFormMode("modele"); }} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 14, padding: "11px 0", color: C.text, fontSize: 14, fontWeight: 600 }}>Modifier</button>
+                    <button onClick={() => { setEditingModele(m); setFormMode("pickClient"); }} style={{ flex: 1, background: C.blueSoft, border: "none", borderRadius: 14, padding: "11px 0", color: C.blue, fontSize: 14, fontWeight: 700 }}>Assigner</button>
                     <button onClick={() => remove(m.id)} style={{ background: "transparent", border: "none", color: C.red, padding: "0 8px" }}><Trash2 size={16} /></button>
                   </div>
                 </Card>
@@ -7540,27 +7549,34 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 12, color: C.textOnBgMuted, marginBottom: 12 }}>
+          <div style={{ fontSize: 13.5, color: C.textOnBgMuted, marginBottom: 12 }}>
             Regroupe plusieurs séances sur 7 jours (ex: "Programme épaule faible") pour les assigner d'un coup à un client.
           </div>
           <button
             onClick={() => setFormMode("nouvelleSemaine")}
-            style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+            style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
           >
             <Plus size={18} /> Créer une semaine type
           </button>
           {loading ? (
             <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
           ) : semaines.length === 0 ? (
-            <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune semaine type pour le moment</div></Card>
+            <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucune semaine type pour le moment</div></Card>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {semaines.map((s) => {
                 const nbSeances = modelesDeSemaine(s.id).length;
                 return (
-                  <Card key={s.id} onClick={() => { setSelectedSemaine(s); setFormMode("detailSemaine"); }} style={{ cursor: "pointer" }}>
-                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{s.nom}</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>{nbSeances}/7 jour(s) programmé(s)</div>
+                  <Card key={s.id} onClick={() => { setSelectedSemaine(s); setFormMode("detailSemaine"); }} style={{ cursor: "pointer", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
+                    <IconBadge icon={Calendar} color="#F5C542" size={46} iconSize={22} />
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: C.text }}>{s.nom}</div>
+                      <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                        {[0,1,2,3,4,5,6].map((i) => <span key={i} style={{ flex: 1, height: 6, borderRadius: 999, background: i < nbSeances ? "linear-gradient(90deg, #4C7DF0, #F5C542)" : "rgba(255,255,255,0.1)" }} />)}
+                      </div>
+                      <div style={{ fontSize: 13, color: C.textMuted, marginTop: 6 }}>{nbSeances}/7 jours programmés</div>
+                    </div>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ChevronRight size={18} color="#9DB8FF" /></div>
                   </Card>
                 );
               })}
@@ -7739,7 +7755,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
     <select
       value={targetClientId}
       onChange={(e) => setTargetClientId(e.target.value)}
-      style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}
+      style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 10 }}
     >
       <option value="tous">Tous mes clients</option>
       {clients.map((c) => (
@@ -7751,28 +7767,28 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
   if (section === "recettes") {
     return (
       <>
-        <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
+        <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>
           Crée des recettes à envoyer à un client précis ou à tous.
         </div>
         <Card style={{ marginBottom: 20 }}>
-          <SectionLabel icon={ClipboardList}>Nouvelle recette</SectionLabel>
+          <SectionHead icon={ClipboardList} title="Nouvelle recette" />
           {selecteurClient}
-          <input type="text" value={nomRecette} onChange={(e) => setNomRecette(e.target.value)} placeholder="Nom de la recette" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8 }} />
-          <textarea value={descRecette} onChange={(e) => setDescRecette(e.target.value)} placeholder="Description (optionnel)" rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
-          <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} placeholder="Ingrédients (un par ligne)" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8, resize: "none" }} />
-          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions de préparation" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10, resize: "none" }} />
+          <input type="text" value={nomRecette} onChange={(e) => setNomRecette(e.target.value)} placeholder="Nom de la recette" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 8 }} />
+          <textarea value={descRecette} onChange={(e) => setDescRecette(e.target.value)} placeholder="Description (optionnel)" rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 8, resize: "none" }} />
+          <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} placeholder="Ingrédients (un par ligne)" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 8, resize: "none" }} />
+          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions de préparation" rows={3} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 10, resize: "none" }} />
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={() => creerRecette(false)}
               disabled={savingRecette || !nomRecette.trim()}
-              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
+              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14.5, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
             >
               <Folder size={14} style={{ verticalAlign: -2, marginRight: 5 }} /> Enregistrer en brouillon
             </button>
             <button
               onClick={() => creerRecette(true)}
               disabled={savingRecette || !nomRecette.trim()}
-              style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
+              style={{ flex: 1, background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
             >
               Créer et envoyer
             </button>
@@ -7783,9 +7799,9 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
           <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
         ) : (
           <>
-            <SectionLabel icon={Folder} onBg>Brouillons — à préparer et envoyer plus tard</SectionLabel>
+            <SectionHead icon={Folder} title="Brouillons — à préparer et envoyer plus tard" />
             {recettesBrouillons.length === 0 ? (
-              <Card style={{ marginBottom: 20 }}><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun brouillon pour le moment</div></Card>
+              <Card style={{ marginBottom: 20 }}><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun brouillon pour le moment</div></Card>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                 {recettesBrouillons.map((r) => (
@@ -7794,12 +7810,12 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
                       <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.nom}</div>
                       <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
                     </div>
-                    {r.description && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 6, marginBottom: 8 }}>{r.description}</div>}
+                    {r.description && <div style={{ fontSize: 13.5, color: C.textMuted, marginTop: 6, marginBottom: 8 }}>{r.description}</div>}
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                       <select
                         value={cibleEnvoiParRecette[r.id] || "tous"}
                         onChange={(e) => setCibleEnvoiParRecette((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                        style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 12.5 }}
+                        style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 14 }}
                       >
                         <option value="tous">Tous mes clients</option>
                         {clients.map((c) => (
@@ -7809,7 +7825,7 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
                       <button
                         onClick={() => envoyerRecette(r)}
                         disabled={envoyingRecetteId === r.id}
-                        style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "8px 14px", fontWeight: 700, fontSize: 12.5, opacity: envoyingRecetteId === r.id ? 0.6 : 1 }}
+                        style={{ background: C.blue, border: "none", color: "#FFFFFF", borderRadius: 10, padding: "8px 14px", fontWeight: 700, fontSize: 14, opacity: envoyingRecetteId === r.id ? 0.6 : 1 }}
                       >
                         {envoyingRecetteId === r.id ? "Envoi..." : "Envoyer"}
                       </button>
@@ -7819,9 +7835,9 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
               </div>
             )}
 
-            <SectionLabel icon={Send} onBg>Envoyées</SectionLabel>
+            <SectionHead icon={Send} title="Envoyées" />
             {recettesEnvoyees.length === 0 ? (
-              <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune recette envoyée pour le moment</div></Card>
+              <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucune recette envoyée pour le moment</div></Card>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {recettesEnvoyees.map((r) => (
@@ -7829,11 +7845,11 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.nom}</div>
-                        <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{nomClient(r.client_id)}</div>
+                        <div style={{ fontSize: 12.5, color: C.textDim, marginTop: 2 }}>{nomClient(r.client_id)}</div>
                       </div>
                       <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
                     </div>
-                    {r.description && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 6 }}>{r.description}</div>}
+                    {r.description && <div style={{ fontSize: 13.5, color: C.textMuted, marginTop: 6 }}>{r.description}</div>}
                   </Card>
                 ))}
               </div>
@@ -7847,18 +7863,18 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
   if (section === "courses") {
     return (
       <>
-        <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
+        <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>
           Envoie une liste de courses à un client précis ou à tous. Il la retrouve dans son onglet Nutrition.
         </div>
         <Card style={{ marginBottom: 20 }}>
-          <SectionLabel icon={ShoppingCart}>Nouvelle liste de courses</SectionLabel>
+          <SectionHead icon={ShoppingCart} title="Nouvelle liste de courses" />
           {selecteurClient}
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <input
               type="text" value={nouvelItem} onChange={(e) => setNouvelItem(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") ajouterItemCourse(); }}
               placeholder="Ajouter un article (ex : yaourts nature)"
-              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5 }}
             />
             <button onClick={ajouterItemCourse} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px" }}><Plus size={14} /></button>
           </div>
@@ -7866,28 +7882,28 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
               {itemsCourse.map((item, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 8, padding: "7px 10px" }}>
-                  <span style={{ fontSize: 13, color: C.text }}>{item}</span>
+                  <span style={{ fontSize: 14.5, color: C.text }}>{item}</span>
                   <button onClick={() => retirerItemCourse(i)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={14} /></button>
                 </div>
               ))}
             </div>
           )}
-          <button onClick={enregistrerListeCourses} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>Envoyer la liste</button>
+          <button onClick={enregistrerListeCourses} style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)" }}>Envoyer la liste</button>
         </Card>
 
         {loading ? (
           <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
         ) : listesCourses.length === 0 ? (
-          <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucune liste envoyée pour le moment</div></Card>
+          <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucune liste envoyée pour le moment</div></Card>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {listesCourses.map((l) => (
               <Card key={l.id} style={{ padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{nomClient(l.client_id)}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>{nomClient(l.client_id)}</div>
                   <button onClick={() => supprimerListeCourses(l.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
                 </div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>{(l.items || []).join(" · ")}</div>
+                <div style={{ fontSize: 13.5, color: C.textMuted }}>{(l.items || []).join(" · ")}</div>
               </Card>
             ))}
           </div>
@@ -7899,30 +7915,30 @@ function AlimentationView({ coachId, clients, fireToast, section }) {
   // section === "supplements"
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>
         Ajoute des suppléments recommandés avec un lien direct (ex : lien Amazon), visibles par le client dans son onglet Nutrition.
       </div>
       <Card style={{ marginBottom: 20 }}>
-        <SectionLabel icon={Pill}>Nouveau supplément</SectionLabel>
+        <SectionHead icon={Pill} title="Nouveau supplément" />
         {selecteurClient}
-        <input type="text" value={nomSupplement} onChange={(e) => setNomSupplement(e.target.value)} placeholder="Nom du supplément (ex : Whey protéine)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8 }} />
-        <input type="text" value={lienSupplement} onChange={(e) => setLienSupplement(e.target.value)} placeholder="Lien (ex : https://amazon.fr/...)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 8 }} />
-        <input type="text" value={noteSupplement} onChange={(e) => setNoteSupplement(e.target.value)} placeholder="Note (ex : 1 dose après l'entraînement)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }} />
-        <button onClick={ajouterSupplement} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>Ajouter le supplément</button>
+        <input type="text" value={nomSupplement} onChange={(e) => setNomSupplement(e.target.value)} placeholder="Nom du supplément (ex : Whey protéine)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 8 }} />
+        <input type="text" value={lienSupplement} onChange={(e) => setLienSupplement(e.target.value)} placeholder="Lien (ex : https://amazon.fr/...)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 8 }} />
+        <input type="text" value={noteSupplement} onChange={(e) => setNoteSupplement(e.target.value)} placeholder="Note (ex : 1 dose après l'entraînement)" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 10 }} />
+        <button onClick={ajouterSupplement} style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)" }}>Ajouter le supplément</button>
       </Card>
 
       {loading ? (
         <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
       ) : supplements.length === 0 ? (
-        <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun supplément pour le moment</div></Card>
+        <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun supplément pour le moment</div></Card>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {supplements.map((s) => (
             <Card key={s.id} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10 }}>
-              <Pill size={18} color={C.blue} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{s.nom}</div>
-                <div style={{ fontSize: 11, color: C.textDim }}>{nomClient(s.client_id)}{s.note ? ` · ${s.note}` : ""}</div>
+              <IconBadge icon={Pill} color="#3AD6A0" size={42} iconSize={20} />
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>{s.nom}</div>
+                <div style={{ fontSize: 12.5, color: C.textDim }}>{nomClient(s.client_id)}{s.note ? ` · ${s.note}` : ""}</div>
               </div>
               <button onClick={() => supprimerSupplement(s.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
             </Card>
@@ -7997,16 +8013,16 @@ function OutilsView({ coachId, clients, fireToast, section }) {
     <>
       {section === "drive" && (
         <>
-          <SectionLabel icon={FileText} onBg>Drive</SectionLabel>
+          <SectionHead icon={FileText} title="Drive" />
           <Card style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+            <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 12 }}>
               Envoie des PDF (programmes, guides, factures...) à un client précis ou à tous tes clients d'un coup.
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <select
                 value={targetClientId}
                 onChange={(e) => setTargetClientId(e.target.value)}
-                style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+                style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5 }}
               >
                 <option value="tous">Tous mes clients</option>
                 {clients.map((c) => (
@@ -8017,7 +8033,7 @@ function OutilsView({ coachId, clients, fireToast, section }) {
             <button
               onClick={() => fileRef.current && fileRef.current.click()}
               disabled={uploading}
-              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1 }}
+              style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: uploading ? 0.6 : 1 }}
             >
               <Upload size={16} /> {uploading ? "Envoi..." : "Envoyer un PDF"}
             </button>
@@ -8032,10 +8048,10 @@ function OutilsView({ coachId, clients, fireToast, section }) {
                 const c = clients.find((cl) => cl.id === d.client_id);
                 return (
                   <Card key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
-                    <FileText size={18} color={C.blue} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{d.nom}</div>
-                      <div style={{ fontSize: 11, color: C.textMuted }}>{c ? `${c.prenom} ${c.nom}` : "Tous les clients"}</div>
+                    <IconBadge icon={FileText} color="#7FA0FF" size={42} iconSize={20} />
+                    <div style={{ flex: 1, textAlign: "left" }}>
+                      <div style={{ fontSize: 14.5, color: C.text, fontWeight: 600 }}>{d.nom}</div>
+                      <div style={{ fontSize: 12.5, color: C.textMuted }}>{c ? `${c.prenom} ${c.nom}` : "Tous les clients"}</div>
                     </div>
                     <button onClick={() => remove(d.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
                   </Card>
@@ -8048,10 +8064,10 @@ function OutilsView({ coachId, clients, fireToast, section }) {
 
       {section === "automatisation" && (
         <>
-          <SectionLabel icon={Zap} onBg>Automatisation</SectionLabel>
+          <SectionHead icon={Zap} title="Automatisation" />
           <Card>
-            <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>Bientôt disponible</div>
-            <div style={{ fontSize: 12, color: C.textMuted }}>
+            <div style={{ fontSize: 14.5, color: C.text, fontWeight: 600, marginBottom: 6 }}>Bientôt disponible</div>
+            <div style={{ fontSize: 13.5, color: C.textMuted }}>
               On définira ensemble ce qu'il serait utile d'automatiser (rappels, relances, messages de bienvenue...) une fois que tu auras une idée plus précise de ce qui te ferait gagner du temps au quotidien.
             </div>
           </Card>
@@ -8192,14 +8208,14 @@ function VODView({ coachId, fireToast }) {
             <input
               type="text" autoFocus value={editingNom} onChange={(e) => setEditingNom(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); }}
-              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13 }}
+              style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 14.5 }}
             />
             <button onClick={() => setEditingId(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={16} /></button>
           </div>
-          <select value={editingGroupe} onChange={(e) => setEditingGroupe(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13 }}>
+          <select value={editingGroupe} onChange={(e) => setEditingGroupe(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 14.5 }}>
             {GROUPES_MUSCULAIRES.map((g) => <option key={g} value={g}>{g}</option>)}
           </select>
-          <button onClick={saveEdit} style={{ background: C.blue, border: "none", borderRadius: 8, padding: "8px", color: "#06171F", fontSize: 12, fontWeight: 700 }}>Enregistrer</button>
+          <button onClick={saveEdit} style={{ background: C.blue, border: "none", borderRadius: 8, padding: "8px", color: "#FFFFFF", fontSize: 13.5, fontWeight: 700 }}>Enregistrer</button>
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -8213,8 +8229,8 @@ function VODView({ coachId, fireToast }) {
               <Dumbbell size={16} color={C.textDim} />
             )}
           </div>
-          <div style={{ flex: 1, fontSize: 13, color: C.text, fontWeight: 600 }}>{ex.nom}</div>
-          <button onClick={() => { setEditingVideoId(ex.id); setEditingVideoUrl(ex.video_demo_url || ""); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 11 }}>
+          <div style={{ flex: 1, fontSize: 14.5, color: C.text, fontWeight: 600 }}>{ex.nom}</div>
+          <button onClick={() => { setEditingVideoId(ex.id); setEditingVideoUrl(ex.video_demo_url || ""); }} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12.5 }}>
             {ex.video_demo_url ? "Changer vidéo" : "+ Vidéo"}
           </button>
           <button onClick={() => startEdit(ex)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 15 }}>✎</button>
@@ -8226,7 +8242,7 @@ function VODView({ coachId, fireToast }) {
 
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>
         Ta bibliothèque d'exercices avec vidéos de démo. Elle est directement utilisée quand tu crées une séance — les exercices que tu ajoutes ici apparaissent dans "Choisir un exercice".
       </div>
       <Card style={{ marginBottom: 20 }}>
@@ -8235,9 +8251,9 @@ function VODView({ coachId, fireToast }) {
           value={nomExercice}
           onChange={(e) => setNomExercice(e.target.value)}
           placeholder="Nom de l'exercice (ex : Squat barre)"
-          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 10 }}
         />
-        <select value={groupeExercice} onChange={(e) => setGroupeExercice(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}>
+        <select value={groupeExercice} onChange={(e) => setGroupeExercice(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 10 }}>
           {GROUPES_MUSCULAIRES.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
         <input
@@ -8245,12 +8261,12 @@ function VODView({ coachId, fireToast }) {
           value={nouvelExVideoUrl}
           onChange={(e) => setNouvelExVideoUrl(e.target.value)}
           placeholder="Lien YouTube non répertorié (optionnel)"
-          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 10 }}
+          style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 10 }}
         />
         <button
           onClick={upload}
           disabled={uploading}
-          style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: uploading ? 0.6 : 1 }}
+          style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", opacity: uploading ? 0.6 : 1 }}
         >
           {uploading ? "Ajout..." : "+ Ajouter l'exercice"}
         </button>
@@ -8259,12 +8275,12 @@ function VODView({ coachId, fireToast }) {
       {loading ? (
         <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
       ) : exercices.length === 0 ? (
-        <Card><div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Aucun exercice pour le moment</div></Card>
+        <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun exercice pour le moment</div></Card>
       ) : selectedGroupeVOD ? (
         <div>
           <button
             onClick={() => setSelectedGroupeVOD(null)}
-            style={{ background: "transparent", border: "none", color: C.textOnBg, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}
+            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 999, color: C.text, fontSize: 14, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 16px 8px 10px", marginBottom: 14 }}
           >
             <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour aux groupes
           </button>
@@ -8277,14 +8293,14 @@ function VODView({ coachId, fireToast }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {groupes.map(([groupe, exs]) => (
             <Card key={groupe} onClick={() => setSelectedGroupeVOD(groupe)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Dumbbell size={18} color={C.blue} />
-                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 15, color: C.text }}>{groupe}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left" }}>
+                <IconBadge icon={Dumbbell} color="#7FA0FF" size={46} iconSize={22} />
+                <div>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>{groupe}</div>
+                  <div style={{ fontSize: 13.5, color: C.textMuted, marginTop: 2 }}>{exs.length} exercice{exs.length > 1 ? "s" : ""}</div>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: C.textDim }}>{exs.length} exercice{exs.length > 1 ? "s" : ""}</span>
-                <ChevronRight size={16} color={C.textMuted} />
-              </div>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ChevronRight size={18} color="#9DB8FF" /></div>
             </Card>
           ))}
         </div>
@@ -8293,7 +8309,7 @@ function VODView({ coachId, fireToast }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditingVideoId(null)}>
           <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <SectionLabel icon={VideoIcon}>Lien vidéo de l'exercice</SectionLabel>
+              <SectionHead icon={VideoIcon} title="Lien vidéo de l'exercice" />
               <button onClick={() => setEditingVideoId(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             <input
@@ -8302,17 +8318,17 @@ function VODView({ coachId, fireToast }) {
               value={editingVideoUrl}
               onChange={(e) => setEditingVideoUrl(e.target.value)}
               placeholder="Lien YouTube non répertorié"
-              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, marginBottom: 12 }}
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, marginBottom: 12 }}
             />
             <div style={{ display: "flex", gap: 8 }}>
               {editingVideoUrl && (
-                <button onClick={() => { setEditingVideoUrl(""); }} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.red, borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 600 }}>
+                <button onClick={() => { setEditingVideoUrl(""); }} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.red, borderRadius: 10, padding: "10px", fontSize: 14.5, fontWeight: 600 }}>
                   Retirer
                 </button>
               )}
               <button
                 onClick={async () => { await replaceVideo(editingVideoId, editingVideoUrl); setEditingVideoId(null); }}
-                style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 700 }}
+                style={{ flex: 1, background: C.blue, border: "none", color: "#FFFFFF", borderRadius: 10, padding: "10px", fontSize: 14.5, fontWeight: 700 }}
               >
                 Enregistrer
               </button>
@@ -8406,24 +8422,24 @@ function NotificationsView({ coachId, clients, fireToast }) {
 
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>
         Envoie une notification tout de suite, ou programme-la pour qu'elle parte automatiquement à une date et une heure précises (ex : rappel du bilan chaque dimanche soir).
       </div>
       <Card style={{ marginBottom: 20 }}>
-        <SectionLabel icon={Bell}>Nouvelle notification</SectionLabel>
+        <SectionHead icon={Bell} title="Nouvelle notification" />
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <select
             value={targetClientId}
             onChange={(e) => setTargetClientId(e.target.value)}
-            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5 }}
           >
             <option value="tous">Tous mes clients</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
             ))}
           </select>
-          <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Titre" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
-          <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "none" }} />
+          <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Titre" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5 }} />
+          <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5, resize: "none" }} />
 
           <div style={{ display: "flex", gap: 8 }}>
             <PillButton active={mode === "maintenant"} onClick={() => setMode("maintenant")} style={{ flex: 1, textAlign: "center" }}>Envoyer maintenant</PillButton>
@@ -8435,11 +8451,11 @@ function NotificationsView({ coachId, clients, fireToast }) {
               type="datetime-local"
               value={dateProgrammee}
               onChange={(e) => setDateProgrammee(e.target.value)}
-              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }}
+              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 14.5 }}
             />
           )}
 
-          <button onClick={send} disabled={sending} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: sending ? 0.6 : 1 }}>
+          <button onClick={send} disabled={sending} style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", opacity: sending ? 0.6 : 1 }}>
             {sending ? "Envoi..." : mode === "programmer" ? "Programmer l'envoi" : "Envoyer"}
           </button>
         </div>
@@ -8452,10 +8468,12 @@ function NotificationsView({ coachId, clients, fireToast }) {
           {notifications.map((n) => {
             const c = clients.find((cl) => cl.id === n.client_id);
             return (
-              <Card key={n.id} style={{ padding: 12 }}>
-                <div style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>{n.titre}</div>
-                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{n.message}</div>
-                <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 4 }}>
+              <Card key={n.id} style={{ padding: 14, display: "flex", gap: 12, alignItems: "flex-start", textAlign: "left" }}>
+                <IconBadge icon={Bell} color={n.lu ? "#7C88AD" : "#F5C542"} size={40} iconSize={19} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 16, color: C.text, fontWeight: 800 }}>{n.titre}</div>
+                <div style={{ fontSize: 14, color: C.textMuted, marginTop: 3, lineHeight: 1.4 }}>{n.message}</div>
+                <div style={{ fontSize: 12.5, color: C.textDim, marginTop: 6 }}>
                   {c ? `${c.prenom} ${c.nom}` : "Client"} · {n.lu ? "Lu" : "Non lu"}
                   {n.type === "relance_inactif" && <span style={{ color: C.amber }}> · Relance auto</span>}
                   {n.type === "rapport_hebdo" && <span style={{ color: C.green }}> · Rapport hebdo</span>}
@@ -8467,6 +8485,7 @@ function NotificationsView({ coachId, clients, fireToast }) {
                   {!n.envoyee && n.date_prevue && (
                     <span style={{ color: C.amber }}> · Programmée pour le {new Date(n.date_prevue).toLocaleString("fr-FR")}</span>
                   )}
+                </div>
                 </div>
               </Card>
             );
@@ -9578,7 +9597,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       <div style={{ fontSize: 19, fontWeight: 800, color: C.text }}>{formatDateDisplay(s.date)}</div>
                       <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 700, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "4px 11px" }}><Clock size={13} /> {fmtTime(s.duree_secondes || 0)}</span>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 14 }}>
                       <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}>
                         <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{parExerciceAffiche.length}</div>
                         <div style={{ fontSize: 11.5, color: C.textMuted }}>exercices</div>
@@ -9586,10 +9605,6 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}>
                         <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{nbSeries}</div>
                         <div style={{ fontSize: 11.5, color: C.textMuted }}>séries</div>
-                      </div>
-                      <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{volumeTotal >= 1000 ? `${(volumeTotal / 1000).toFixed(1).replace(".", ",")} t` : `${Math.round(volumeTotal)} kg`}</div>
-                        <div style={{ fontSize: 11.5, color: C.textMuted }}>volume</div>
                       </div>
                     </div>
                     {nbSeries > 0 && (
@@ -9670,9 +9685,10 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           const tuile = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(110,150,255,0.35)", borderRadius: 18, padding: "12px 10px", textAlign: "center", boxShadow: "0 0 14px rgba(76,125,240,0.18)" };
           return (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
-              <div style={tuile}>
+              <div onClick={() => { setTab("bilans"); setTimeout(() => { const el = document.getElementById("coach-poids-chart"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150); }} style={{ ...tuile, cursor: "pointer", border: "1px solid rgba(245,197,66,0.6)", boxShadow: "0 0 16px rgba(245,197,66,0.25)" }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{dernierPoids != null ? Number(dernierPoids).toFixed(1).replace(".", ",") : "—"}<span style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}> kg</span></div>
                 <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>Poids{client.poids_objectif ? ` · obj. ${client.poids_objectif}` : ""}</div>
+                <div style={{ fontSize: 11, color: "#F5C542", fontWeight: 700, marginTop: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>Voir la courbe <ChevronRight size={11} /></div>
                 {deltaPoids != null && deltaPoids !== 0 && <div style={{ fontSize: 12, fontWeight: 800, color: "#F5C542", marginTop: 3 }}>{deltaPoids > 0 ? "+" : ""}{deltaPoids.toFixed(1).replace(".", ",")} kg</div>}
               </div>
               <div style={tuile}>
@@ -9891,7 +9907,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 </>
               )}
             </Card>
-            <Card>
+            <Card id="coach-poids-chart" style={{ scrollMarginTop: 12 }}>
               <SectionHead icon={TrendingUp} title="Évolution du poids" color="#7FA0FF" />
               {weightHistory.length > 0 ? (
                 <>
@@ -10589,7 +10605,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
   return (
     <div style={appShellStyle}>
       <FontImports />
-      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px" }}>
+      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", textAlign: "left" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
           <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={true} coachTab={coachTab} setCoachTab={setCoachTab} tachesEnAttenteCount={tachesEnAttenteCount} />
           <div>
