@@ -722,7 +722,7 @@ function CalendrierSeances({ recentSeances }) {
         <button onClick={() => setViewDate(new Date(annee, mois - 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
           <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
         </button>
-        <div style={{ fontWeight: 700, fontSize: 14, color: C.text, textTransform: "capitalize" }}>
+        <div style={{ fontWeight: 800, fontSize: 18, color: C.text, textTransform: "capitalize" }}>
           {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
         </div>
         <button onClick={() => setViewDate(new Date(annee, mois + 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
@@ -5554,7 +5554,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
 
       {onEnableNotifs && (
         <Card>
-          <SectionLabel icon={Bell}>Notifications push</SectionLabel>
+          <SectionHead icon={Bell} title="Notifications push" />
           {notifPermission === "granted" ? (
             <div style={{ fontSize: 13, color: C.green, display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
               <CheckCircle2 size={15} /> Notifications activées
@@ -6978,22 +6978,23 @@ function MiniCalendarClient({ seancesDates, poidsDates, bilansDates, nutritionDa
         <button onClick={() => setViewDate(new Date(year, month - 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
           <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
         </button>
-        <div style={{ fontWeight: 700, fontSize: 14, color: C.text, textTransform: "capitalize" }}>
+        <div style={{ fontWeight: 800, fontSize: 18, color: C.text, textTransform: "capitalize" }}>
           {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
         </div>
         <button onClick={() => setViewDate(new Date(year, month + 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
           <ChevronRight size={16} />
         </button>
       </div>
-      <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
-        <LegendDot color={C.blue} label="Séances" />
-        <LegendDot color={C.red} label="Poids" />
-        <LegendDot color={C.green} label="Bilan" />
-        <LegendDot color={C.amber} label="Nutrition" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        {[[C.blue, "Séances"], [C.red, "Poids"], [C.green, "Bilan"], [C.amber, "Nutrition"]].map(([col, lab]) => (
+          <span key={lab} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: C.text, background: "rgba(255,255,255,0.06)", border: `1px solid ${col}55`, borderRadius: 999, padding: "4px 10px" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: col, boxShadow: `0 0 6px ${col}` }} />{lab}
+          </span>
+        ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
         {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 10, color: C.textDim, fontWeight: 700 }}>{d}</div>
+          <div key={i} style={{ textAlign: "center", fontSize: 12, color: C.textDim, fontWeight: 700, paddingBottom: 4 }}>{d}</div>
         ))}
         {cells.map((d, i) => {
           if (d === null) return <div key={i} />;
@@ -7006,14 +7007,14 @@ function MiniCalendarClient({ seancesDates, poidsDates, bilansDates, nutritionDa
             <button
               key={i}
               onClick={() => onSelectDay && onSelectDay(iso)}
-              style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 8, background: (hasS || hasP || hasB || hasN) ? C.surface : "transparent", border: "none" }}
+              style={{ height: 46, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 14, background: (hasS || hasP || hasB || hasN) ? "rgba(76,125,240,0.16)" : "transparent", border: iso === todayIso() ? "1.5px solid #F5C542" : ((hasS || hasP || hasB || hasN) ? "1px solid rgba(110,150,255,0.35)" : "1px solid transparent"), boxShadow: iso === todayIso() ? "0 0 12px rgba(245,197,66,0.45)" : "none" }}
             >
-              <div style={{ fontSize: 10.5, color: C.text }}>{d}</div>
-              <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
-                {hasS && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.blue }} />}
-                {hasP && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.red }} />}
-                {hasB && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.green }} />}
-                {hasN && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.amber }} />}
+              <div style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>{d}</div>
+              <div style={{ display: "flex", gap: 3, marginTop: 3, minHeight: 6 }}>
+                {hasS && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.blue, boxShadow: `0 0 6px ${C.blue}` }} />}
+                {hasP && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.red, boxShadow: `0 0 6px ${C.red}` }} />}
+                {hasB && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}` }} />}
+                {hasN && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber, boxShadow: `0 0 6px ${C.amber}` }} />}
               </div>
             </button>
           );
@@ -8895,7 +8896,7 @@ function ResetPasswordCard({ client, fireToast }) {
   );
 }
 
-function CalendrierNutritionCoach({ repas }) {
+function CalendrierNutritionCoach({ repas, plan }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const year = viewDate.getFullYear();
@@ -8919,7 +8920,7 @@ function CalendrierNutritionCoach({ repas }) {
           <button onClick={() => setViewDate(new Date(year, month - 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
             <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
           </button>
-          <div style={{ fontWeight: 700, fontSize: 14, color: C.text, textTransform: "capitalize" }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: C.text, textTransform: "capitalize" }}>
             {viewDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
           </div>
           <button onClick={() => setViewDate(new Date(year, month + 1, 1))} style={{ background: "transparent", border: "none", color: C.textMuted }}>
@@ -8928,7 +8929,7 @@ function CalendrierNutritionCoach({ repas }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
           {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
-            <div key={i} style={{ textAlign: "center", fontSize: 10, color: C.textDim, fontWeight: 700 }}>{d}</div>
+            <div key={i} style={{ textAlign: "center", fontSize: 12, color: C.textDim, fontWeight: 700, paddingBottom: 4 }}>{d}</div>
           ))}
           {cells.map((d, i) => {
             if (d === null) return <div key={i} />;
@@ -8940,8 +8941,8 @@ function CalendrierNutritionCoach({ repas }) {
                 key={i}
                 onClick={() => setSelectedDate(iso)}
                 style={{
-                  aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  borderRadius: 8, background: estSelectionne ? C.blue : (hasRepas ? C.surface : "transparent"),
+                  height: 46, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  borderRadius: 14, background: estSelectionne ? C.blue : (hasRepas ? C.surface : "transparent"),
                   border: estSelectionne ? "none" : "1px solid transparent",
                 }}
               >
@@ -8953,9 +8954,30 @@ function CalendrierNutritionCoach({ repas }) {
         </div>
       </Card>
 
-      <div style={{ fontSize: 12, color: C.textOnBg, margin: "10px 0 6px", fontWeight: 700 }}>
-        {formatDateDisplay(selectedDate)} · {totalKcalJour} kcal
-      </div>
+      {(() => {
+        const tot = repasDuJour.reduce((t, r) => ({ p: t.p + (Number(r.prot) || 0), g: t.g + (Number(r.gluc) || 0), l: t.l + (Number(r.lip) || 0) }), { p: 0, g: 0, l: 0 });
+        const objK = plan && plan.kcal ? Number(plan.kcal) : 0;
+        return (
+          <Card style={{ margin: "12px 0" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{formatDateDisplay(selectedDate)}</span>
+              <span style={{ fontSize: 14, color: C.textMuted, fontWeight: 600 }}><span style={{ fontSize: 26, fontWeight: 800, color: C.text }}>{Math.round(totalKcalJour)}</span>{objK ? ` / ${objK}` : ""} kcal</span>
+            </div>
+            {objK > 0 && (
+              <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ height: "100%", width: `${Math.min(100, (totalKcalJour / objK) * 100)}%`, borderRadius: 999, background: totalKcalJour > objK * 1.05 ? "linear-gradient(90deg, #F5C542, #FF6B84)" : "linear-gradient(90deg, #4C7DF0, #7FA0FF)" }} />
+              </div>
+            )}
+            {plan && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                <MacroRing label="Protéines" val={tot.p} obj={plan.prot} color="#7FA0FF" />
+                <MacroRing label="Glucides" val={tot.g} obj={plan.gluc} color="#3AD6A0" />
+                <MacroRing label="Lipides" val={tot.l} obj={plan.lip} color="#F5C542" />
+              </div>
+            )}
+          </Card>
+        );
+      })()}
       {repasDuJour.length === 0 ? (
         <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucun repas enregistré ce jour-là</div></Card>
       ) : (
@@ -9111,6 +9133,7 @@ function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repas
 
 function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [tab, setTab] = useState("programme");
+  const [openBilans, setOpenBilans] = useState({});
   const [loading, setLoading] = useState(true);
   const [seances, setSeances] = useState([]);
   const [seriesBySeance, setSeriesBySeance] = useState({});
@@ -9427,22 +9450,27 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
     return (
       <div style={appShellStyle}>
         <FontImports />
-        <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative" }}>
-          <button onClick={() => { console.log("CLIC RETOUR DETECTE"); setSelectedProgramme(null); }} style={{ background: "transparent", border: "none", color: C.textOnBg, fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 16 }}>
-            <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+        <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative", textAlign: "left" }}>
+          <button onClick={() => setSelectedProgramme(null)} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 999, color: C.text, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 16px 8px 10px", marginBottom: 16 }}>
+            <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} /> Retour
           </button>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.textOnBg }}>{selectedProgramme.nom}</div>
-              <div style={{ fontSize: 12, color: C.textOnBgMuted }}>{selectedProgramme.muscle}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+              <IconBadge icon={Dumbbell} color="#7FA0FF" size={48} iconSize={23} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, lineHeight: 1.1, color: C.textOnBg }}>{selectedProgramme.nom}</div>
+                <div style={{ fontSize: 13.5, color: C.textOnBgMuted, marginTop: 2 }}>{selectedProgramme.muscle}</div>
+              </div>
             </div>
-            <button onClick={() => { setEditingProgramme(selectedProgramme); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "10px 14px", fontWeight: 700, fontSize: 13 }}>Modifier</button>
+            <button onClick={() => { setEditingProgramme(selectedProgramme); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#FFFFFF", borderRadius: 14, padding: "10px 16px", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>Modifier</button>
           </div>
-          <SectionLabel icon={TrendingUp} onBg>Historique des performances</SectionLabel>
-          <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
-            <LegendDot color={C.green} label="Progrès" />
-            <LegendDot color={C.amber} label="Stagnation" />
-            <LegendDot color={C.red} label="Régression" />
+          <SectionHead icon={TrendingUp} title="Historique des performances" count={historiqueFiltré.length} />
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            {[[C.green, "Progrès"], [C.amber, "Stagnation"], [C.red, "Régression"], [C.blue, "Première fois"]].map(([col, lab]) => (
+              <span key={lab} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: C.text, background: "rgba(255,255,255,0.06)", border: `1px solid ${col}55`, borderRadius: 999, padding: "5px 11px" }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: col, boxShadow: `0 0 8px ${col}` }} />{lab}
+              </span>
+            ))}
           </div>
           {historiqueFiltré.length === 0 ? (
             <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Le client n'a pas encore réalisé cette séance</div></Card>
@@ -9501,25 +9529,41 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   }
                 }
 
+                const compteurs = { p: 0, s: 0, r: 0 };
+                let volumeTotal = 0;
+                for (const e of parExerciceAffiche) {
+                  for (const sr of e.series) {
+                    volumeTotal += (Number(sr.poids) || 0) * (Number(sr.reps) || 0);
+                    const col = getProgressionColor(historiqueFiltré, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
+                    if (col === C.green) compteurs.p++; else if (col === C.amber) compteurs.s++; else if (col === C.red) compteurs.r++;
+                  }
+                }
+                const nbSeries = parExerciceAffiche.reduce((t, e) => t + e.series.length, 0);
                 const renderExercice = (ex) => {
                   const objectifTexte = ex.objectif && (ex.objectif.tempo || ex.objectif.rpe)
-                    ? [ex.objectif.tempo ? `Tempo imposé ${ex.objectif.tempo}` : null, ex.objectif.rpe ? `RPE cible ${ex.objectif.rpe}` : null].filter(Boolean).join(" · ")
+                    ? [ex.objectif.tempo ? `Tempo ${ex.objectif.tempo}` : null, ex.objectif.rpe ? `RPE cible ${ex.objectif.rpe}` : null].filter(Boolean).join(" · ")
                     : null;
+                  const cell = { fontSize: 11.5, color: C.textDim, fontWeight: 700 };
                   return (
-                  <div key={ex.nom} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px" }}>
-                    <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: objectifTexte ? 2 : 6 }}>{ex.nom}</div>
+                  <div key={ex.nom} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: "14px 14px 10px" }}>
+                    <div style={{ fontSize: 16, color: C.text, fontWeight: 800, textAlign: "left" }}>{ex.nom}</div>
                     {objectifTexte && (
-                      <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 6, fontStyle: "italic" }}>{objectifTexte}</div>
+                      <div style={{ fontSize: 12, color: "#F5C542", fontWeight: 600, marginTop: 3, textAlign: "left" }}>{objectifTexte}</div>
                     )}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "34px 1fr 54px 52px 22px", gap: 6, alignItems: "center", padding: "10px 6px 6px" }}>
+                      <span style={cell}>Série</span><span style={cell}>Charge × reps</span><span style={{ ...cell, textAlign: "center" }}>RPE</span><span style={{ ...cell, textAlign: "center" }}>Tempo</span><span />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {ex.series.map((sr, i) => {
                         const couleur = getProgressionColor(historiqueFiltré, seriesBySeance, sIdx, sr.exercice_nom, sr.poids, sr.reps);
+                        const Fleche = couleur === C.green ? TrendingUp : couleur === C.red ? TrendingDown : null;
                         return (
-                          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11.5, color: "#FFFFFF", background: couleur, borderRadius: 8, padding: "6px 10px", fontFamily: FONT_MONO, fontWeight: 700 }}>
-                            <span style={{ opacity: 0.85, fontWeight: 600 }}>S{i + 1}</span>
-                            <span>{sr.poids}kg × {sr.reps}</span>
-                            <span style={{ opacity: 0.85 }}>RPE {sr.rpe ?? "—"}</span>
-                            <span style={{ opacity: 0.85 }}>{sr.tempo || "—"}</span>
+                          <div key={i} style={{ display: "grid", gridTemplateColumns: "34px 1fr 54px 52px 22px", gap: 6, alignItems: "center", background: `${couleur}1F`, borderLeft: `4px solid ${couleur}`, borderRadius: 12, padding: "10px 8px 10px 8px" }}>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: couleur }}>S{i + 1}</span>
+                            <span style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{sr.poids} kg <span style={{ color: C.textMuted, fontWeight: 700 }}>× {sr.reps}</span></span>
+                            <span style={{ fontSize: 13.5, fontWeight: 700, color: C.textMuted, textAlign: "center" }}>{sr.rpe ?? "—"}</span>
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: C.textMuted, textAlign: "center" }}>{sr.tempo || "—"}</span>
+                            <span style={{ display: "flex", justifyContent: "center" }}>{Fleche ? <Fleche size={15} color={couleur} strokeWidth={3} /> : couleur === C.amber ? <span style={{ fontSize: 15, color: couleur, fontWeight: 800, lineHeight: 1 }}>=</span> : null}</span>
                           </div>
                         );
                       })}
@@ -9529,15 +9573,46 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 };
 
                 return (
-                  <Card key={s.id}>
-                    <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 10 }}>{formatDateDisplay(s.date)} · {fmtTime(s.duree_secondes || 0)}</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <Card key={s.id} style={{ padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
+                      <div style={{ fontSize: 19, fontWeight: 800, color: C.text }}>{formatDateDisplay(s.date)}</div>
+                      <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 700, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "4px 11px" }}><Clock size={13} /> {fmtTime(s.duree_secondes || 0)}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
+                      <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{parExerciceAffiche.length}</div>
+                        <div style={{ fontSize: 11.5, color: C.textMuted }}>exercices</div>
+                      </div>
+                      <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{nbSeries}</div>
+                        <div style={{ fontSize: 11.5, color: C.textMuted }}>séries</div>
+                      </div>
+                      <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{volumeTotal >= 1000 ? `${(volumeTotal / 1000).toFixed(1).replace(".", ",")} t` : `${Math.round(volumeTotal)} kg`}</div>
+                        <div style={{ fontSize: 11.5, color: C.textMuted }}>volume</div>
+                      </div>
+                    </div>
+                    {nbSeries > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ display: "flex", height: 8, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.08)" }}>
+                          <div style={{ width: `${(compteurs.p / nbSeries) * 100}%`, background: C.green }} />
+                          <div style={{ width: `${(compteurs.s / nbSeries) * 100}%`, background: C.amber }} />
+                          <div style={{ width: `${(compteurs.r / nbSeries) * 100}%`, background: C.red }} />
+                        </div>
+                        <div style={{ display: "flex", gap: 12, marginTop: 7, fontSize: 12.5, fontWeight: 700 }}>
+                          <span style={{ color: C.green }}>{compteurs.p} progrès</span>
+                          <span style={{ color: C.amber }}>{compteurs.s} stagnation</span>
+                          <span style={{ color: C.red }}>{compteurs.r} régression</span>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {blocs.map((bloc, bidx) =>
                         bloc.type === "superset" ? (
-                          <div key={bidx} style={{ border: `3px solid ${C.blue}`, borderRadius: 14, padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div key={bidx} style={{ border: `2px solid ${C.blue}`, boxShadow: "0 0 16px rgba(76,125,240,0.35)", borderRadius: 20, padding: 8, display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                               <Zap size={12} color={C.blue} />
-                              <span style={{ fontSize: 11.5, fontWeight: 600, color: C.blue, textTransform: "none", letterSpacing: 0 }}>Superset</span>
+                              <span style={{ fontSize: 12.5, fontWeight: 700, color: C.blue, textTransform: "none", letterSpacing: 0 }}>Superset</span>
                             </div>
                             {bloc.exs.map(renderExercice)}
                           </div>
@@ -9570,31 +9645,56 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   return (
     <div style={appShellStyle}>
       <FontImports />
-      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <button onClick={onBack} style={{ background: "transparent", border: "none", color: C.textOnBg, fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-            <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
-          </button>
-          <LogoutButton onLogout={onLogout} />
-        </div>
+      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative", textAlign: "left" }}>
+        <button onClick={onBack} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 999, color: C.text, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 16px 8px 10px", marginBottom: 18 }}>
+          <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} /> Retour
+        </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-          <div style={{ width: 48, height: 48, borderRadius: "50%", background: client.photo_url ? `url(${client.photo_url}) center/cover` : C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {!client.photo_url && <User size={20} color={C.blue} />}
-          </div>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>
-            {client.prenom} {client.nom}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+          <AvatarInitiales prenom={client.prenom} nom={client.nom} photo={client.photo_url} size={68} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, lineHeight: 1.1, color: C.textOnBg }}>{client.prenom} {client.nom}</div>
+            {client.objectif_principal && (
+              <span style={{ display: "inline-block", marginTop: 8, fontSize: 13, fontWeight: 700, color: "#7FA0FF", background: "rgba(76,125,240,0.18)", border: "1px solid rgba(76,125,240,0.5)", borderRadius: 999, padding: "4px 12px" }}>{client.objectif_principal}</span>
+            )}
           </div>
         </div>
-        <div style={{ fontSize: 12, color: C.textOnBgMuted, marginBottom: 16 }}>{client.objectif_principal}</div>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {(() => {
+          const dernierPoids = weightHistory.length ? weightHistory[weightHistory.length - 1].poids : client.poids_actuel;
+          const premierPoids = weightHistory.length ? weightHistory[0].poids : null;
+          const deltaPoids = weightHistory.length > 1 ? dernierPoids - premierPoids : null;
+          const ilYa30 = Date.now() - 30 * 86400000;
+          const seances30 = seancesAvecSeries.filter((x) => new Date(x.date).getTime() >= ilYa30).length;
+          const dernierBilan = checkins.length ? checkins[checkins.length - 1] : null;
+          const tuile = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(110,150,255,0.35)", borderRadius: 18, padding: "12px 10px", textAlign: "center", boxShadow: "0 0 14px rgba(76,125,240,0.18)" };
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
+              <div style={tuile}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{dernierPoids != null ? Number(dernierPoids).toFixed(1).replace(".", ",") : "—"}<span style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}> kg</span></div>
+                <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>Poids{client.poids_objectif ? ` · obj. ${client.poids_objectif}` : ""}</div>
+                {deltaPoids != null && deltaPoids !== 0 && <div style={{ fontSize: 12, fontWeight: 800, color: "#F5C542", marginTop: 3 }}>{deltaPoids > 0 ? "+" : ""}{deltaPoids.toFixed(1).replace(".", ",")} kg</div>}
+              </div>
+              <div style={tuile}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{seances30}</div>
+                <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>Séances · 30 j</div>
+              </div>
+              <div style={tuile}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: dernierBilan ? C.text : C.textDim }}>{dernierBilan ? formatDateDisplay(dernierBilan.date) : "—"}</div>
+                <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>Dernier bilan</div>
+              </div>
+            </div>
+          );
+        })()}
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 18, overflowX: "auto", paddingBottom: 6, marginLeft: -4, paddingLeft: 4, scrollbarWidth: "none" }}>
           {detailTabs.map((t) => {
             const Icon = t.icon;
+            const on = tab === t.key;
             return (
-              <PillButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} onBg style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                <Icon size={14} /> {t.label}
-              </PillButton>
+              <button key={t.key} onClick={() => setTab(t.key)} style={{ flexShrink: 0, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 7, padding: "11px 16px", borderRadius: 999, fontSize: 14.5, fontWeight: 700, color: on ? "#FFFFFF" : C.textMuted, background: on ? "linear-gradient(90deg, #4C7DF0, #3B6FE0)" : "rgba(255,255,255,0.05)", border: on ? "1px solid rgba(160,190,255,0.7)" : "1px solid rgba(110,150,255,0.35)", boxShadow: on ? "0 4px 16px rgba(76,125,240,0.55)" : "none" }}>
+                <Icon size={16} /> {t.label}
+              </button>
             );
           })}
         </div>
@@ -9603,7 +9703,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
         ) : tab === "programme" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button onClick={() => setShowSeanceForm(true)} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <button onClick={() => setShowSeanceForm(true)} style={{ background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Plus size={16} /> Créer une séance
             </button>
             {customProgrammes.length > 0 && (() => {
@@ -9632,15 +9732,15 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       {p.jour_fixe && (
                         <div style={{ fontSize: 11.5, fontWeight: 600, color: C.blue, textTransform: "capitalize", letterSpacing: 0, marginBottom: 2 }}>{p.jour_fixe}</div>
                       )}
-                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{p.nom}</div>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: C.text }}>{p.nom}</div>
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
                       <button onClick={async (e) => { e.stopPropagation(); if (!confirm("Supprimer cette séance ?")) return; await supabase.from("programmes").delete().eq("id", p.id); setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>{p.muscle}</div>
-                  <div style={{ fontSize: 11, color: C.textDim }}>
+                  <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 6 }}>{p.muscle}</div>
+                  <div style={{ fontSize: 12.5, color: C.textDim }}>
                     {(p.programme_exercices || []).length} exercices · {(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
                   </div>
                   {p.updated_at && (
@@ -9661,20 +9761,27 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                             key={jour}
                             onClick={() => p && setSelectedProgramme(p)}
                             style={{
-                              cursor: p ? "pointer" : "default",
+                              cursor: p ? "pointer" : "default", display: "flex", alignItems: "center", gap: 14, padding: 16,
                               border: estValide ? `2px solid ${C.green}` : undefined,
-                              boxShadow: estValide ? "0 0 14px rgba(34,168,118,0.5)" : undefined,
+                              boxShadow: estValide ? "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(58,214,160,0.45), 0 0 26px rgba(58,214,160,0.55), 0 10px 28px rgba(0,0,0,0.4)" : undefined,
                             }}
                           >
-                            <div style={{ fontSize: 11.5, fontWeight: 600, color: estValide ? C.green : C.textMuted, textTransform: "capitalize", letterSpacing: 0, marginBottom: 2 }}>
-                              {jour}{estValide && " · Validé ✓"}
+                            <div style={{ width: 48, height: 48, borderRadius: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: estValide ? "rgba(58,214,160,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${estValide ? "rgba(58,214,160,0.5)" : "rgba(255,255,255,0.08)"}` }}>
+                              {estValide ? <Check size={24} color={C.green} strokeWidth={3} /> : p ? <Dumbbell size={22} color="#9DB8FF" /> : <span style={{ fontSize: 20 }}>😴</span>}
                             </div>
-                            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: p ? C.text : C.textDim }}>{p ? p.nom : "Repos"}</div>
-                            {p && (
-                              <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                                {(p.programme_exercices || []).length} exercices · {(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
+                            <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 700, color: estValide ? C.green : C.textMuted, textTransform: "capitalize", letterSpacing: 0 }}>
+                                {jour}{estValide && " · Validé cette semaine"}
                               </div>
-                            )}
+                              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: p ? C.text : C.textDim, marginTop: 2 }}>{p ? p.nom : "Repos"}</div>
+                              {p && (
+                                <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{(p.programme_exercices || []).length} exercices</span>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries</span>
+                                </div>
+                              )}
+                            </div>
+                            {p && <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ChevronRight size={18} color="#9DB8FF" /></div>}
                           </Card>
                         );
                       })}
@@ -9755,25 +9862,28 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               );
             })()}
             <Card>
-              <SectionLabel icon={Flame}>Fatigue / Sommeil / Énergie</SectionLabel>
+              <SectionHead icon={Flame} title="Fatigue, sommeil, énergie" color="#F5C542" />
               {checkinsQuotidiens.length === 0 ? (
-                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucun check-in quotidien pour le moment</div>
+                <div style={{ color: C.textMuted, fontSize: 14 }}>Aucun check-in quotidien pour le moment</div>
               ) : (
                 <>
-                  <div style={{ fontSize: 11, color: C.textDim, marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, color: C.textDim, marginBottom: 12 }}>
                     Moyenne sur les {checkinsQuotidiens.length} derniers jours renseignés
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                     {[
-                      { label: "Fatigue", key: "fatigue" },
-                      { label: "Sommeil", key: "sommeil" },
-                      { label: "Énergie", key: "energie" },
+                      { label: "Fatigue", key: "fatigue", col: "#FF8FA0" },
+                      { label: "Sommeil", key: "sommeil", col: "#7FA0FF" },
+                      { label: "Énergie", key: "energie", col: "#3AD6A0" },
                     ].map((m) => {
                       const avg = checkinsQuotidiens.reduce((a, c) => a + (c[m.key] || 0), 0) / checkinsQuotidiens.length;
                       return (
-                        <div key={m.key} style={{ background: C.surface, borderRadius: 10, padding: 10, textAlign: "center" }}>
-                          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11.5, color: C.textMuted, fontWeight: 600, textTransform: "none", marginBottom: 4 }}>{m.label}</div>
-                          <div style={{ fontFamily: FONT_MONO, fontSize: 20, color: C.text, fontWeight: 700 }}>{avg.toFixed(1)}<span style={{ fontSize: 12, color: C.textMuted }}>/5</span></div>
+                        <div key={m.key} style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${m.col}44`, borderRadius: 18, padding: "12px 8px", textAlign: "center" }}>
+                          <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600, marginBottom: 4 }}>{m.label}</div>
+                          <div style={{ fontSize: 28, color: C.text, fontWeight: 800, lineHeight: 1.1 }}>{avg.toFixed(1)}<span style={{ fontSize: 13, color: C.textMuted, fontWeight: 700 }}>/5</span></div>
+                          <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", margin: "10px 6px 0" }}>
+                            <div style={{ height: "100%", width: `${(avg / 5) * 100}%`, borderRadius: 999, background: m.col }} />
+                          </div>
                         </div>
                       );
                     })}
@@ -9782,75 +9892,119 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               )}
             </Card>
             <Card>
-              <SectionLabel icon={TrendingUp}>Évolution du poids</SectionLabel>
+              <SectionHead icon={TrendingUp} title="Évolution du poids" color="#7FA0FF" />
               {weightHistory.length > 0 ? (
-                <div style={{ height: 140 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={weightHistory} margin={{ top: 6, right: 6, left: -24, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="coachWgrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={C.blue} stopOpacity={0.5} />
-                          <stop offset="100%" stopColor={C.blue} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke={C.cardBorder} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} />
-                      <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} width={30} />
-                      <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, fontSize: 12 }} />
-                      <Area type="monotone" dataKey="poids" stroke={C.blue} strokeWidth={2.5} fill="url(#coachWgrad)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+                <>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 40, fontWeight: 800, color: C.text, lineHeight: 1 }}>{Number(weightHistory[weightHistory.length - 1].poids).toFixed(1).replace(".", ",")}</span>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: C.textMuted }}>kg</span>
+                    {weightHistory.length > 1 && (() => {
+                      const d = weightHistory[weightHistory.length - 1].poids - weightHistory[0].poids;
+                      return <span style={{ marginLeft: "auto", background: "rgba(245,184,51,0.2)", border: "1px solid rgba(245,184,51,0.5)", color: "#F8D27A", borderRadius: 12, padding: "5px 11px", fontSize: 13.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>{d <= 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />} {d > 0 ? "+" : ""}{d.toFixed(1).replace(".", ",")} kg</span>;
+                    })()}
+                  </div>
+                  <div style={{ height: 180 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={weightHistory} margin={{ top: 10, right: 4, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="coachWgrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#4C7DF0" stopOpacity={0.55} />
+                            <stop offset="100%" stopColor="#4C7DF0" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="coachWstroke" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#7FA0FF" />
+                            <stop offset="100%" stopColor="#F5C542" />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: C.textDim }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
+                        <YAxis orientation="right" domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 11, fill: C.textDim }} axisLine={false} tickLine={false} width={34} tickFormatter={(v) => Math.round(v)} />
+                        <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, fontSize: 13 }} />
+                        <Area type="monotone" dataKey="poids" stroke="url(#coachWstroke)" strokeWidth={3.5} fill="url(#coachWgrad)"
+                          dot={(pr) => (pr.index === weightHistory.length - 1
+                            ? <circle key={pr.index} cx={pr.cx} cy={pr.cy} r={7} fill="#FFFFFF" stroke="#F5C542" strokeWidth={4} />
+                            : <g key={pr.index} />)}
+                          activeDot={{ r: 6, fill: "#FFFFFF", stroke: "#4C7DF0", strokeWidth: 3 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
               ) : (
-                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune donnée de poids</div>
+                <div style={{ color: C.textMuted, fontSize: 14 }}>Aucune donnée de poids</div>
               )}
             </Card>
             <Card>
-              <SectionLabel icon={ClipboardList}>Bilan de semaine</SectionLabel>
+              <SectionHead icon={ClipboardList} title="Bilans de semaine" count={checkins.length || null} color="#3AD6A0" />
               {checkins.length === 0 ? (
-                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucun bilan envoyé</div>
-              ) : checkins.map((c, i) => {
-                const QA = ({ q, a, sur5 }) => a === null || a === undefined || a === "" ? null : (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 15, color: C.text, fontWeight: 700, marginBottom: 8 }}>{q}</div>
-                    {sur5 ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ flex: 1, height: 4, borderRadius: 4, background: C.card, position: "relative" }}>
-                          <div style={{ position: "absolute", left: `${(a / 5) * 100}%`, top: -8, transform: "translateX(-50%)", width: 20, height: 20, borderRadius: "50%", background: C.blue }} />
+                <div style={{ color: C.textMuted, fontSize: 14 }}>Aucun bilan envoyé</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {checkins.slice().reverse().map((c, i) => {
+                  const ouvert = openBilans[c.id ?? i] ?? (i === 0);
+                  const QA = ({ q, a, sur5 }) => a === null || a === undefined || a === "" ? null : (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13.5, color: C.textMuted, fontWeight: 600, marginBottom: 7 }}>{q}</div>
+                      {sur5 ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ flex: 1, height: 8, borderRadius: 999, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
+                            <div style={{ width: `${(a / 5) * 100}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #4C7DF0, #F5C542)" }} />
+                          </div>
+                          <span style={{ fontSize: 15, color: C.text, fontWeight: 800 }}>{a}<span style={{ color: C.textMuted, fontWeight: 600 }}>/5</span></span>
                         </div>
-                        <span style={{ fontSize: 13, color: C.textOnBg, fontWeight: 700 }}>{a}/5</span>
-                      </div>
-                    ) : (
-                      <div style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13 }}>
-                        {a}
-                      </div>
-                    )}
-                  </div>
-                );
-                return (
-                  <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 14, padding: 18, marginBottom: 14 }}>
-                    <div style={{ fontSize: 12.5, color: C.blue, fontWeight: 800, marginBottom: 16 }}>{c.date}</div>
-                    <QA q="Sensation de force" a={c.sensation_force} sur5 />
-                    <QA q="Un exercice t'a posé problème ?" a={c.douleurs} />
-                    <QA q="Écarts nutritionnels cette semaine" a={c.ecarts_nutrition != null ? (c.ecarts_nutrition >= 3 ? "3+" : String(c.ecarts_nutrition)) : null} />
-                    <QA q="Qu'as-tu mangé en dehors du plan ?" a={c.description_ecarts} />
-                    <QA q="Heures de sommeil moyennes / nuit" a={c.heures_sommeil != null ? `${c.heures_sommeil}h` : null} />
-                    <QA q="Satisfaction de la semaine" a={c.satisfaction} sur5 />
-                    <QA q="Pourquoi es-tu (ou pas) satisfait(e) de ta semaine ?" a={c.satisfaction_raison} />
-                    <QA q="As-tu été à 100% cette semaine (entraînement / alimentation / sommeil) ?" a={c.cent_pourcent === true ? "Oui" : c.cent_pourcent === false ? "Non" : null} />
-                    <QA q="Pourquoi ?" a={c.pourquoi_pas_cent} />
-                    <QA q="À combien tu t'estimes ? (%)" a={c.estimation_pourcentage != null ? `${c.estimation_pourcentage}%` : null} />
-                    <QA q="Motivation" a={c.motivation} sur5 />
-                    <QA q="Commentaire libre pour ton coach" a={c.commentaire} />
-                  </div>
-                );
-              })}
+                      ) : (
+                        <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "11px 14px", color: C.text, fontSize: 14.5, lineHeight: 1.45 }}>
+                          {a}
+                        </div>
+                      )}
+                    </div>
+                  );
+                  const chip = (txt, col) => <span key={txt} style={{ fontSize: 12.5, fontWeight: 700, color: col, background: "rgba(255,255,255,0.06)", borderRadius: 999, padding: "4px 10px" }}>{txt}</span>;
+                  return (
+                    <div key={c.id ?? i} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${ouvert ? "rgba(110,150,255,0.5)" : "rgba(255,255,255,0.08)"}`, borderRadius: 20, padding: 14 }}>
+                      <button onClick={() => setOpenBilans({ ...openBilans, [c.id ?? i]: !ouvert })} style={{ width: "100%", background: "transparent", border: "none", padding: 0, textAlign: "left", color: C.text }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 17, fontWeight: 800 }}>{formatDateDisplay(c.date)}</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {c.cent_pourcent === true && <span style={{ fontSize: 12, fontWeight: 800, color: "#3AD6A0", background: "rgba(58,214,160,0.16)", borderRadius: 999, padding: "3px 9px" }}>100 %</span>}
+                            {c.cent_pourcent === false && <span style={{ fontSize: 12, fontWeight: 800, color: "#F5C542", background: "rgba(245,197,66,0.16)", borderRadius: 999, padding: "3px 9px" }}>{c.estimation_pourcentage != null ? `${c.estimation_pourcentage} %` : "Pas 100 %"}</span>}
+                            <ChevronDown size={18} color={C.textMuted} style={{ transform: ouvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                          {c.sensation_force != null && chip(`Force ${c.sensation_force}/5`, "#7FA0FF")}
+                          {c.satisfaction != null && chip(`Satisfaction ${c.satisfaction}/5`, "#F5C542")}
+                          {c.motivation != null && chip(`Motivation ${c.motivation}/5`, "#3AD6A0")}
+                          {c.heures_sommeil != null && chip(`Sommeil ${c.heures_sommeil} h`, "#B9C4E0")}
+                          {c.ecarts_nutrition != null && chip(`Écarts ${c.ecarts_nutrition >= 3 ? "3+" : c.ecarts_nutrition}`, c.ecarts_nutrition > 0 ? "#F28C38" : "#B9C4E0")}
+                        </div>
+                      </button>
+                      {ouvert && (
+                        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                          <QA q="Sensation de force" a={c.sensation_force} sur5 />
+                          <QA q="Un exercice t'a posé problème ?" a={c.douleurs} />
+                          <QA q="Écarts nutritionnels cette semaine" a={c.ecarts_nutrition != null ? (c.ecarts_nutrition >= 3 ? "3+" : String(c.ecarts_nutrition)) : null} />
+                          <QA q="Qu'as-tu mangé en dehors du plan ?" a={c.description_ecarts} />
+                          <QA q="Heures de sommeil moyennes par nuit" a={c.heures_sommeil != null ? `${c.heures_sommeil} h` : null} />
+                          <QA q="Satisfaction de la semaine" a={c.satisfaction} sur5 />
+                          <QA q="Pourquoi es-tu (ou pas) satisfait(e) de ta semaine ?" a={c.satisfaction_raison} />
+                          <QA q="As-tu été à 100 % cette semaine ?" a={c.cent_pourcent === true ? "Oui" : c.cent_pourcent === false ? "Non" : null} />
+                          <QA q="Pourquoi ?" a={c.pourquoi_pas_cent} />
+                          <QA q="À combien tu t'estimes ?" a={c.estimation_pourcentage != null ? `${c.estimation_pourcentage} %` : null} />
+                          <QA q="Motivation" a={c.motivation} sur5 />
+                          <QA q="Commentaire libre pour ton coach" a={c.commentaire} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                </div>
+              )}
             </Card>
 
             <Card>
-              <SectionLabel icon={Camera}>Bilan photo</SectionLabel>
+              <SectionHead icon={Camera} title="Bilan photo" color="#F5C542" />
               {photosHistoryCoach.length === 0 ? (
-                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune photo envoyée</div>
+                <div style={{ color: C.textMuted, fontSize: 14 }}>Aucune photo envoyée</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {PHOTO_CATS.map((cat) => {
@@ -9861,15 +10015,15 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                     if (photosCat.length === 0) return null;
                     return (
                       <div key={cat.key}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: C.text, marginBottom: 6, textTransform: "none", letterSpacing: 0 }}>{cat.nom}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, color: C.text, marginBottom: 8, textTransform: "none", letterSpacing: 0 }}>{cat.nom}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                           {photosCat.map((p) => (
                             <div key={p.id} style={{ position: "relative" }}>
                               <div
                                 onClick={() => setZoomPhoto(p.url)}
-                                style={{ width: "100%", aspectRatio: "3/4", borderRadius: 8, background: `url(${p.url}) center/cover`, border: `1px solid ${C.cardBorderLight}`, cursor: "pointer" }}
+                                style={{ width: "100%", aspectRatio: "3/4", borderRadius: 16, background: `url(${p.url}) center/cover`, border: "1px solid rgba(110,150,255,0.45)", boxShadow: "0 0 12px rgba(76,125,240,0.25)", cursor: "pointer" }}
                               />
-                              <div style={{ fontSize: 8.5, color: C.textDim, textAlign: "center", marginTop: 2 }}>{formatDateDisplay(p.date)}</div>
+                              <div style={{ fontSize: 11.5, fontWeight: 600, color: C.textMuted, textAlign: "center", marginTop: 4 }}>{formatDateDisplay(p.date)}</div>
                               <button
                                 onClick={() => supprimerPhotoBilan(p)}
                                 disabled={suppressionPhotoId === p.id}
@@ -9904,37 +10058,64 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             )}
 
             <Card>
-              <SectionLabel icon={Target}>Mensurations</SectionLabel>
+              <SectionHead icon={Target} title="Mensurations" color="#B9C4E0" />
               {mensurationsCoach.length === 0 ? (
-                <div style={{ color: C.textMuted, fontSize: 13 }}>Aucune mensuration envoyée</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {mensurationsCoach.map((m, i) => (
-                    <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted }}>
-                      <span style={{ color: C.text, fontWeight: 700 }}>{formatDateDisplay(m.date)}</span> — taille {m.tour_taille ?? "—"}cm, poitrine {m.tour_poitrine ?? "—"}cm, épaule {m.tour_epaule ?? "—"}cm, bras D/G {m.tour_bras_droit ?? "—"}/{m.tour_bras_gauche ?? "—"}cm, avant-bras D/G {m.tour_avant_bras_droit ?? "—"}/{m.tour_avant_bras_gauche ?? "—"}cm, cuisse D/G {m.tour_cuisse_droite ?? "—"}/{m.tour_cuisse_gauche ?? "—"}cm, mollet D/G {m.tour_mollet_droit ?? "—"}/{m.tour_mollet_gauche ?? "—"}cm
+                <div style={{ color: C.textMuted, fontSize: 14 }}>Aucune mensuration envoyée</div>
+              ) : (() => {
+                const CHAMPS = [
+                  ["Taille", "tour_taille"], ["Poitrine", "tour_poitrine"], ["Épaule", "tour_epaule"],
+                  ["Bras D", "tour_bras_droit"], ["Bras G", "tour_bras_gauche"],
+                  ["Avant-bras D", "tour_avant_bras_droit"], ["Avant-bras G", "tour_avant_bras_gauche"],
+                  ["Cuisse D", "tour_cuisse_droite"], ["Cuisse G", "tour_cuisse_gauche"],
+                  ["Mollet D", "tour_mollet_droit"], ["Mollet G", "tour_mollet_gauche"],
+                ];
+                const tri = mensurationsCoach.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)));
+                const dernier = tri[0];
+                const precedent = tri[1];
+                return (
+                  <>
+                    <div style={{ fontSize: 13, color: C.textDim, marginBottom: 10 }}>Dernière mesure : {formatDateDisplay(dernier.date)}{precedent ? ` · écart vs ${formatDateDisplay(precedent.date)}` : ""}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      {CHAMPS.map(([lab, key]) => {
+                        const v = dernier[key];
+                        if (v == null) return null;
+                        const dv = precedent && precedent[key] != null ? v - precedent[key] : null;
+                        return (
+                          <div key={key} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600 }}>{lab}</div>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
+                              <span style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{v}</span><span style={{ fontSize: 12, color: C.textMuted }}>cm</span>
+                              {dv != null && dv !== 0 && <span style={{ marginLeft: "auto", fontSize: 12.5, fontWeight: 800, color: dv > 0 ? "#3AD6A0" : "#FF8FA0" }}>{dv > 0 ? "+" : ""}{Number(dv.toFixed(1))}</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </>
+                );
+              })()}
             </Card>
           </div>
         ) : tab === "nutrition" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <Card>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <SectionLabel icon={Flame}>Plan alimentaire</SectionLabel>
-                <button onClick={() => setShowPlanEditor(true)} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>Modifier</button>
+              <SectionHead icon={Flame} title="Plan alimentaire" color="#F5C542" action={
+                <button onClick={() => setShowPlanEditor(true)} style={{ background: C.blueSoft, border: `1px solid ${C.blueBorder}`, borderRadius: 999, padding: "6px 14px", color: "#7FA0FF", fontSize: 13.5, fontWeight: 800 }}>Modifier</button>
+              } />
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 44, color: C.text, fontWeight: 800, lineHeight: 1 }}>{planAlimentaire.kcal}</span>
+                <span style={{ fontSize: 16, color: C.textMuted, fontWeight: 700 }}>kcal / jour</span>
               </div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700, marginBottom: 6 }}>
-                {planAlimentaire.kcal} <span style={{ fontSize: 13, color: C.textMuted, fontWeight: 400 }}>kcal / jour</span>
-              </div>
-              <div style={{ display: "flex", gap: 14, fontSize: 12, color: C.textMuted }}>
-                <span>Protéines <strong style={{ color: C.blue }}>{planAlimentaire.prot}g</strong></span>
-                <span>Glucides <strong style={{ color: C.green }}>{planAlimentaire.gluc}g</strong></span>
-                <span>Lipides <strong style={{ color: C.amber }}>{planAlimentaire.lip}g</strong></span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {[["Protéines", planAlimentaire.prot, "#7FA0FF"], ["Glucides", planAlimentaire.gluc, "#3AD6A0"], ["Lipides", planAlimentaire.lip, "#F5C542"]].map(([lab, val, col]) => (
+                  <div key={lab} style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${col}55`, borderRadius: 16, padding: "10px 6px", textAlign: "center" }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: col }}>{val}<span style={{ fontSize: 12, fontWeight: 700 }}> g</span></div>
+                    <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600, marginTop: 2 }}>{lab}</div>
+                  </div>
+                ))}
               </div>
               {(planAlimentaire.protParKg != null || planAlimentaire.lipParKg != null) && (
-                <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 6 }}>
+                <div style={{ fontSize: 12.5, color: C.textDim, marginTop: 10 }}>
                   Basé sur le poids de corps ({client.poids_actuel || "-"} kg) · glucides = reste des calories
                 </div>
               )}
@@ -9942,7 +10123,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             {repas.length === 0 ? (
               <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Aucun repas enregistré</div></Card>
             ) : (
-              <CalendrierNutritionCoach repas={repas} />
+              <CalendrierNutritionCoach repas={repas} plan={planAlimentaire} />
             )}
           </div>
         ) : null}
@@ -10052,18 +10233,26 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
         {tab === "profil" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <Card>
-              <SectionLabel icon={User}>Informations personnelles</SectionLabel>
-              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Prénom: {client.prenom}</div>
-              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Nom: {client.nom}</div>
-              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Âge: {client.age || "-"} ans</div>
-              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Taille: {client.taille || "-"} cm</div>
-              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Poids actuel: {client.poids_actuel || "-"} kg</div>
-              <div style={{ fontSize: 14, color: C.text }}>Objectif de poids: {client.poids_objectif || "-"} kg</div>
+              <SectionHead icon={User} title="Informations personnelles" />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[["Prénom", client.prenom], ["Nom", client.nom], ["Âge", client.age ? `${client.age} ans` : "-"], ["Taille", client.taille ? `${client.taille} cm` : "-"], ["Poids actuel", client.poids_actuel ? `${client.poids_actuel} kg` : "-"], ["Objectif de poids", client.poids_objectif ? `${client.poids_objectif} kg` : "-"]].map(([lab, val]) => (
+                  <div key={lab} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600 }}>{lab}</div>
+                    <div style={{ fontSize: 17, color: C.text, fontWeight: 800, marginTop: 2 }}>{val}</div>
+                  </div>
+                ))}
+              </div>
             </Card>
             <Card>
-              <SectionLabel icon={Target}>Objectifs</SectionLabel>
-              <div style={{ fontSize: 14, color: C.text, marginBottom: 8 }}>Objectif principal: {client.objectif_principal || "-"}</div>
-              <div style={{ fontSize: 14, color: C.text }}>Objectif secondaire: {client.objectif_secondaire || "-"}</div>
+              <SectionHead icon={Target} title="Objectifs" color="#F5C542" />
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[["Objectif principal", client.objectif_principal], ["Objectif secondaire", client.objectif_secondaire]].map(([lab, val]) => (
+                  <div key={lab} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "10px 14px" }}>
+                    <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600 }}>{lab}</div>
+                    <div style={{ fontSize: 16, color: C.text, fontWeight: 700, marginTop: 2 }}>{val || "-"}</div>
+                  </div>
+                ))}
+              </div>
             </Card>
             <Card>
               <SectionLabel icon={Bell}>Notifications push</SectionLabel>
@@ -10101,7 +10290,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             <ResetPasswordCard client={client} fireToast={fireToast} />
 
             <Card>
-              <SectionLabel icon={Clock}>Connexions récentes</SectionLabel>
+              <SectionHead icon={Clock} title="Connexions récentes" color="#B9C4E0" />
               {connexionsRecentes.length === 0 ? (
                 <div style={{ fontSize: 12.5, color: C.textMuted }}>Aucune connexion enregistrée pour le moment.</div>
               ) : (
@@ -10117,7 +10306,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             </Card>
 
             <Card>
-              <SectionLabel icon={ClipboardList}>Note privée</SectionLabel>
+              <SectionHead icon={ClipboardList} title="Note privée" color="#F5C542" />
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
                 Visible uniquement par toi — le client n'y a jamais accès.
               </div>
