@@ -10818,9 +10818,9 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                 {clientsFiltres.map((c) => (
                   <Card key={c.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div onClick={() => setSelectedClient(c)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                                                 <AvatarInitiales prenom={c.prenom} nom={c.nom} photo={c.photo_url} size={52} />
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>{c.prenom} {c.nom}</div>
                             {premiereSeanceParClient[c.id] && (
@@ -10830,13 +10830,13 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                             )}
                           </div>
                           <div style={{ fontSize: 13.5, color: C.textMuted, marginTop: 2, textAlign: "left" }}>{c.objectif_principal}</div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
+                          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 12, rowGap: 4, marginTop: 6 }}>
                             {(() => {
                               const derniereDate = dernierSeanceParClient[c.id];
                               const joursSince = derniereDate ? Math.floor((new Date(todayIso()) - new Date(derniereDate)) / 86400000) : null;
                               const actif = joursSince !== null && joursSince <= 2;
                               return (
-                                <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: actif ? C.green : joursSince === null ? C.textDim : C.red, fontWeight: 600 }}>
+                                <span style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", fontSize: 12.5, color: actif ? C.green : joursSince === null ? C.textDim : C.red, fontWeight: 600 }}>
                                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: actif ? C.green : joursSince === null ? C.textDim : C.red, display: "inline-block" }} />
                                   {joursSince === null ? "Jamais actif" : joursSince === 0 ? "Actif aujourd'hui" : `Actif il y a ${joursSince} j`}
                                 </span>
@@ -10848,14 +10848,14 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                               const versObjectif = c.poids_objectif < tendance.actuel ? tendance.delta < 0 : tendance.delta > 0;
                               const Arrow = tendance.delta < 0 ? TrendingDown : TrendingUp;
                               return (
-                                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: versObjectif ? C.green : C.red, fontWeight: 600 }}>
+                                <span style={{ display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", fontSize: 12.5, color: versObjectif ? C.green : C.red, fontWeight: 600 }}>
                                   <Arrow size={11} /> {Math.abs(tendance.delta).toFixed(1)}kg
                                 </span>
                               );
                             })()}
                             {derniereConnexionParClient[c.id] && (
-                              <span style={{ fontSize: 10.5, color: C.textDim, fontWeight: 600 }}>
-                                · Connecté {formatDerniereConnexion(derniereConnexionParClient[c.id])}
+                              <span style={{ fontSize: 12.5, color: C.textDim, fontWeight: 600, whiteSpace: "nowrap" }}>
+                                Connecté {formatDerniereConnexion(derniereConnexionParClient[c.id])}
                               </span>
                             )}
                           </div>
