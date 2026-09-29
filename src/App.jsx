@@ -2390,6 +2390,11 @@ function RoutinePreviewModal({ routine, onClose }) {
   );
 }
 
+const MACRO_MODES = [
+  { key: "pourcentage", label: "Pourcentage (%)" },
+  { key: "grammes", label: "Grammes" },
+  { key: "poids", label: "Poids de corps" },
+];
 const JOURS_SEMAINE = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 const JOURS_SEMAINE_LABEL = { lundi: "Lun", mardi: "Mar", mercredi: "Mer", jeudi: "Jeu", vendredi: "Ven", samedi: "Sam", dimanche: "Dim" };
 const jourDuJourFr = () => JOURS_SEMAINE[(new Date().getDay() + 6) % 7];
@@ -4408,9 +4413,13 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
           </div>
         </div>
         <div style={{ display: "flex", gap: 14 }}>
-          {macro("Protéines", totals.prot, Math.round((objectifs.kcal * objectifs.pctProt / 100) / 4), C.blue)}
-          {macro("Glucides", totals.gluc, Math.round((objectifs.kcal * objectifs.pctGluc / 100) / 4), C.green)}
-          {macro("Lipides", totals.lip, Math.round((objectifs.kcal * objectifs.pctLip / 100) / 9), C.amber)}
+          {/* objectifs.prot/gluc/lip sont déjà calculés correctement en amont (calculerMacros),
+              quel que soit le mode choisi (% / grammes / poids de corps) — recalculer ici à partir
+              de pctProt/pctGluc/pctLip ignorait complètement le mode "poids" et affichait toujours
+              des grammes calculés comme si on était en %, même quand "Poids" était bien enregistré. */}
+          {macro("Protéines", totals.prot, Math.round(objectifs.prot) || 0, C.blue)}
+          {macro("Glucides", totals.gluc, Math.round(objectifs.gluc) || 0, C.green)}
+          {macro("Lipides", totals.lip, Math.round(objectifs.lip) || 0, C.amber)}
         </div>
       </Card>
 
@@ -8487,11 +8496,18 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
   // config "semaine"). `cfg` et `setCfg` ciblent soit joursConfig[jour], soit semaineCfg.
   const renderMacroInputs = (cfg, setCfg) => (
     <div style={{ marginTop: 8 }}>
-      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-        <PillButton active={cfg.macroMode === "pourcentage"} onClick={() => setCfg({ ...cfg, macroMode: "pourcentage" })} style={{ flex: 1, textAlign: "center", padding: "6px 8px", fontSize: 11 }}>%</PillButton>
-        <PillButton active={cfg.macroMode === "grammes"} onClick={() => setCfg({ ...cfg, macroMode: "grammes" })} style={{ flex: 1, textAlign: "center", padding: "6px 8px", fontSize: 11 }}>Grammes</PillButton>
-        <PillButton active={cfg.macroMode === "poids"} onClick={() => setCfg({ ...cfg, macroMode: "poids" })} style={{ flex: 1, textAlign: "center", padding: "6px 8px", fontSize: 11 }}>Poids</PillButton>
-      </div>
+      <button
+        type="button"
+        onClick={() => {
+          const idx = MACRO_MODES.findIndex((m) => m.key === cfg.macroMode);
+          const next = MACRO_MODES[(idx + 1) % MACRO_MODES.length];
+          setCfg({ ...cfg, macroMode: next.key });
+        }}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderRadius: 999, border: "2px solid #00B2FF", background: "#1E56C9", color: "#FFFFFF", fontSize: 12.5, fontWeight: 700, boxShadow: "0 0 12px rgba(0,178,255,0.7)", marginBottom: 8 }}
+      >
+        <span>{MACRO_MODES.find((m) => m.key === cfg.macroMode)?.label || "Pourcentage (%)"}</span>
+        <ChevronDown size={14} />
+      </button>
       {cfg.macroMode === "pourcentage" && (
         <div style={{ display: "flex", gap: 6 }}>
           {[["P %", "pctProt"], ["G %", "pctGluc"], ["L %", "pctLip"]].map(([label, key]) => (
