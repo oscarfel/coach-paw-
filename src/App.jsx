@@ -11662,6 +11662,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               eauVerres={eauVerres}
               onChangeWater={onChangeWater}
               isCoach={profilRow.role === "coach"}
+              // Editeur complet (par jour / % / grammes / poids de corps) réservé au coach qui
+              // règle SON PROPRE objectif — un client ne doit jamais pouvoir modifier lui-même
+              // ses grammes de protéines/glucides/lipides, c'est le coach qui les règle pour lui
+              // depuis la fiche client (ClientDetailView). Ne pas retirer ce garde-fou.
               selfClientPlan={profilRow.role === "coach" ? { poids_actuel: objectifsNutrition.poidsActuel, objectifs_kcal_par_jour: objectifsNutrition.kcalParJourRaw, nutrition_par_jour: objectifsNutrition.nutritionParJourRaw } : null}
               onSaveParJour={saveObjectifsKcalParJourSelf}
               onSaveParKg={saveObjectifsParKgSelf}
