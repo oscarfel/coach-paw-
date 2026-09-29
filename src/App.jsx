@@ -1005,8 +1005,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, lineHeight: 1.1, textAlign: "center", background: "linear-gradient(90deg, #7FA0FF, #4C7DF0 55%, #F5C542)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>
               {user.prenom}
             </div>
-            <div style={{ position: "relative", marginTop: 6, minHeight: 92 }}>
-              <div style={{ position: "absolute", left: 0, right: 0, top: "38%", fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, textAlign: "center" }}>
+            <div style={{ position: "relative", marginTop: 0, minHeight: 92 }}>
+              <div style={{ position: "absolute", left: 0, right: 0, top: 0, fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, textAlign: "center" }}>
                 {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
               </div>
               <button
@@ -1018,7 +1018,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 <div style={{ position: "absolute", inset: 6, borderRadius: "50%", background: `radial-gradient(circle at 35% 25%, ${tierInfo.color}66, #151C40 60%, #090E24)`, boxShadow: "inset 0 2px 6px rgba(255,255,255,0.3), inset 0 -10px 16px rgba(0,0,0,0.55)" }} />
                 <div style={{ position: "absolute", top: 10, left: 18, width: 46, height: 24, borderRadius: "50%", transform: "rotate(-20deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0))" }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", paddingBottom: 8, filter: `drop-shadow(0 4px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 8px ${tierInfo.color}aa)` }}>
-                  <MedalBadge color={tierInfo.color} size={52} />
+                  <TrophyIcon color={tierInfo.color} size={56} />
                 </div>
                 <div style={{ position: "absolute", left: "50%", bottom: -6, transform: "translateX(-50%)", fontSize: 14, fontWeight: 800, color: tierInfo.color, background: "linear-gradient(180deg, #16204A, #0A1029)", border: `1.5px solid ${tierInfo.color}`, borderRadius: 999, padding: "3px 11px", boxShadow: `0 4px 12px rgba(0,0,0,0.6), 0 0 12px ${tierInfo.color}88`, whiteSpace: "nowrap" }}>
                   {Math.round(badgeScore)}%
@@ -6920,6 +6920,32 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
     </div>
   );
 }
+
+const TrophyIcon = ({ color, size = 52 }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+    <defs>
+      <linearGradient id="trophyBody" x1="14" y1="8" x2="50" y2="44" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#FFFFFF" />
+        <stop offset="0.35" stopColor={color} />
+        <stop offset="1" stopColor={color} />
+      </linearGradient>
+      <linearGradient id="trophyShade" x1="0" y1="8" x2="0" y2="56" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#000" stopOpacity="0" />
+        <stop offset="1" stopColor="#000" stopOpacity="0.4" />
+      </linearGradient>
+    </defs>
+    <path d="M19 15 H10 C10 25 13.5 30.5 21.5 32.5" stroke={color} strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M45 15 H54 C54 25 50.5 30.5 42.5 32.5" stroke={color} strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M17 8 H47 V26 C47 35.5 40.5 41.5 32 41.5 C23.5 41.5 17 35.5 17 26 Z" fill="url(#trophyBody)" />
+    <path d="M17 8 H47 V26 C47 35.5 40.5 41.5 32 41.5 C23.5 41.5 17 35.5 17 26 Z" fill="url(#trophyShade)" />
+    <path d="M22 12 V26 C22 31 24.5 35 28 37" stroke="#FFFFFF" strokeOpacity="0.55" strokeWidth="2.6" strokeLinecap="round" />
+    <path d="M32 15.5 L34.6 21 L40.5 21.7 L36.2 25.7 L37.4 31.5 L32 28.6 L26.6 31.5 L27.8 25.7 L23.5 21.7 L29.4 21 Z" fill="#FFFFFF" fillOpacity="0.92" />
+    <rect x="28.5" y="41" width="7" height="8" rx="1.5" fill={color} />
+    <rect x="28.5" y="41" width="7" height="8" rx="1.5" fill="url(#trophyShade)" />
+    <rect x="20" y="49" width="24" height="7.5" rx="3" fill="url(#trophyBody)" />
+    <rect x="20" y="49" width="24" height="7.5" rx="3" fill="url(#trophyShade)" />
+  </svg>
+);
 
 const MedalBadge = ({ color, size = 36 }) => {
   const gradId = `trophyGrad-${color.replace("#", "")}`;
