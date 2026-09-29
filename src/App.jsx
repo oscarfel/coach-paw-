@@ -42,14 +42,18 @@ const C = {
   redSoft: "rgba(255,93,108,0.16)",
 };
 
-const FONT_DISPLAY = "'Manrope', sans-serif";
+// Police identique au visuel de référence : SF Pro (police système Apple) sur iPhone/Mac,
+// Inter en secours partout ailleurs (Android, Windows).
+const FONT_SANS = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif";
+const FONT_DISPLAY = FONT_SANS;
 const SIGNED_URL_EXPIRY = 315360000; // ~10 ans, pour les fichiers sur buckets privés (photos-bilan, documents-coach)
-const FONT_BODY = "'Manrope', sans-serif";
-const FONT_MONO = "'JetBrains Mono', monospace";
+const FONT_BODY = FONT_SANS;
+// Les chiffres (poids, reps, kcal) utilisent la même police que le reste, comme sur le visuel.
+const FONT_MONO = FONT_SANS;
 
 const FontImports = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
     html, body {
       touch-action: pan-x pan-y;
       overscroll-behavior: none;
@@ -96,6 +100,7 @@ const FontImports = () => (
     input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: ${C.cardBorderLight}; }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -6px; width: 16px; height: 16px; border-radius: 50%; background: ${C.blue}; box-shadow: 0 0 0 4px ${C.blueSoft}; }
     button { font-family: ${FONT_BODY}; cursor: pointer; }
+    body { font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
     @keyframes pulseGlow { 0%,100% { opacity:.55; } 50% { opacity:1; } }
     @keyframes slideUp { from { transform: translateY(12px); opacity:0; } to { transform: translateY(0); opacity:1; } }
     @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
