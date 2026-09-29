@@ -134,11 +134,11 @@ const Card = React.forwardRef(({ children, style, ...rest }, ref) => (
   <div
     ref={ref}
     style={{
-      background: C.card,
-      border: `1px solid ${C.cardBorder}`,
+      background: `linear-gradient(155deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 38%), ${C.card}`,
+      border: "1px solid rgba(110,150,255,0.5)",
       borderRadius: 20,
       padding: 16,
-      boxShadow: `0 0 0 1px ${C.cardBorder}, 0 10px 28px rgba(0,0,0,0.45), 0 0 18px rgba(59,111,224,0.18)`,
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(76,125,240,0.16), 0 10px 28px rgba(0,0,0,0.45), 0 0 24px rgba(76,125,240,0.3)",
       ...style,
     }}
     {...rest}
@@ -975,13 +975,13 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       {mode === "accueil" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontFamily: FONT_BODY, fontSize: 15, color: C.textOnBgMuted, fontWeight: 600, textAlign: "left" }}>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 15, color: C.textOnBgMuted, fontWeight: 600, textAlign: "center" }}>
               Bienvenue,
             </div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, lineHeight: 1.1, textAlign: "left", background: "linear-gradient(90deg, #7FA0FF, #4C7DF0 55%, #F5C542)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, lineHeight: 1.1, textAlign: "center", background: "linear-gradient(90deg, #7FA0FF, #4C7DF0 55%, #F5C542)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>
               {user.prenom}
             </div>
-            <div style={{ fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, marginTop: 6, textAlign: "left" }}>
+            <div style={{ fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, marginTop: 6, textAlign: "center" }}>
               {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
@@ -1040,7 +1040,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                       borderRadius: 18,
                       textAlign: "left",
                       background: "linear-gradient(135deg, rgba(76,125,240,0.22), rgba(255,255,255,0.05))",
-                      border: "1px solid rgba(76,125,240,0.3)",
+                      border: "1px solid rgba(110,150,255,0.55)",
+                      boxShadow: "0 0 16px rgba(76,125,240,0.35)",
                       cursor: "pointer",
                     }}
                   >
@@ -1126,7 +1127,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             )}
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(245,197,66,0.4)", boxShadow: "0 0 0 1px rgba(245,197,66,0.15), 0 10px 28px rgba(0,0,0,0.45), 0 0 20px rgba(245,197,66,0.16)" }} onClick={() => setShowBadgeDetail(true)}>
+            <Card style={{ padding: 14, cursor: "pointer", border: "1.5px solid rgba(255,150,40,0.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(255,140,26,0.4), 0 0 24px rgba(255,140,26,0.5), 0 0 8px rgba(255,166,64,0.6), 0 10px 28px rgba(0,0,0,0.45)" }} onClick={() => setShowBadgeDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Award size={14} color={tierInfo.color} />
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Palier du mois</span>
@@ -1151,7 +1152,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 {tierInfo.label} · {Math.round(badgeScore)}%
               </div>
             </Card>
-            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(245,197,66,0.4)", boxShadow: "0 0 0 1px rgba(245,197,66,0.15), 0 10px 28px rgba(0,0,0,0.45), 0 0 20px rgba(245,197,66,0.16)" }} onClick={() => setTab("nutrition")}>
+            <Card style={{ padding: 14, cursor: "pointer", border: "1.5px solid rgba(255,150,40,0.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(255,140,26,0.4), 0 0 24px rgba(255,140,26,0.5), 0 0 8px rgba(255,166,64,0.6), 0 10px 28px rgba(0,0,0,0.45)" }} onClick={() => setTab("nutrition")}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Flame size={14} color={C.blue} />
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Calories</span>
@@ -1356,8 +1357,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                         key={jour}
                         style={{
                           display: "flex", alignItems: "center", gap: 14, padding: 16,
-                          border: estValide ? `1.5px solid ${C.green}` : (estAujourdhui ? "1.5px solid #F5C542" : `1px solid ${C.cardBorder}`),
-                          boxShadow: estValide ? "0 10px 28px rgba(0,0,0,0.4), 0 0 20px rgba(58,214,160,0.28)" : (estAujourdhui ? "0 10px 28px rgba(0,0,0,0.4), 0 0 20px rgba(245,197,66,0.25)" : undefined),
+                          border: estValide ? `2px solid ${C.green}` : (estAujourdhui ? "2px solid #F5C542" : undefined),
+                          boxShadow: estValide ? "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(58,214,160,0.45), 0 0 26px rgba(58,214,160,0.55), 0 0 8px rgba(58,214,160,0.5), 0 10px 28px rgba(0,0,0,0.4)" : (estAujourdhui ? "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(245,197,66,0.45), 0 0 26px rgba(245,197,66,0.55), 0 0 8px rgba(245,197,66,0.5), 0 10px 28px rgba(0,0,0,0.4)" : undefined),
                           userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",
                         }}
                       >
@@ -1673,8 +1674,8 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
         overflow: "hidden",
         background: cardFillGradient(),
         transition: "background 0.4s ease",
-        border: progressionPct >= 100 ? `1.5px solid ${C.green}` : "1px solid rgba(76,125,240,0.4)",
-        boxShadow: progressionPct >= 100 ? "0 10px 28px rgba(0,0,0,0.4), 0 0 18px rgba(58,214,160,0.25)" : "0 10px 28px rgba(0,0,0,0.4), 0 0 18px rgba(59,111,224,0.18)",
+        border: progressionPct >= 100 ? `2px solid ${C.green}` : "2px solid rgba(245,197,66,0.9)",
+        boxShadow: progressionPct >= 100 ? "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(58,214,160,0.4), 0 0 22px rgba(58,214,160,0.5), 0 10px 28px rgba(0,0,0,0.4)" : "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(245,197,66,0.35), 0 0 22px rgba(245,197,66,0.4), 0 10px 28px rgba(0,0,0,0.4)",
         borderRadius: 22,
       }}
     >
