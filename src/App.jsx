@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dumbbell, Apple, Home, TrendingUp, TrendingDown, User, Play, Square, Timer, Video, Upload,
-  Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
+  Eye, EyeOff, Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
   Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
   ShoppingCart, Pill, ScanLine, MoreVertical, Edit3, Lock,
@@ -526,7 +526,7 @@ function RepRangePersonnalise({ range, onSet }) {
             const mn = parseInt(min), mx = parseInt(max);
             if (mn > 0 && mx >= mn) { onSet({ min: mn, max: mx }); setOpen(false); }
           }}
-          style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "5px 8px", fontSize: 11, fontWeight: 700 }}
+          style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 8, padding: "5px 8px", fontSize: 11, fontWeight: 700 }}
         >
           OK
         </button>
@@ -1151,7 +1151,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 {isCoach && (
                   <button
                     onClick={() => onManageRoutines?.()}
-                    style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "9px 14px", fontWeight: 700, fontSize: 12, flexShrink: 0 }}
+                    style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 10, padding: "9px 14px", fontWeight: 700, fontSize: 12, flexShrink: 0 }}
                   >
                     Gérer
                   </button>
@@ -1314,7 +1314,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                   <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 8 }}>{customProgrammes[0].muscle}</div>
                   <button
                     onClick={(e) => { e.stopPropagation(); onStart(customProgrammes[0]); }}
-                    style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "6px 12px", display: "flex", alignItems: "center", gap: 5, fontWeight: 800, fontSize: 11.5 }}
+                    style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 999, padding: "6px 12px", display: "flex", alignItems: "center", gap: 5, fontWeight: 800, fontSize: 11.5 }}
                   >
                     <Play size={11} fill="#06171F" /> Démarrer
                   </button>
@@ -1417,7 +1417,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             )}
             <SectionLabel icon={Dumbbell} onBg>{programmesJourFixe.length > 0 ? "Autres séances (cycle)" : "Mes séances"}</SectionLabel>
             {isCoach && (
-              <button onClick={() => setShowSeanceForm(true)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 10 }}>
+              <button onClick={() => setShowSeanceForm(true)} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 10 }}>
                 <Plus size={16} /> Créer une séance
               </button>
             )}
@@ -1528,7 +1528,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>+0,5 point à chaque exercice où tu progresses (poids ou répétitions).</div>
               </div>
             </div>
-            <button onClick={() => setShowBadgeDetail(false)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>Fermer</button>
+            <button onClick={() => setShowBadgeDetail(false)} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>Fermer</button>
           </Card>
         </div>
       )}
@@ -1560,7 +1560,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 ))}
               </div>
             )}
-            <button onClick={() => setShowProgresDetail(false)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 16 }}>Fermer</button>
+            <button onClick={() => setShowProgresDetail(false)} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 16 }}>Fermer</button>
           </Card>
         </div>
       )}
@@ -1569,7 +1569,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
           <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <SectionLabel icon={Flame}>Séances du mois</SectionLabel>
             <CalendrierSeances recentSeances={recentSeances} />
-            <button onClick={() => setShowCalendrier(false)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 16 }}>Fermer</button>
+            <button onClick={() => setShowCalendrier(false)} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 16 }}>Fermer</button>
           </Card>
         </div>
       )}
@@ -1957,7 +1957,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
               </div>
               <button
                 onClick={submit}
-                style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
               >
                 <Check size={15} /> Terminé
               </button>
@@ -2153,8 +2153,8 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   if (!ex) {
     return (
       <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
-        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.textOnBg }}>Repos</span>
-        <button onClick={onSkip} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "14px 28px", fontWeight: 800, fontSize: 15 }}>
+        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.text }}>Repos</span>
+        <button onClick={onSkip} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "14px 28px", fontWeight: 800, fontSize: 15 }}>
           Continuer
         </button>
       </div>
@@ -2178,90 +2178,98 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   const ringCirc = 2 * Math.PI * ringRadius;
   const ringOffset = ringCirc - (pct / 100) * ringCirc;
 
+  const restInput = { width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(110,150,255,0.45)", borderRadius: 16, padding: "14px", color: C.text, fontSize: 24, fontWeight: 800, textAlign: "center", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" };
+  const restLabel = { fontSize: 12.5, color: C.textMuted, marginBottom: 6, fontWeight: 700, textAlign: "center" };
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textOnBgMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Repos</span>
-        <button onClick={onSkip} style={{ background: "transparent", border: "none", color: C.textOnBg }}><X size={22} /></button>
+    <div style={{ position: "fixed", inset: 0, background: `radial-gradient(ellipse 90% 45% at 50% 30%, rgba(245,184,51,0.13) 0%, rgba(8,11,26,0) 70%), ${C.bg}`, zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto", textAlign: "left" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <IconBadge icon={Clock} color="#F5B833" size={34} iconSize={17} />
+          <span style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: C.text, fontWeight: 800 }}>Repos</span>
+        </div>
+        <button onClick={onSkip} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: C.text, borderRadius: 12, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={18} /></button>
       </div>
 
       {nextInfo ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 14, background: C.surface, border: `1px solid ${C.cardBorderLight}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+        <Card style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, padding: 14, border: "1.5px solid rgba(140,190,255,0.85)", boxShadow: "0 0 20px rgba(120,170,255,0.45), 0 8px 24px rgba(0,0,0,0.4)" }}>
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(110,150,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
             {nextInfo.image ? (
               <img src={nextInfo.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              <Dumbbell size={26} color={C.text} />
+              <Dumbbell size={26} color="#9DB8FF" />
             )}
           </div>
-          <div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textOnBgMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>{nextInfo.label}</div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.textOnBg }}>{nextInfo.nom}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, color: "#8CBEFF", fontWeight: 700 }}>{nextInfo.label}</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: C.text, marginTop: 1 }}>{nextInfo.nom}</div>
             {nextInfo.last && (
-              <div style={{ fontSize: 12, color: C.blue, marginTop: 2, fontWeight: 700 }}>Dernière fois : {nextInfo.last.poids}kg × {nextInfo.last.reps}</div>
+              <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 3, fontWeight: 600 }}>Dernière fois : <span style={{ color: C.text, fontWeight: 800 }}>{nextInfo.last.poids}kg × {nextInfo.last.reps}</span></div>
             )}
           </div>
-        </div>
+        </Card>
       ) : (
-        <div style={{ marginBottom: 24, textAlign: "center" }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.textOnBg }}>Dernière série de la séance 💪</div>
-        </div>
+        <Card style={{ marginBottom: 20, textAlign: "center" }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 17, color: C.text }}>Dernière série de la séance 💪</div>
+        </Card>
       )}
 
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 240 }}>
         {rest.termine ? (
           <div style={{ textAlign: "center", animation: "pulseGlow 1s infinite" }}>
-            <div style={{ width: 140, height: 140, borderRadius: "50%", background: C.amber, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: "0 0 40px rgba(240,178,92,0.8)" }}>
-              <Clock size={56} color="#3D2600" />
+            <div style={{ width: 150, height: 150, borderRadius: "50%", background: "linear-gradient(135deg,#FFD25A,#F5A020)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px", boxShadow: "0 0 50px rgba(255,170,50,0.7), inset 0 2px 0 rgba(255,255,255,0.4)" }}>
+              <Clock size={60} color="#3D2600" />
             </div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.textOnBg }}>Temps écoulé !</div>
-            <div style={{ fontSize: 13, color: C.textOnBgMuted, marginTop: 4 }}>C'est reparti 💪</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.text }}>Temps écoulé !</div>
+            <div style={{ fontSize: 14, color: C.textMuted, marginTop: 4 }}>C'est reparti 💪</div>
           </div>
         ) : (
-          <div style={{ position: "relative", width: 220, height: 220 }}>
-            <svg width="220" height="220" viewBox="0 0 220 220">
-              <circle cx="110" cy="110" r={ringRadius} fill="none" stroke={C.cardBorderLight} strokeWidth="14" />
+          <div style={{ position: "relative", width: 240, height: 240, filter: "drop-shadow(0 0 18px rgba(255,170,50,0.45))" }}>
+            <svg width="240" height="240" viewBox="0 0 220 220">
+              <defs>
+                <linearGradient id="restGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#FFD25A" />
+                  <stop offset="100%" stopColor="#F58A20" />
+                </linearGradient>
+              </defs>
+              <circle cx="110" cy="110" r={ringRadius} fill="rgba(255,255,255,0.03)" stroke="rgba(110,150,255,0.25)" strokeWidth="14" />
               <circle
-                cx="110" cy="110" r={ringRadius} fill="none" stroke={C.amber} strokeWidth="14"
+                cx="110" cy="110" r={ringRadius} fill="none" stroke="url(#restGrad)" strokeWidth="14"
                 strokeDasharray={ringCirc} strokeDashoffset={ringOffset}
                 strokeLinecap="round" transform="rotate(-90 110 110)"
                 style={{ transition: "stroke-dashoffset 1s linear" }}
               />
             </svg>
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 48, color: C.textOnBg, fontWeight: 700 }}>{rest.left}</div>
-              <div style={{ fontSize: 12, color: C.textOnBgMuted, fontWeight: 600 }}>secondes</div>
+              <div style={{ fontFamily: FONT_SANS, fontSize: 64, color: C.text, fontWeight: 800, lineHeight: 1, letterSpacing: "-0.03em" }}>{rest.left}</div>
+              <div style={{ fontSize: 13, color: C.textMuted, fontWeight: 600, marginTop: 4 }}>secondes</div>
             </div>
           </div>
         )}
       </div>
 
-      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textOnBgMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginBottom: 8 }}>
-        Ta série qui vient d'être validée
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>Charge (kg)</div>
-          <input
-            type="number" value={poids} onChange={(e) => setPoids(e.target.value)}
-            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
-          />
+      <Card style={{ marginBottom: 16, padding: 14 }}>
+        <div style={{ fontSize: 13, color: C.textMuted, fontWeight: 700, marginBottom: 10, textAlign: "center" }}>Ta série qui vient d'être validée</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div>
+            <div style={restLabel}>Charge (kg)</div>
+            <input type="number" value={poids} onChange={(e) => setPoids(e.target.value)} style={restInput} />
+          </div>
+          <div>
+            <div style={restLabel}>Répétitions</div>
+            <input type="number" value={reps} onChange={(e) => setReps(e.target.value)} style={restInput} />
+          </div>
         </div>
-        <div>
-          <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>Répétitions</div>
-          <input
-            type="number" value={reps} onChange={(e) => setReps(e.target.value)}
-            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
-          />
-        </div>
-      </div>
+      </Card>
 
       <button
         onClick={() => { onUpdateSet(poids, reps); onSkip(); }}
         style={{
-          width: "100%", border: "none", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15,
+          width: "100%", border: "none", borderRadius: 16, padding: "16px", fontWeight: 800, fontSize: 16,
           background: rest.termine ? C.amber : C.blue,
-          color: rest.termine ? "#3D2600" : "#06171F",
+          backgroundImage: rest.termine ? "linear-gradient(135deg,#FFD25A,#F5A020)" : "linear-gradient(135deg,#5B8CFF,#2F5BD0)",
+          boxShadow: rest.termine ? "0 6px 24px rgba(255,170,50,0.55)" : "0 6px 24px rgba(59,111,224,0.55)",
+          color: rest.termine ? "#3D2600" : "#FFFFFF",
         }}
       >
         {rest.termine ? "Continuer la séance" : "Terminer le repos"}
@@ -2270,13 +2278,6 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  ROUTINES MOBILITÉ                                                  */
-/* ------------------------------------------------------------------ */
-
-// Minuteur circuit effort/repos pour une routine de mobilité. Purement un outil live :
-// aucune écriture en base à la fin, pas d'historique — le coach n'a pas demandé de suivi
-// ici, juste un guide pour enchaîner les exercices.
 function RoutineMobilitePlayer({ routine, onClose }) {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState("travail"); // "travail" | "repos" | "fini"
@@ -2330,7 +2331,7 @@ function RoutineMobilitePlayer({ routine, onClose }) {
           <div style={{ fontSize: 44 }}>🎉</div>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: "#FFFFFF" }}>Routine terminée</div>
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{routine.nom}</div>
-          <button onClick={onClose} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "12px 28px", fontWeight: 800, marginTop: 8 }}>Fermer</button>
+          <button onClick={onClose} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 999, padding: "12px 28px", fontWeight: 800, marginTop: 8 }}>Fermer</button>
         </div>
       </div>
     );
@@ -2556,7 +2557,7 @@ function RoutineMobiliteModal({ routineActuelle, onSave, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <SectionLabel icon={RotateCcw}>{routineActuelle ? "Modifier la routine" : "Nouvelle routine mobilité"}</SectionLabel>
+        <SectionHead icon={RotateCcw} title={<>{routineActuelle ? "Modifier la routine" : "Nouvelle routine mobilité"}</>} />
 
         <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4, marginTop: 10 }}>Nom</div>
         <input
@@ -2949,7 +2950,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         ) : (
           <button
             onClick={onFinish}
-            style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "12px 24px", fontWeight: 800 }}
+            style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 999, padding: "12px 24px", fontWeight: 800 }}
           >
             Retour à mes séances
           </button>
@@ -3109,7 +3110,7 @@ function RPEPickerModal({ value, onSelect, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionLabel icon={Flame}>Choisir le RPE</SectionLabel>
+          <SectionHead icon={Flame} title={<>Choisir le RPE</>} />
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -3139,7 +3140,7 @@ function TempoPickerModal({ value, onSelect, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionLabel icon={Clock}>Choisir le tempo</SectionLabel>
+          <SectionHead icon={Clock} title={<>Choisir le tempo</>} />
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
@@ -3170,7 +3171,7 @@ function TempoExplanationModal({ tempo, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionLabel icon={Clock}>Tempo {tempo}</SectionLabel>
+          <SectionHead icon={Clock} title={<>Tempo {tempo}</>} />
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -3203,7 +3204,7 @@ function RepoPickerModal({ value, onSelect, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionLabel icon={Clock}>Choisir le temps de repos</SectionLabel>
+          <SectionHead icon={Clock} title={<>Choisir le temps de repos</>} />
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -3235,7 +3236,7 @@ function RepRangePickerModal({ value, onSelect, onClose, titre }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionLabel icon={Target}>{titre || "Choisir la fourchette de reps"}</SectionLabel>
+          <SectionHead icon={Target} title={<>{titre || "Choisir la fourchette de reps"}</>} />
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
@@ -3271,7 +3272,7 @@ function RepRangePickerModal({ value, onSelect, onClose, titre }) {
                 const mn = parseInt(min), mx = parseInt(max);
                 if (mn > 0 && mx >= mn) { onSelect({ min: mn, max: mx }); onClose(); }
               }}
-              style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}
+              style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}
             >
               OK
             </button>
@@ -4022,7 +4023,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditingItem(null)}>
               <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <SectionLabel icon={ClipboardList}>{editingItem.nom}</SectionLabel>
+                  <SectionHead icon={ClipboardList} title={<>{editingItem.nom}</>} />
                   <button onClick={() => setEditingItem(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
                 </div>
                 <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Quantité (grammes)</div>
@@ -4034,7 +4035,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                 />
                 <button
                   onClick={() => { onUpdate(meal.key, editingItem.id, parseFloat(editGrams) || editingItem.grams); setEditingItem(null); }}
-                  style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}
+                  style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}
                 >
                   Enregistrer
                 </button>
@@ -4194,7 +4195,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCopieModal(false)}>
           <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <SectionLabel icon={Download}>Copier {meal.emoji} {meal.nom}</SectionLabel>
+              <SectionHead icon={Download} title={<>Copier {meal.emoji} {meal.nom}</>} />
               <button onClick={() => setShowCopieModal(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 12 }}>
@@ -4211,7 +4212,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
             <button
               onClick={copierDepuisDate}
               disabled={copiantHier}
-              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: copiantHier ? 0.6 : 1 }}
+              style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: copiantHier ? 0.6 : 1 }}
             >
               {copiantHier ? "Copie en cours..." : `Copier ${meal.nom} du ${new Date(dateACopier).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
             </button>
@@ -4222,7 +4223,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowSaveRecette(false)}>
           <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <SectionLabel icon={ClipboardList}>Enregistrer comme recette</SectionLabel>
+              <SectionHead icon={ClipboardList} title={<>Enregistrer comme recette</>} />
               <button onClick={() => setShowSaveRecette(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 12 }}>
@@ -4244,7 +4245,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
             <button
               onClick={enregistrerCommeRecette}
               disabled={savingRecette || !nomRecette.trim()}
-              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
+              style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: savingRecette || !nomRecette.trim() ? 0.6 : 1 }}
             >
               {savingRecette ? "Enregistrement..." : "Enregistrer"}
             </button>
@@ -4255,7 +4256,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowUseRecette(false)}>
           <Card style={{ width: "100%", maxWidth: 380, maxHeight: "75vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <SectionLabel icon={ClipboardList}>Mes recettes · ajouter à {meal.nom}</SectionLabel>
+              <SectionHead icon={ClipboardList} title={<>Mes recettes · ajouter à {meal.nom}</>} />
               <button onClick={() => setShowUseRecette(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             {loadingRecettes ? (
@@ -4345,7 +4346,7 @@ function CoursesEtSupplements({ profilId, fireToast }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCourses(false)}>
           <Card style={{ width: "100%", maxWidth: 400, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <SectionLabel icon={ShoppingCart}>Liste de courses</SectionLabel>
+              <SectionHead icon={ShoppingCart} title={<>Liste de courses</>} />
               <button onClick={() => setShowCourses(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             {!listeCourse || (listeCourse.items || []).length === 0 ? (
@@ -4374,7 +4375,7 @@ function CoursesEtSupplements({ profilId, fireToast }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowSupplements(false)}>
           <Card style={{ width: "100%", maxWidth: 400, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <SectionLabel icon={Pill}>Suppléments recommandés</SectionLabel>
+              <SectionHead icon={Pill} title={<>Suppléments recommandés</>} />
               <button onClick={() => setShowSupplements(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             {supplements.length === 0 ? (
@@ -4642,9 +4643,9 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
       ) : showGoalEditor ? (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowGoalEditor(false)}>
           <Card style={{ width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
-            <SectionLabel icon={Flame}>Objectif calorique</SectionLabel>
+            <SectionHead icon={Flame} title={<>Objectif calorique</>} />
             <input type="number" defaultValue={objectifs.kcal} id="goalKcalInput" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 16, fontFamily: FONT_MONO, marginBottom: 16 }} />
-            <SectionLabel icon={ClipboardList}>Répartition des macros (%)</SectionLabel>
+            <SectionHead icon={ClipboardList} title={<>Répartition des macros (%)</>} />
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Potéines (%)</div>
@@ -4666,7 +4667,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
               const pctLip = parseInt(document.getElementById("goalLipInput").value) || objectifs.pctLip;
               saveObjectifsNutrition({ kcal, pctProt, pctGluc, pctLip });
               setShowGoalEditor(false);
-            }} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
+            }} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
           </Card>
         </div>
       ) : null}
@@ -4763,7 +4764,7 @@ function PhotoProfilObligatoireModal({ onUpload }) {
       }}
     >
       <Card style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
-        <SectionLabel icon={Camera}>Ta photo de profil</SectionLabel>
+        <SectionHead icon={Camera} title={<>Ta photo de profil</>} />
         <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 20 }}>
           Ajoute une photo de ton visage pour que ton coach puisse te reconnaître facilement.
         </div>
@@ -5359,7 +5360,7 @@ function MensurationsCard({ mensurationsHistory, addMensuration }) {
           </div>
         ))}
       </div>
-      <button onClick={submit} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>
+      <button onClick={submit} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5 }}>
         Enregistrer mes mensurations
       </button>
 
@@ -5432,14 +5433,14 @@ function MensurationsCard({ mensurationsHistory, addMensuration }) {
 /* ------------------------------------------------------------------ */
 const Field = ({ label, children }) => (
   <div>
-    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12, color: C.textDim, marginBottom: 5, fontWeight: 600, letterSpacing: 0, textTransform: "none" }}>{label}</div>
+    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, marginBottom: 6, fontWeight: 700, letterSpacing: 0, textTransform: "none", textAlign: "left" }}>{label}</div>
     {children}
   </div>
 );
 
 const inputStyle = {
-  width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`,
-  borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14,
+  width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(110,150,255,0.35)",
+  borderRadius: 14, padding: "12px 14px", color: C.text, fontSize: 15, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
 };
 
 function Profil({ user, setUser, fireToast, onSave, documentsRecus, notificationsRecues, onMarquerNotifLue, onChangePhoto, onEnableNotifs }) {
@@ -5460,28 +5461,32 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <button
-          onClick={() => photoFileRef.current && photoFileRef.current.click()}
-          style={{
-            width: 62, height: 62, borderRadius: "50%",
-            background: user.photoUrl ? `url(${user.photoUrl}) center/cover` : C.blueSoft,
-            border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0, position: "relative", overflow: "hidden",
-          }}
-        >
-          {!user.photoUrl && <User size={26} color={C.blue} />}
-        </button>
-        <input ref={photoFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f && onChangePhoto) onChangePhoto(f); }} />
-        <div>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.textOnBg }}>{user.prenom} {user.nom}</div>
-          <div style={{ fontSize: 12, color: C.textOnBgMuted }}>{user.age} ans · {user.taille} cm</div>
+      <Card style={{ border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 0 22px rgba(120,170,255,0.55), 0 0 6px rgba(160,205,255,0.7), 0 10px 28px rgba(0,0,0,0.45)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, textAlign: "left" }}>
+          <button
+            onClick={() => photoFileRef.current && photoFileRef.current.click()}
+            style={{
+              width: 78, height: 78, borderRadius: "50%",
+              background: user.photoUrl ? `url(${user.photoUrl}) center/cover` : "linear-gradient(135deg, #4C7DF0, #2B3F8F)",
+              border: "2px solid #8CBEFF", boxShadow: "0 0 18px rgba(140,190,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, position: "relative",
+            }}
+          >
+            {!user.photoUrl && <User size={32} color="#fff" />}
+            <span style={{ position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "2px solid #080B1A", display: "flex", alignItems: "center", justifyContent: "center" }}><Camera size={13} color="#fff" /></span>
+          </button>
+          <input ref={photoFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f && onChangePhoto) onChangePhoto(f); }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.text }}>{user.prenom} {user.nom}</div>
+            <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>{user.age} ans · {user.taille} cm</div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, fontWeight: 700, color: "#8CBEFF", background: "rgba(140,190,255,0.12)", border: "1px solid rgba(140,190,255,0.4)", borderRadius: 999, padding: "3px 10px" }}><Target size={12} /> {user.objectifPrincipal}</div>
+          </div>
         </div>
-      </div>
+      </Card>
 
       {notificationsRecues && notificationsRecues.length > 0 && (
         <Card>
-          <SectionLabel icon={Bell}>Notifications</SectionLabel>
+          <SectionHead icon={Bell} title={<>Notifications</>} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {notificationsRecues.map((n) => (
               <div
@@ -5499,7 +5504,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
 
       {documentsRecus && documentsRecus.length > 0 && (
         <Card>
-          <SectionLabel icon={FileText}>Documents de ton coach</SectionLabel>
+          <SectionHead icon={FileText} title={<>Documents de ton coach</>} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {documentsRecus.map((d) => (
               <a key={d.id} href={d.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, textDecoration: "none" }}>
@@ -5513,7 +5518,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
       )}
 
       <Card>
-        <SectionLabel icon={User}>Informations personnelles</SectionLabel>
+        <SectionHead icon={User} title={<>Informations personnelles</>} />
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Field label="Prénom"><input style={inputStyle} value={user.prenom} onChange={set("prenom")} /></Field>
@@ -5528,7 +5533,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
       </Card>
 
       <Card>
-        <SectionLabel icon={Target}>Objectifs</SectionLabel>
+        <SectionHead icon={Target} title={<>Objectifs</>} />
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Field label="Objectif principal">
             <select style={inputStyle} value={user.objectifPrincipal} onChange={set("objectifPrincipal")}>
@@ -5571,7 +5576,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
               </div>
               <button
                 onClick={handleEnableNotifs}
-                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 13.5 }}
+                style={{ width: "100%", background: "rgba(59,111,224,0.15)", border: "1px solid rgba(110,150,255,0.6)", color: "#B9D0FF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, boxShadow: "0 0 16px rgba(76,125,240,0.35)" }}
               >
                 Activer les notifications
               </button>
@@ -5580,7 +5585,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
         </Card>
       )}
 
-      <button onClick={onSave} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14 }}>
+      <button onClick={onSave} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14 }}>
         Enregistrer les modifications
       </button>
 
@@ -5691,7 +5696,7 @@ function PolitiqueConfidentialiteModal({ onClose }) {
             </div>
           ))}
         </div>
-        <button onClick={onClose} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>
+        <button onClick={onClose} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>
           Fermer
         </button>
       </Card>
@@ -5770,7 +5775,7 @@ function CGUModal({ onClose }) {
             </div>
           ))}
         </div>
-        <button onClick={onClose} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>
+        <button onClick={onClose} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>
           Fermer
         </button>
       </Card>
@@ -5992,6 +5997,7 @@ function LoginScreen({ fireToast }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -6001,51 +6007,49 @@ function LoginScreen({ fireToast }) {
     if (error) fireToast(error.message);
   };
 
+  const loginInput = { width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 14, padding: "14px 16px", color: C.text, fontSize: 15 };
+  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, marginBottom: 6, fontWeight: 700, textAlign: "left" };
+
   return (
-    <div style={{ ...appShellStyle, background: "#0B1A3D" }}>
+    <div style={{ ...appShellStyle, background: `radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59,111,224,0.35) 0%, rgba(8,11,26,0) 70%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(245,184,51,0.12) 0%, rgba(8,11,26,0) 70%), ${C.bg}` }}>
       <FontImports />
-      <div style={{ width: "100%", maxWidth: 440, padding: "48px 16px" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-          <img src="/cowave-icon-transparent.png" alt="CoWave" style={{ width: 220, height: "auto" }} />
+      <div style={{ width: "100%", maxWidth: 420, padding: "40px 20px", margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
+          <img src="/cowave-icon-transparent.png" alt="CoWave" style={{ width: 170, height: "auto", filter: "drop-shadow(0 0 24px rgba(76,125,240,0.6))" }} />
         </div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 30, color: "#FFFFFF", marginBottom: 8, textAlign: "center" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 34, textAlign: "center", background: "linear-gradient(135deg,#FFFFFF,#9DB8FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "-0.02em" }}>
           CoWave
         </div>
-        <div style={{ fontSize: 14, color: "#8FC4FF", marginBottom: 20, textAlign: "center" }}>Connecte-toi pour continuer</div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", fontStyle: "italic", textAlign: "center", marginBottom: 20, padding: "0 20px" }}>
-          « Chaque séance te rapproche de la meilleure version de toi-même. »
-        </div>
-        <Card style={{ border: "2px solid rgba(255,180,60,0.85)", boxShadow: "0 0 30px rgba(255,180,60,0.6), 0 0 12px rgba(255,210,80,0.75), 0 0 4px rgba(255,230,120,0.9), 0 8px 28px rgba(10,30,70,0.3)" }}>
+        <div style={{ fontSize: 14, color: C.textMuted, marginTop: 4, marginBottom: 22, textAlign: "center" }}>Ton coaching, au même endroit</div>
+        <Card style={{ padding: 22, border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 0 30px rgba(120,170,255,0.5), 0 0 8px rgba(160,205,255,0.6), 0 14px 36px rgba(0,0,0,0.5)" }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.text, marginBottom: 4, textAlign: "left" }}>Connexion</div>
+          <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 18, textAlign: "left" }}>Connecte-toi pour continuer</div>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12, color: C.textDim, marginBottom: 5, fontWeight: 600, letterSpacing: 0, textTransform: "none" }}>Email</div>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14 }}
-              />
+              <div style={loginLabel}>Email</div>
+              <input type="email" required autoComplete="email" placeholder="toi@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} style={loginInput} />
             </div>
             <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12, color: C.textDim, marginBottom: 5, fontWeight: 600, letterSpacing: 0, textTransform: "none" }}>Mot de passe</div>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14 }}
-              />
+              <div style={loginLabel}>Mot de passe</div>
+              <div style={{ position: "relative" }}>
+                <input type={showPwd ? "text" : "password"} required autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...loginInput, paddingRight: 46 }} />
+                <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.textMuted, padding: 6, display: "flex" }}>
+                  {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
               disabled={submitting}
-              style={{ background: "#FFFFFF", border: "none", color: C.blue, borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, opacity: submitting ? 0.6 : 1 }}
+              style={{ marginTop: 6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 6px 22px rgba(59,111,224,0.55)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15, opacity: submitting ? 0.6 : 1 }}
             >
               {submitting ? "Connexion..." : "Se connecter"}
             </button>
           </form>
         </Card>
+        <div style={{ fontSize: 13, color: "rgba(185,196,224,0.75)", fontStyle: "italic", textAlign: "center", marginTop: 22, padding: "0 16px" }}>
+          « Chaque séance te rapproche de la meilleure version de toi-même. »
+        </div>
       </div>
     </div>
   );
@@ -6087,10 +6091,10 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast, groupesDi
   };
 
   return (
-    <Card style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <SectionLabel icon={Plus}>Nouveau client</SectionLabel>
-        <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+    <Card style={{ marginBottom: 14, border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "0 0 22px rgba(120,170,255,0.5), 0 10px 28px rgba(0,0,0,0.45)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ flex: 1 }}><SectionHead icon={Plus} title={<>Nouveau client</>} /></div>
+        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 12, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
       </div>
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -6105,7 +6109,7 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast, groupesDi
             {(groupesDisponibles || []).map((g) => <option key={g} value={g} />)}
           </datalist>
         </Field>
-        <button type="submit" disabled={submitting} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: submitting ? 0.6 : 1 }}>
+        <button type="submit" disabled={submitting} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, opacity: submitting ? 0.6 : 1 }}>
           {submitting ? "Création..." : "Créer le client"}
         </button>
       </form>
@@ -6458,7 +6462,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20, overflowY: "auto" }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto", overflowX: "hidden" }} onClick={(e) => e.stopPropagation()}>
-        <SectionLabel icon={Dumbbell}>{estModele ? (editingProgramme?.id ? "Modifier le modèle" : "Nouveau modèle") : (editingProgramme?.id ? "Modifier la séance" : "Nouvelle séance")}</SectionLabel>
+        <SectionHead icon={Dumbbell} title={<>{estModele ? (editingProgramme?.id ? "Modifier le modèle" : "Nouveau modèle") : (editingProgramme?.id ? "Modifier la séance" : "Nouvelle séance")}</>} />
         <input type="text" placeholder="Nom (ex: Push)" value={nom} onChange={(e) => setNom(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 8 }} />
         <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
         {!estModele && (
@@ -6512,7 +6516,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowEchauffementPicker(false)}>
             <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <SectionLabel icon={Flame}>Type d'échauffement</SectionLabel>
+                <SectionHead icon={Flame} title={<>Type d'échauffement</>} />
                 <button onClick={() => setShowEchauffementPicker(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -6544,14 +6548,14 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                   );
                 })}
               </div>
-              <button onClick={() => setShowEchauffementPicker(false)} style={{ width: "100%", marginTop: 14, background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "11px", fontWeight: 800, fontSize: 13 }}>
+              <button onClick={() => setShowEchauffementPicker(false)} style={{ width: "100%", marginTop: 14, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 10, padding: "11px", fontWeight: 800, fontSize: 13 }}>
                 Terminé
               </button>
             </Card>
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <SectionLabel icon={Plus}>Exercices</SectionLabel>
+          <SectionHead icon={Plus} title={<>Exercices</>} />
           {exercices.length > 0 && (
             <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
               <button
@@ -6667,7 +6671,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setExpandedIdx(null)}>
               <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <SectionLabel icon={Dumbbell}>{ex.nom}</SectionLabel>
+                  <SectionHead icon={Dumbbell} title={<>{ex.nom}</>} />
                   <button onClick={() => setExpandedIdx(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
                 </div>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Séries</div>
@@ -6752,7 +6756,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                 </button>
                 <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Note</div>
                 <textarea value={ex.note || ""} onChange={(e) => updateExercice(i, "note", e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: C.text, fontSize: 13, resize: "none", marginBottom: 14 }} />
-                <button onClick={() => setExpandedIdx(null)} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14 }}>
+                <button onClick={() => setExpandedIdx(null)} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14 }}>
                   Terminé
                 </button>
               </Card>
@@ -6774,7 +6778,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 160, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowAjoutExercice(false)}>
             <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto", border: `2px solid ${C.amber}` }} onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <SectionLabel icon={Plus}>Nouvel exercice</SectionLabel>
+                <SectionHead icon={Plus} title={<>Nouvel exercice</>} />
                 <button onClick={() => setShowAjoutExercice(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
               </div>
 
@@ -6790,7 +6794,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
                   />
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => setShowNewExercice(false)} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 8, padding: "8px", fontSize: 12 }}>Annuler</button>
-                    <button onClick={createExercice} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 8, padding: "8px", fontSize: 12, fontWeight: 700 }}>Ajouter</button>
+                    <button onClick={createExercice} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 8, padding: "8px", fontSize: 12, fontWeight: 700 }}>Ajouter</button>
                   </div>
                 </div>
               ) : (
@@ -6914,7 +6918,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         )}
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14 }}>Annuler</button>
-          <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : editingProgramme?.id ? "Enregistrer" : "Créer"}</button>
+          <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : editingProgramme?.id ? "Enregistrer" : "Créer"}</button>
         </div>
       </Card>
     </div>
@@ -7220,7 +7224,7 @@ function TachesView({ coachId, fireToast }) {
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowForm(false)}>
           <Card style={{ width: "100%", maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
-            <SectionLabel icon={ClipboardList}>{editingTache ? "Modifier la tâche" : "Nouvelle tâche"}</SectionLabel>
+            <SectionHead icon={ClipboardList} title={<>{editingTache ? "Modifier la tâche" : "Nouvelle tâche"}</>} />
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
                 <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textDim, marginBottom: 5, fontWeight: 600, textTransform: "none" }}>Titre</div>
@@ -7394,7 +7398,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         <button onClick={() => { setFormMode(null); setEditingModele(null); }} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
-        <SectionLabel onBg icon={User}>Assigner « {editingModele.nom} » à...</SectionLabel>
+        <SectionHead icon={User} title={<>Assigner « {editingModele.nom} » à...</>} />
         {clients.length === 0 ? (
           <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun client pour le moment</div></Card>
         ) : (
@@ -7498,7 +7502,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
         <button onClick={() => setFormMode("detailSemaine")} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
           <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
-        <SectionLabel onBg icon={User}>Assigner « {selectedSemaine.nom} » à...</SectionLabel>
+        <SectionHead icon={User} title={<>Assigner « {selectedSemaine.nom} » à...</>} />
         <div style={{ fontSize: 13, color: C.textOnBgMuted, marginBottom: 12 }}>
           Toutes les séances de cette semaine type seront ajoutées au programme du client, avec leurs jours fixes.
         </div>
@@ -8768,7 +8772,7 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 380, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <SectionLabel icon={Flame}>Plan alimentaire</SectionLabel>
+        <SectionHead icon={Flame} title={<>Plan alimentaire</>} />
 
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           {supportsParJour ? (
@@ -8862,7 +8866,7 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
         {mode !== "calculateur" && (
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 12, padding: "12px", fontWeight: 600, fontSize: 14 }}>Annuler</button>
-            <button onClick={save} style={{ flex: 1, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
+            <button onClick={save} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>Enregistrer</button>
           </div>
         )}
       </Card>
@@ -8914,7 +8918,7 @@ function ResetPasswordCard({ client, fireToast }) {
 
   return (
     <Card>
-      <SectionLabel icon={ClipboardList}>Mot de passe</SectionLabel>
+      <SectionHead icon={ClipboardList} title={<>Mot de passe</>} />
       <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
         Si {client.prenom} a oublié son mot de passe, génère-en un nouveau ici et transmets-le-lui toi-même (SMS, en personne...). Aucun email n'est envoyé automatiquement.
       </div>
@@ -9836,7 +9840,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <button
               onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13 }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13 }}
             >
               <Plus size={16} /> Ajouter une routine
             </button>
@@ -10290,7 +10294,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
               </div>
             </Card>
             <Card>
-              <SectionLabel icon={Bell}>Notifications push</SectionLabel>
+              <SectionHead icon={Bell} title={<>Notifications push</>} />
               {notifActivees === null ? (
                 <div style={{ fontSize: 13, color: C.textMuted }}>Vérification...</div>
               ) : notifActivees ? (
@@ -10352,13 +10356,13 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 rows={4}
                 style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, resize: "none", marginBottom: 10 }}
               />
-              <button onClick={enregistrerNote} disabled={savingNote} style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "11px", fontWeight: 800, fontSize: 13, opacity: savingNote ? 0.6 : 1 }}>
+              <button onClick={enregistrerNote} disabled={savingNote} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "11px", fontWeight: 800, fontSize: 13, opacity: savingNote ? 0.6 : 1 }}>
                 {savingNote ? "Enregistrement..." : "Enregistrer la note"}
               </button>
             </Card>
 
             <Card>
-              <SectionLabel icon={Folder}>Visibilité</SectionLabel>
+              <SectionHead icon={Folder} title={<>Visibilité</>} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 12.5, color: C.textMuted, maxWidth: 240 }}>
                   {masque ? "Ce client est masqué de ta liste principale (visible dans \"Archivés\")." : "Ce client apparaît dans ta liste principale de clients."}
@@ -10373,7 +10377,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             </Card>
 
             <Card style={{ border: `1px solid ${C.red}` }}>
-              <SectionLabel icon={Trash2}>Zone dangereuse</SectionLabel>
+              <SectionHead icon={Trash2} title={<>Zone dangereuse</>} color={C.red} />
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
                 Supprime définitivement ce client et toutes ses données (séances, nutrition, bilans, photos). À utiliser quand le suivi est terminé.
               </div>
@@ -12003,7 +12007,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
                 </div>
                 <button
                   onClick={() => { setEditingRoutineSelf(null); setShowRoutineFormSelf(true); }}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13, marginBottom: 12 }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13, marginBottom: 12 }}
                 >
                   <Plus size={16} /> Ajouter une routine
                 </button>
