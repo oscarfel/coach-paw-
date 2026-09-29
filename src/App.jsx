@@ -1005,16 +1005,24 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, lineHeight: 1.1, textAlign: "center", background: "linear-gradient(90deg, #7FA0FF, #4C7DF0 55%, #F5C542)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>
               {user.prenom}
             </div>
-            <div style={{ position: "relative", marginTop: 6, minHeight: 58, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, textAlign: "center" }}>
+            <div style={{ position: "relative", marginTop: 6, minHeight: 92 }}>
+              <div style={{ position: "absolute", left: 0, right: 0, top: "38%", fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, textAlign: "center" }}>
                 {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
               </div>
               <button
                 onClick={() => setShowBadgeDetail(true)}
                 aria-label={`Palier du mois : ${tierInfo.label}`}
-                style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", width: 58, height: 58, borderRadius: "50%", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `radial-gradient(circle at 50% 35%, ${tierInfo.color}40, rgba(255,255,255,0.04) 70%)`, border: `1.5px solid ${tierInfo.color}`, boxShadow: `0 0 20px ${tierInfo.color}99, 0 0 6px ${tierInfo.color}` }}
+                style={{ position: "absolute", right: 0, bottom: -12, width: 96, height: 96, padding: 0, background: "transparent", border: "none", cursor: "pointer" }}
               >
-                <MedalBadge color={tierInfo.color} size={34} />
+                <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `conic-gradient(from 200deg, ${tierInfo.color}, #FFFFFF 16%, ${tierInfo.color} 34%, rgba(0,0,0,0.4) 58%, ${tierInfo.color} 80%, #FFFFFF 94%, ${tierInfo.color})`, boxShadow: `0 14px 28px rgba(0,0,0,0.65), 0 0 28px ${tierInfo.color}99` }} />
+                <div style={{ position: "absolute", inset: 6, borderRadius: "50%", background: `radial-gradient(circle at 35% 25%, ${tierInfo.color}66, #151C40 60%, #090E24)`, boxShadow: "inset 0 2px 6px rgba(255,255,255,0.3), inset 0 -10px 16px rgba(0,0,0,0.55)" }} />
+                <div style={{ position: "absolute", top: 10, left: 18, width: 46, height: 24, borderRadius: "50%", transform: "rotate(-20deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0))" }} />
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", paddingBottom: 8, filter: `drop-shadow(0 4px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 8px ${tierInfo.color}aa)` }}>
+                  <MedalBadge color={tierInfo.color} size={52} />
+                </div>
+                <div style={{ position: "absolute", left: "50%", bottom: -6, transform: "translateX(-50%)", fontSize: 14, fontWeight: 800, color: tierInfo.color, background: "linear-gradient(180deg, #16204A, #0A1029)", border: `1.5px solid ${tierInfo.color}`, borderRadius: 999, padding: "3px 11px", boxShadow: `0 4px 12px rgba(0,0,0,0.6), 0 0 12px ${tierInfo.color}88`, whiteSpace: "nowrap" }}>
+                  {Math.round(badgeScore)}%
+                </div>
               </button>
             </div>
           </div>
