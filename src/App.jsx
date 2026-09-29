@@ -1005,14 +1005,14 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, lineHeight: 1.1, textAlign: "center", background: "linear-gradient(90deg, #7FA0FF, #4C7DF0 55%, #F5C542)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>
               {user.prenom}
             </div>
-            <div style={{ position: "relative", marginTop: 0, minHeight: 92 }}>
+            <div style={{ position: "relative", marginTop: 0, minHeight: 34 }}>
               <div style={{ position: "absolute", left: 0, right: 0, top: 0, fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, textAlign: "center" }}>
                 {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
               </div>
               <button
                 onClick={() => setShowBadgeDetail(true)}
                 aria-label={`Palier du mois : ${tierInfo.label}`}
-                style={{ position: "absolute", right: 0, bottom: -12, width: 96, height: 96, padding: 0, background: "transparent", border: "none", cursor: "pointer" }}
+                style={{ position: "absolute", right: 0, bottom: -10, width: 96, height: 96, padding: 0, background: "transparent", border: "none", cursor: "pointer" }}
               >
                 <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `conic-gradient(from 200deg, ${tierInfo.color}, #FFFFFF 16%, ${tierInfo.color} 34%, rgba(0,0,0,0.4) 58%, ${tierInfo.color} 80%, #FFFFFF 94%, ${tierInfo.color})`, boxShadow: `0 14px 28px rgba(0,0,0,0.65), 0 0 28px ${tierInfo.color}99` }} />
                 <div style={{ position: "absolute", inset: 6, borderRadius: "50%", background: `radial-gradient(circle at 35% 25%, ${tierInfo.color}66, #151C40 60%, #090E24)`, boxShadow: "inset 0 2px 6px rgba(255,255,255,0.3), inset 0 -10px 16px rgba(0,0,0,0.55)" }} />
