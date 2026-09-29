@@ -3895,9 +3895,16 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
     <Card style={{ padding: 0 }}>
       <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14 }}>
         <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{meal.emoji} {meal.nom}</div>
-            <div style={{ fontSize: 12, color: C.textMuted }}>{items.length} aliment(s) · {totalKcal} kcal</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 14, background: C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, flexShrink: 0 }}>{meal.emoji}</div>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{meal.nom}</div>
+              <div style={{ fontSize: 13, color: C.textMuted, marginTop: 1 }}>{items.length} aliment{items.length > 1 ? "s" : ""}</div>
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{totalKcal}</span>
+            <span style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600 }}> kcal</span>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -3935,23 +3942,26 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
         </div>
       </div>
       {(
-        <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 9 }}>
           {items.map((it) => (
             <div
               key={it.id}
               onClick={() => { setEditingItem(it); setEditGrams(String(it.grams)); }}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0F1A38", border: `1.5px solid ${C.amber}`, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "11px 12px 11px 14px", cursor: "pointer" }}
             >
-              <div>
-                <div style={{ fontSize: 13, color: C.text, fontWeight: 700, lineHeight: 1.3 }}>{it.nom} <span style={{ fontSize: 10.5, color: C.textMuted, fontWeight: 400 }}>· {it.grams}g</span></div>
-                <div style={{ fontSize: 10, color: C.textDim, fontFamily: FONT_MONO, marginTop: 1 }}>
-                  P{it.prot}g · G{it.gluc}g · L{it.lip}g
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 14.5, color: C.text, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.nom}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "2px 10px", marginTop: 3, fontSize: 12 }}>
+                  <span style={{ color: C.textMuted, fontWeight: 600 }}>{it.grams} g</span>
+                  <span style={{ color: "#7FA0FF" }}>P {it.prot}</span>
+                  <span style={{ color: "#F5C542" }}>G {it.gluc}</span>
+                  <span style={{ color: "#F28C38" }}>L {it.lip}</span>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, color: C.text, fontFamily: FONT_MONO, fontWeight: 700 }}>{it.kcal}</span>
-                <button onClick={(e) => { e.stopPropagation(); onRemove(meal.key, it.id); }} style={{ background: "transparent", border: "none", color: C.red }}>
-                  <Trash2 size={14} />
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <span style={{ fontSize: 15, color: C.text, fontWeight: 800 }}>{it.kcal}<span style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}> kcal</span></span>
+                <button onClick={(e) => { e.stopPropagation(); onRemove(meal.key, it.id); }} style={{ background: "transparent", border: "none", color: C.textDim, padding: 6, display: "flex" }}>
+                  <Trash2 size={15} />
                 </button>
               </div>
             </div>
@@ -3982,9 +3992,9 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
 
           <button
             onClick={() => setShowAddForm(true)}
-            style={{ background: "transparent", border: "none", color: C.blue, fontSize: 13.5, fontWeight: 700, textAlign: "left", padding: "4px 0" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blueSoft, border: `1px dashed ${C.blueBorder}`, color: "#7FA0FF", fontSize: 14, fontWeight: 700, padding: "11px 0", borderRadius: 14 }}
           >
-            + Ajouter un aliment
+            <Plus size={16} /> Ajouter un aliment
           </button>
         </div>
       )}
@@ -4339,6 +4349,36 @@ function CoursesEtSupplements({ profilId, fireToast }) {
   );
 }
 
+// Anneau de progression pour un macronutriment (pourcentage de l'objectif atteint au centre).
+function MacroRing({ label, val, obj, color }) {
+  const size = 78, r = 32, circ = 2 * Math.PI * r;
+  const ratio = obj > 0 ? val / obj : 0;
+  const depasse = obj > 0 && val > obj;
+  const arc = depasse ? C.red : color;
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }}>
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
+          <circle
+            cx={size / 2} cy={size / 2} r={r} fill="none" stroke={arc} strokeWidth="8" strokeLinecap="round"
+            strokeDasharray={circ} strokeDashoffset={circ - Math.min(1, ratio) * circ}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            style={{ transition: "stroke-dashoffset .4s ease" }}
+          />
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: depasse ? C.red : C.text }}>
+          {Math.round(ratio * 100)}%
+        </div>
+      </div>
+      <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 8, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 14, color: C.text, fontWeight: 700, marginTop: 2, whiteSpace: "nowrap" }}>
+        {Math.round(val)} / {obj} g
+      </div>
+    </div>
+  );
+}
+
 function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater, isCoach = false, selfClientPlan = null, onSaveParJour, onSaveParKg, onSaveNutritionParJour }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showNutriDetail, setShowNutriDetail] = useState(false);
@@ -4394,45 +4434,37 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
         <CoursesEtSupplements profilId={profilId} fireToast={fireToast} />
       </div>
 
-      <Card style={{ background: `radial-gradient(circle at 80% 0%, ${C.blueSoft}, ${C.card} 60%)`, cursor: "pointer" }} onClick={() => setShowNutriDetail(true)}>
-        <SectionLabel icon={Flame}>Calories</SectionLabel>
-        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 16 }}>
-          <div style={{ position: "relative", width: 104, height: 104, flexShrink: 0 }}>
-            <svg width="104" height="104" viewBox="0 0 104 104">
-              <circle cx="52" cy="52" r="44" fill="none" stroke={C.cardBorderLight} strokeWidth="10" />
-              <circle
-                cx="52" cy="52" r="44" fill="none" stroke={C.blue} strokeWidth="10"
-                strokeDasharray={2 * Math.PI * 44}
-                strokeDashoffset={2 * Math.PI * 44 - Math.min(1, totals.kcal / (objectifs.kcal || 1)) * 2 * Math.PI * 44}
-                strokeLinecap="round" transform="rotate(-90 52 52)"
-                style={{ transition: "stroke-dashoffset .4s ease" }}
-              />
-            </svg>
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 22, color: C.text, fontWeight: 700, lineHeight: 1 }}>{Math.round(totals.kcal)}</div>
-              <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>kcal</div>
-            </div>
-          </div>
-          <div>
-            <div onClick={(e) => { e.stopPropagation(); setShowGoalEditor(true); }} style={{ fontSize: 14, color: C.textMuted, cursor: "pointer", textDecoration: "underline dashed" }}>
-              Objectif : {Math.round(objectifs.kcal)} kcal
-            </div>
-            <div style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>
-              {totals.kcal <= objectifs.kcal
-                ? `${Math.round(objectifs.kcal - totals.kcal)} kcal restantes`
-                : `${Math.round(totals.kcal - objectifs.kcal)} kcal dépassées`}
-            </div>
-            <div style={{ fontSize: 11, color: C.blue, marginTop: 6 }}>Voir détails →</div>
-          </div>
+      <Card style={{ cursor: "pointer", padding: 18 }} onClick={() => setShowNutriDetail(true)}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 46, fontWeight: 800, color: totals.kcal > objectifs.kcal ? C.red : C.text, lineHeight: 1 }}>{Math.round(totals.kcal)}</span>
+          <span
+            onClick={(e) => { e.stopPropagation(); setShowGoalEditor(true); }}
+            style={{ fontSize: 16, color: C.textMuted, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            / {Math.round(objectifs.kcal).toLocaleString("fr-FR")} kcal <Edit3 size={13} color={C.textDim} />
+          </span>
         </div>
-        <div style={{ display: "flex", gap: 14 }}>
+        <div style={{ height: 9, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginTop: 14 }}>
+          <div style={{
+            height: "100%", width: `${Math.min(100, (totals.kcal / (objectifs.kcal || 1)) * 100)}%`, borderRadius: 999,
+            background: totals.kcal > objectifs.kcal ? C.red : `linear-gradient(90deg, ${C.amber}, #F28C38)`,
+            transition: "width .4s ease",
+          }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+          <span style={{ fontSize: 13, color: C.textMuted }}>
+            {totals.kcal <= objectifs.kcal
+              ? `${Math.round(objectifs.kcal - totals.kcal)} kcal restantes`
+              : `${Math.round(totals.kcal - objectifs.kcal)} kcal dépassées`}
+          </span>
+          <span style={{ fontSize: 13, color: "#7FA0FF", fontWeight: 600 }}>Voir détails →</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           {/* objectifs.prot/gluc/lip sont déjà calculés correctement en amont (calculerMacros),
-              quel que soit le mode choisi (% / grammes / poids de corps) — recalculer ici à partir
-              de pctProt/pctGluc/pctLip ignorait complètement le mode "poids" et affichait toujours
-              des grammes calculés comme si on était en %, même quand "Poids" était bien enregistré. */}
-          {macro("Protéines", totals.prot, Math.round(objectifs.prot) || 0, C.blue)}
-          {macro("Glucides", totals.gluc, Math.round(objectifs.gluc) || 0, C.green)}
-          {macro("Lipides", totals.lip, Math.round(objectifs.lip) || 0, C.amber)}
+              quel que soit le mode choisi (% / grammes / poids de corps). */}
+          <MacroRing label="Protéines" val={totals.prot} obj={Math.round(objectifs.prot) || 0} color="#4C7DF0" />
+          <MacroRing label="Glucides" val={totals.gluc} obj={Math.round(objectifs.gluc) || 0} color="#F5C542" />
+          <MacroRing label="Lipides" val={totals.lip} obj={Math.round(objectifs.lip) || 0} color="#F28C38" />
         </div>
       </Card>
 
