@@ -38,7 +38,11 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5000000,
       },
       devOptions: {
-        enabled: true,
+        // Désactivé en dev : le service worker précache l'app et sert du JS périmé même
+        // après un rechargement forcé (Cmd+Shift+R), ce qui a fait croire plusieurs fois
+        // que des correctifs "ne s'enregistraient pas" alors que le code était correct.
+        // Le service worker reste actif normalement en build de prod (Vercel).
+        enabled: false,
         type: 'module',
       },
     }),
