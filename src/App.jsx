@@ -104,6 +104,8 @@ const FontImports = () => (
     /* Approche serrée typique du visuel (Inter, -0.01em partout) ; les libellés en capitales
        gardent leur espacement large défini au cas par cas (letterSpacing inline prioritaire). */
     *, *::before, *::after { letter-spacing: -0.011em; }
+    /* Gros textes (titres, chiffres clés) : approche plus serrée, comme les titres du visuel */
+    [style*="font-size: 18px"],[style*="font-size: 19px"],[style*="font-size: 20px"],[style*="font-size: 21px"],[style*="font-size: 22px"],[style*="font-size: 23px"],[style*="font-size: 24px"],[style*="font-size: 25px"],[style*="font-size: 26px"],[style*="font-size: 27px"],[style*="font-size: 28px"],[style*="font-size: 29px"],[style*="font-size: 30px"],[style*="font-size: 31px"],[style*="font-size: 32px"],[style*="font-size: 33px"],[style*="font-size: 34px"],[style*="font-size: 35px"],[style*="font-size: 36px"],[style*="font-size: 37px"],[style*="font-size: 38px"],[style*="font-size: 39px"],[style*="font-size: 40px"],[style*="font-size: 41px"],[style*="font-size: 42px"],[style*="font-size: 43px"],[style*="font-size: 44px"],[style*="font-size: 45px"],[style*="font-size: 46px"],[style*="font-size: 47px"],[style*="font-size: 48px"],[style*="font-size: 49px"],[style*="font-size: 50px"],[style*="font-size: 51px"],[style*="font-size: 52px"],[style*="font-size: 53px"],[style*="font-size: 54px"],[style*="font-size: 55px"],[style*="font-size: 56px"],[style*="font-size: 57px"],[style*="font-size: 58px"],[style*="font-size: 59px"],[style*="font-size: 60px"],[style*="font-size: 61px"],[style*="font-size: 62px"],[style*="font-size: 63px"],[style*="font-size: 64px"],[style*="font-size: 65px"],[style*="font-size: 66px"],[style*="font-size: 67px"],[style*="font-size: 68px"],[style*="font-size: 69px"],[style*="font-size: 70px"],[style*="font-size: 71px"],[style*="font-size: 72px"] { letter-spacing: -0.028em !important; }
     @keyframes pulseGlow { 0%,100% { opacity:.55; } 50% { opacity:1; } }
     @keyframes slideUp { from { transform: translateY(12px); opacity:0; } to { transform: translateY(0); opacity:1; } }
     @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
@@ -132,14 +134,14 @@ const Card = React.forwardRef(({ children, style, ...rest }, ref) => (
 
 const SectionLabel = ({ children, icon: Icon, onBg }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-    {Icon && <Icon size={13} color={C.blue} />}
+    {Icon && <Icon size={14} color={C.blue} />}
     <span
       style={{
         fontFamily: FONT_DISPLAY,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: 1,
-        textTransform: "uppercase",
+        fontSize: 13,
+        fontWeight: 600,
+        letterSpacing: 0,
+        textTransform: "none",
         color: onBg ? C.textOnBgMuted : C.textMuted,
       }}
     >
@@ -972,7 +974,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <RotateCcw size={13} color={C.blue} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.textMuted }}>
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, fontWeight: 600, letterSpacing: 0, textTransform: "none", color: C.textMuted }}>
                   Routine du jour
                 </span>
               </div>
@@ -1110,7 +1112,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(255,140,26,0.75)", boxShadow: "0 0 0 1.5px rgba(255,140,26,0.45), 0 0 26px rgba(255,140,26,0.55), 0 0 10px rgba(255,166,64,0.65), 0 4px 24px rgba(201,110,30,0.25)" }} onClick={() => setShowBadgeDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Award size={14} color={tierInfo.color} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Palier du mois</span>
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Palier du mois</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
                 <div style={{ position: "relative", width: 84, height: 84 }}>
@@ -1135,7 +1137,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(255,140,26,0.75)", boxShadow: "0 0 0 1.5px rgba(255,140,26,0.45), 0 0 26px rgba(255,140,26,0.55), 0 0 10px rgba(255,166,64,0.65), 0 4px 24px rgba(201,110,30,0.25)" }} onClick={() => setTab("nutrition")}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Flame size={14} color={C.blue} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Calories</span>
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Calories</span>
               </div>
               <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>
                 {Math.round(caloriesConsommees)} <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 400 }}>kcal</span>
@@ -1178,7 +1180,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Flame size={14} color={C.blue} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Séances</span>
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Séances</span>
               </div>
               <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{stats.seancesRealisees}</div>
               <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
@@ -1191,7 +1193,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Card style={{ padding: 14, cursor: exerciceProgres ? "pointer" : "default" }} onClick={() => exerciceProgres && setShowProgresDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Dumbbell size={14} color={C.blue} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Progrès</span>
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Progrès</span>
               </div>
               {exerciceProgres ? (
                 <div>
@@ -1210,7 +1212,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("bilans")}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <TrendingUp size={14} color={C.blue} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Poids</span>
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Poids</span>
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
                 <div>
@@ -1260,7 +1262,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setTab("seances")}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Dumbbell size={14} color={C.blue} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Prochaine séance</span>
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Prochaine séance</span>
               </div>
               {customProgrammes && customProgrammes.length > 0 ? (
                 <div>
@@ -1338,7 +1340,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                       >
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: estValide ? C.green : (estAujourdhui ? C.amber : C.textMuted), textTransform: "uppercase", letterSpacing: 0.5 }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: estValide ? C.green : (estAujourdhui ? C.amber : C.textMuted), textTransform: "capitalize", letterSpacing: 0 }}>
                               {jour}{estAujourdhui && " · Aujourd'hui"}{estValide && " · Validé ✓"}
                             </span>
                           </div>
@@ -2127,7 +2129,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 200, display: "flex", flexDirection: "column", padding: "24px 20px", overflowY: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>Repos</span>
+        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textOnBgMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Repos</span>
         <button onClick={onSkip} style={{ background: "transparent", border: "none", color: C.textOnBg }}><X size={22} /></button>
       </div>
 
@@ -2141,7 +2143,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
             )}
           </div>
           <div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{nextInfo.label}</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textOnBgMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>{nextInfo.label}</div>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.textOnBg }}>{nextInfo.nom}</div>
             {nextInfo.last && (
               <div style={{ fontSize: 12, color: C.blue, marginTop: 2, fontWeight: 700 }}>Dernière fois : {nextInfo.last.poids}kg × {nextInfo.last.reps}</div>
@@ -2182,7 +2184,7 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
         )}
       </div>
 
-      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textOnBgMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textOnBgMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginBottom: 8 }}>
         Ta série qui vient d'être validée
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
@@ -2295,7 +2297,7 @@ function RoutineMobilitePlayer({ routine, onClose }) {
       }}
     >
       <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, background: "transparent", border: "none", color: "rgba(255,255,255,0.6)" }}><X size={24} /></button>
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: phase === "travail" ? "#6FA8FF" : C.amber, marginBottom: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0, textTransform: "none", color: phase === "travail" ? "#6FA8FF" : C.amber, marginBottom: 10 }}>
         {phase === "travail" ? "Effort" : "Repos"} · {index + 1}/{routine.exercices.length}
       </div>
       <div style={{ fontFamily: FONT_MONO, fontSize: 72, fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>{secondsLeft}</div>
@@ -2547,7 +2549,7 @@ function RoutineMobiliteModal({ routineActuelle, onSave, onClose }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, maxHeight: 260, overflowY: "auto", border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10 }}>
           {Object.entries(MOBILITE_CATALOGUE).map(([zone, exs]) => (
             <div key={zone}>
-              <div style={{ fontSize: 10.5, fontWeight: 800, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{zone}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.textDim, textTransform: "none", letterSpacing: 0, marginBottom: 4 }}>{zone}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {exs.map((exNom) => {
                   const selected = exercices.includes(exNom);
@@ -2927,7 +2929,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         <div style={{ background: C.amberSoft, border: `1px solid ${C.amber}`, borderRadius: 12, padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-start" }}>
           <Flame size={15} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
-            <div style={{ fontSize: 10.5, fontWeight: 800, color: C.amber, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Échauffement</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.amber, textTransform: "none", letterSpacing: 0, marginBottom: 2 }}>Échauffement</div>
             <div style={{ fontSize: 12.5, color: C.textOnBg }}>{programme.echauffementGeneral}</div>
           </div>
         </div>
@@ -2985,7 +2987,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
               <div key={bi} style={{ border: `3px solid ${C.blue}`, borderRadius: 16, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <Zap size={13} color={C.blue} />
-                  <span style={{ fontSize: 10.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset · {block.exs.length} exercices</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.blue, textTransform: "none", letterSpacing: 0 }}>Superset · {block.exs.length} exercices</span>
                 </div>
                 {block.exs.map((ex) => (
                   <ExerciceCard
@@ -4493,7 +4495,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
               <button onClick={() => setShowNutriDetail(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Macronutriments</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Macronutriments</div>
               {[
                 ["Calories", Math.round(totals.kcal), "kcal"],
                 ["Protéines", totals.prot.toFixed(1), "g"],
@@ -4505,7 +4507,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
                   <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: C.textMuted }}>{val} {unit}</span>
                 </div>
               ))}
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginTop: 8 }}>Autres nutriments</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginTop: 8 }}>Autres nutriments</div>
               {[
                 ["Fibres", totals.fibres.toFixed(1), "g"],
                 ["Sucres", totals.sucres.toFixed(1), "g"],
@@ -4517,7 +4519,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
                   <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: C.textMuted }}>{val} {unit}</span>
                 </div>
               ))}
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginTop: 8 }}>Minéraux & vitamines</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginTop: 8 }}>Minéraux & vitamines</div>
               {[
                 ["Calcium", (totals.calcium * 1000).toFixed(0), "mg"],
                 ["Fer", (totals.fer * 1000).toFixed(1), "mg"],
@@ -5205,7 +5207,7 @@ function MensurationsCard({ mensurationsHistory, addMensuration }) {
 /* ------------------------------------------------------------------ */
 const Field = ({ label, children }) => (
   <div>
-    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 10.5, color: C.textDim, marginBottom: 5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</div>
+    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12, color: C.textDim, marginBottom: 5, fontWeight: 600, letterSpacing: 0, textTransform: "none" }}>{label}</div>
     {children}
   </div>
 );
@@ -5638,7 +5640,7 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
 
             {showViewToggle && (
               <div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginBottom: 10 }}>
                   Affichage
                 </div>
                 <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
@@ -5647,7 +5649,7 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
 
             {viewMode === "coach" && coachTab && setCoachTab && (
               <div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginBottom: 10 }}>
                   Navigation
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -5881,7 +5883,7 @@ function LoginScreen({ fireToast }) {
         <Card style={{ border: "2px solid rgba(255,180,60,0.85)", boxShadow: "0 0 30px rgba(255,180,60,0.6), 0 0 12px rgba(255,210,80,0.75), 0 0 4px rgba(255,230,120,0.9), 0 8px 28px rgba(10,30,70,0.3)" }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 10.5, color: C.textDim, marginBottom: 5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Email</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12, color: C.textDim, marginBottom: 5, fontWeight: 600, letterSpacing: 0, textTransform: "none" }}>Email</div>
               <input
                 type="email"
                 required
@@ -5891,7 +5893,7 @@ function LoginScreen({ fireToast }) {
               />
             </div>
             <div>
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 10.5, color: C.textDim, marginBottom: 5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Mot de passe</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12, color: C.textDim, marginBottom: 5, fontWeight: 600, letterSpacing: 0, textTransform: "none" }}>Mot de passe</div>
               <input
                 type="password"
                 required
@@ -6326,7 +6328,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
         <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
         {!estModele && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Type de programme</div>
+            <div style={{ fontSize: 12, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "none" }}>Type de programme</div>
             <select
               value={jourFixe}
               onChange={(e) => setJourFixe(e.target.value)}
@@ -6344,7 +6346,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
           </div>
         )}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Échauffement général (optionnel)</div>
+          <div style={{ fontSize: 12, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "none" }}>Échauffement général (optionnel)</div>
           {(() => {
             const lignes = echauffementGeneral.split("\n").filter(Boolean);
             const presetsActifs = ECHAUFFEMENT_PRESETS.filter((p) => lignes.includes(p.texte));
@@ -6463,7 +6465,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <Zap size={13} color={C.blue} />
-                  <span style={{ fontSize: 10.5, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.blue, textTransform: "none", letterSpacing: 0 }}>Superset</span>
                 </div>
                 <button
                   type="button"
@@ -7059,11 +7061,11 @@ function TachesView({ coachId, fireToast }) {
             <SectionLabel icon={ClipboardList}>{editingTache ? "Modifier la tâche" : "Nouvelle tâche"}</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 5, fontWeight: 700, textTransform: "uppercase" }}>Titre</div>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textDim, marginBottom: 5, fontWeight: 600, textTransform: "none" }}>Titre</div>
                 <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="ex : Préparer le programme d'Oscar" style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
               </div>
               <div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 5, fontWeight: 700, textTransform: "uppercase" }}>Date d'échéance</div>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textDim, marginBottom: 5, fontWeight: 600, textTransform: "none" }}>Date d'échéance</div>
                 <MiniDatePicker value={dateEcheance} onChange={setDateEcheance} />
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
@@ -7304,7 +7306,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
                 style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
               >
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{jour}</div>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: C.textMuted, textTransform: "capitalize", letterSpacing: 0, marginBottom: 2 }}>{jour}</div>
                   <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: seance ? C.text : C.textDim }}>{seance ? seance.nom : "Repos — appuyer pour créer"}</div>
                   {seance && (
                     <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
@@ -8382,7 +8384,7 @@ function CalculateurCalories({ client, onUtiliser }) {
         </div>
       </div>
 
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6, fontWeight: 700, textTransform: "uppercase" }}>Niveau d'activité</div>
+      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "none" }}>Niveau d'activité</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
         {FACTEURS_ACTIVITE.map((f) => (
           <button
@@ -8400,7 +8402,7 @@ function CalculateurCalories({ client, onUtiliser }) {
         ))}
       </div>
 
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6, fontWeight: 700, textTransform: "uppercase" }}>Objectif</div>
+      <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "none" }}>Objectif</div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <PillButton active={objectif === "deficit"} onClick={() => setObjectif("deficit")} style={{ flex: 1, textAlign: "center" }}>Perte (-20%)</PillButton>
         <PillButton active={objectif === "maintien"} onClick={() => setObjectif("maintien")} style={{ flex: 1, textAlign: "center" }}>Maintien</PillButton>
@@ -8408,7 +8410,7 @@ function CalculateurCalories({ client, onUtiliser }) {
       </div>
 
       <Card style={{ textAlign: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Résultat estimé</div>
+        <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", marginBottom: 4 }}>Résultat estimé</div>
         <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: C.text, fontWeight: 700 }}>{resultat || "—"} <span style={{ fontSize: 13, color: C.textMuted, fontWeight: 400 }}>kcal / jour</span></div>
         {!resultat && <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Renseigne poids, taille et âge</div>}
       </Card>
@@ -8611,7 +8613,7 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
               <PillButton active={kcalMode === "semaine"} onClick={() => setKcalMode("semaine")} style={{ flex: 1, textAlign: "center" }}>Fixe toute la semaine</PillButton>
               <PillButton active={kcalMode === "jour"} onClick={() => setKcalMode("jour")} style={{ flex: 1, textAlign: "center" }}>Par jour</PillButton>
             </div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 8, fontWeight: 700, textTransform: "uppercase" }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textDim, marginBottom: 8, fontWeight: 600, textTransform: "none" }}>
               Calories — clique sur un jour pour régler ses macros
             </div>
             {kcalMode === "semaine" ? (
@@ -8634,9 +8636,9 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
           </>
         ) : mode === "pourcentage" ? (
           <>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Objectif calorique</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "none" }}>Objectif calorique</div>
             <input type="number" value={kcal} onChange={(e) => setKcal(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 16, fontFamily: FONT_MONO, marginBottom: 16 }} />
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 8, fontWeight: 700, textTransform: "uppercase" }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textDim, marginBottom: 8, fontWeight: 600, textTransform: "none" }}>
               Répartition des macros — total {pctTotal}% {pctTotal !== 100 && <span style={{ color: C.red }}>(devrait faire 100%)</span>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
@@ -8656,7 +8658,7 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
           </>
         ) : (
           <>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textDim, marginBottom: 8, fontWeight: 700, textTransform: "uppercase" }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textDim, marginBottom: 8, fontWeight: 600, textTransform: "none" }}>
               Macros en grammes — {Math.round(kcalDepuisGrammes)} kcal calculées
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
@@ -9394,7 +9396,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                           <div key={bidx} style={{ border: `3px solid ${C.blue}`, borderRadius: 14, padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                               <Zap size={12} color={C.blue} />
-                              <span style={{ fontSize: 10, fontWeight: 800, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5 }}>Superset</span>
+                              <span style={{ fontSize: 11.5, fontWeight: 600, color: C.blue, textTransform: "none", letterSpacing: 0 }}>Superset</span>
                             </div>
                             {bloc.exs.map(renderExercice)}
                           </div>
@@ -9487,7 +9489,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                       {p.jour_fixe && (
-                        <div style={{ fontSize: 10, fontWeight: 700, color: C.blue, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{p.jour_fixe}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: C.blue, textTransform: "capitalize", letterSpacing: 0, marginBottom: 2 }}>{p.jour_fixe}</div>
                       )}
                       <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: C.text }}>{p.nom}</div>
                     </div>
@@ -9523,7 +9525,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                               boxShadow: estValide ? "0 0 14px rgba(34,168,118,0.5)" : undefined,
                             }}
                           >
-                            <div style={{ fontSize: 10, fontWeight: 700, color: estValide ? C.green : C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+                            <div style={{ fontSize: 11.5, fontWeight: 600, color: estValide ? C.green : C.textMuted, textTransform: "capitalize", letterSpacing: 0, marginBottom: 2 }}>
                               {jour}{estValide && " · Validé ✓"}
                             </div>
                             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 14, color: p ? C.text : C.textDim }}>{p ? p.nom : "Repos"}</div>
@@ -9629,7 +9631,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       const avg = checkinsQuotidiens.reduce((a, c) => a + (c[m.key] || 0), 0) / checkinsQuotidiens.length;
                       return (
                         <div key={m.key} style={{ background: C.surface, borderRadius: 10, padding: 10, textAlign: "center" }}>
-                          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 10, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{m.label}</div>
+                          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 11.5, color: C.textMuted, fontWeight: 600, textTransform: "none", marginBottom: 4 }}>{m.label}</div>
                           <div style={{ fontFamily: FONT_MONO, fontSize: 20, color: C.text, fontWeight: 700 }}>{avg.toFixed(1)}<span style={{ fontSize: 12, color: C.textMuted }}>/5</span></div>
                         </div>
                       );
@@ -9718,7 +9720,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                     if (photosCat.length === 0) return null;
                     return (
                       <div key={cat.key}>
-                        <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>{cat.nom}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: C.text, marginBottom: 6, textTransform: "none", letterSpacing: 0 }}>{cat.nom}</div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                           {photosCat.map((p) => (
                             <div key={p.id} style={{ position: "relative" }}>
@@ -10294,14 +10296,14 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
               <Card style={{ padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <User size={14} color={C.blue} />
-                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Clients actifs</span>
+                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Clients actifs</span>
                 </div>
                 <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: C.text, fontWeight: 700 }}>{clients.length}</div>
               </Card>
               <Card style={{ padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <AlertCircle size={14} color={bilansEnAttente.length > 0 ? C.red : C.green} />
-                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Bilans en attente</span>
+                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Bilans en attente</span>
                 </div>
                 <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: bilansEnAttente.length > 0 ? C.red : C.green, fontWeight: 700 }}>{bilansEnAttente.length}</div>
               </Card>
