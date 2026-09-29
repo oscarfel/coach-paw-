@@ -97,8 +97,23 @@ const FontImports = () => (
     }
     input[type=number] { -moz-appearance: textfield; }
     input[type=range] { -webkit-appearance: none; background: transparent; }
-    input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: ${C.cardBorderLight}; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -6px; width: 16px; height: 16px; border-radius: 50%; background: ${C.blue}; box-shadow: 0 0 0 4px ${C.blueSoft}; }
+    input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 999px; background: linear-gradient(90deg, #4C7DF0 var(--fill, 50%), rgba(255,255,255,0.12) var(--fill, 50%)); }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -6px; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; border: 4px solid #4C7DF0; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+    /* Champs de saisie : même look partout (fond translucide, coins arrondis, halo bleu au focus) */
+    input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]), textarea, select {
+      border-radius: 14px !important;
+      background-color: rgba(255,255,255,0.05) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    input:not([type=range]):focus, textarea:focus, select:focus {
+      border-color: rgba(76,125,240,0.9) !important;
+      box-shadow: 0 0 0 3px rgba(76,125,240,0.2);
+    }
+    input::placeholder, textarea::placeholder { color: rgba(185,196,224,0.55); }
+    /* Boutons principaux bleus : texte blanc (comme le visuel) au lieu du texte sombre */
+    button[style*="rgb(6, 23, 31)"][style*="background: rgb(59, 111, 224)"],
+    button[style*="rgb(2, 7, 26)"][style*="background: rgb(59, 111, 224)"] { color: #FFFFFF !important; }
     button { font-family: ${FONT_BODY}; cursor: pointer; }
     html, body, #root { font-family: ${FONT_BODY}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-feature-settings: 'cv11', 'ss03'; }
     /* Approche serrée typique du visuel (Inter, -0.01em partout) ; les libellés en capitales
@@ -1919,7 +1934,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
             <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
-              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>CHARGE (KG)</div>
+              <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Charge (kg)</div>
               <input
                 type="number"
                 value={poids}
@@ -2189,14 +2204,14 @@ function RestScreen({ rest, programme, history, onSkip, onUpdateSet }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 10.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>CHARGE (KG)</div>
+          <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>Charge (kg)</div>
           <input
             type="number" value={poids} onChange={(e) => setPoids(e.target.value)}
             style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
           />
         </div>
         <div>
-          <div style={{ fontSize: 10.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>RÉPÉTITIONS</div>
+          <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 4, fontWeight: 700 }}>Répétitions</div>
           <input
             type="number" value={reps} onChange={(e) => setReps(e.target.value)}
             style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "14px", color: C.text, fontSize: 20, fontFamily: FONT_MONO, textAlign: "center" }}
@@ -3973,7 +3988,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                   <SectionLabel icon={ClipboardList}>{editingItem.nom}</SectionLabel>
                   <button onClick={() => setEditingItem(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
                 </div>
-                <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>QUANTITÉ (GRAMMES)</div>
+                <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Quantité (grammes)</div>
                 <input
                   type="number"
                   value={editGrams}
@@ -4002,7 +4017,13 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => { setShowAddForm(false); setManualMode(false); setSelectedFood(null); setSearchQuery(""); }}>
           <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <SectionLabel icon={Plus}>Ajouter à {meal.nom}</SectionLabel>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 14, background: C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21 }}>{meal.emoji}</div>
+                <div>
+                  <div style={{ fontSize: 12.5, color: C.textMuted }}>Ajouter à</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: C.text, lineHeight: 1.2 }}>{meal.nom}</div>
+                </div>
+              </div>
               <button onClick={() => { setShowAddForm(false); setManualMode(false); setSelectedFood(null); setSearchQuery(""); }} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -4015,26 +4036,26 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                     value={searchQuery}
                     onChange={(e) => { setSearchQuery(e.target.value); setSelectedFood(null); }}
                     placeholder="🔍 Rechercher un aliment (ex : yaourt nature, whey...)"
-                    style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 12.5 }}
+                    style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "13px 14px", color: C.text, fontSize: 14 }}
                   />
                   <button
                     onClick={() => setShowScanner(true)}
-                    style={{ background: C.blue, border: "none", borderRadius: 10, padding: "0 12px", color: "#06171F", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                    style={{ background: C.blue, border: "none", borderRadius: 14, width: 48, color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                   >
-                    <ScanLine size={18} />
+                    <ScanLine size={20} />
                   </button>
                 </div>
                 {searching && <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Recherche...</div>}
                 {searchResults.length > 0 && !selectedFood && (
-                  <div style={{ marginTop: 4, maxHeight: 170, overflowY: "auto", border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, background: C.surface }}>
+                  <div style={{ marginTop: 6, maxHeight: 200, overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, background: "rgba(255,255,255,0.04)" }}>
                     {searchResults.map((r, i) => (
                       <button
                         key={i}
                         onClick={() => { setSelectedFood(r); setSearchResults([]); setSearchQuery(r.nom); if (r.poidsPortionSuggere) setPoidsPortion(String(r.poidsPortionSuggere)); }}
-                        style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderBottom: i < searchResults.length - 1 ? `1px solid ${C.cardBorderLight}` : "none", padding: "8px 10px" }}
+                        style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderBottom: i < searchResults.length - 1 ? `1px solid ${C.cardBorderLight}` : "none", padding: "11px 14px" }}
                       >
-                        <div style={{ fontSize: 12.5, color: C.text, fontWeight: 600 }}>{r.nom}</div>
-                        <div style={{ fontSize: 10.5, color: C.textDim }}>
+                        <div style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>{r.nom}</div>
+                        <div style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>
                           {Math.round(r.kcal)} kcal / 100g · <span style={{ color: r.source === "Mes aliments" ? C.amber : (r.source === "CIQUAL" ? C.green : C.blue) }}>{r.source}</span>
                         </div>
                       </button>
@@ -4067,38 +4088,37 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                <button onClick={() => setModeQuantite("grammes")} style={{ flex: 1, background: modeQuantite === "grammes" ? C.blue : "transparent", border: `2px solid ${modeQuantite === "grammes" ? C.blue : C.cardBorderLight}`, color: modeQuantite === "grammes" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "grammes" ? "0 0 12px rgba(59,111,224,0.55)" : "none" }}>
-                  Grammes
-                </button>
-                <button onClick={() => setModeQuantite("portion")} style={{ flex: 1, background: modeQuantite === "portion" ? C.blue : "transparent", border: `2px solid ${modeQuantite === "portion" ? C.blue : C.cardBorderLight}`, color: modeQuantite === "portion" ? "#FFFFFF" : C.textMuted, borderRadius: 8, padding: "6px", fontSize: 11.5, fontWeight: 700, boxShadow: modeQuantite === "portion" ? "0 0 12px rgba(59,111,224,0.55)" : "none" }}>
-                  Par portion (tranche, unité...)
-                </button>
+              <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 16, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                {[["grammes", "Grammes"], ["portion", "Par portion"]].map(([k, lab]) => (
+                  <button key={k} onClick={() => setModeQuantite(k)} style={{ flex: 1, border: "none", borderRadius: 12, padding: "9px 6px", fontSize: 13.5, fontWeight: 700, background: modeQuantite === k ? C.blue : "transparent", color: modeQuantite === k ? "#FFFFFF" : C.textMuted, boxShadow: modeQuantite === k ? "0 2px 10px rgba(59,111,224,0.45)" : "none", transition: "all .15s ease" }}>
+                    {lab}
+                  </button>
+                ))}
               </div>
 
               {modeQuantite === "grammes" ? (
                 <div style={{ display: "flex", gap: 8 }}>
                   <input type="number" placeholder="Quantité en grammes" value={grams} onChange={(e) => setGrams(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
-                  <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : C.surface, border: "none", borderRadius: 10, padding: "0 12px", color: selectedFood ? "#06171F" : C.textDim }}>
-                    <Plus size={16} />
+                  <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : "rgba(255,255,255,0.06)", border: "none", borderRadius: 14, width: 48, display: "flex", alignItems: "center", justifyContent: "center", color: selectedFood ? "#FFFFFF" : C.textDim }}>
+                    <Plus size={20} />
                   </button>
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", gap: 8 }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3 }}>NOMBRE DE PORTIONS</div>
+                      <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 3 }}>Nombre de portions</div>
                       <input type="number" placeholder="ex : 2" value={nbPortions} onChange={(e) => setNbPortions(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3 }}>POIDS D'UNE PORTION (G)</div>
+                      <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 3 }}>Poids d'une portion (g)</div>
                       <input type="number" placeholder="ex : 25" value={poidsPortion} onChange={(e) => setPoidsPortion(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
                     </div>
                   </div>
                   {nbPortions && poidsPortion && (
                     <div style={{ fontSize: 11, color: C.textDim }}>= {(parseFloat(nbPortions) * parseFloat(poidsPortion)).toFixed(0)}g au total</div>
                   )}
-                  <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : C.surface, border: "none", borderRadius: 10, padding: "9px", color: selectedFood ? "#06171F" : C.textDim, fontWeight: 700, fontSize: 13 }}>
+                  <button onClick={add} disabled={!selectedFood} style={{ background: selectedFood ? C.blue : "rgba(255,255,255,0.06)", border: "none", borderRadius: 14, padding: "13px", color: selectedFood ? "#FFFFFF" : C.textDim, fontWeight: 700, fontSize: 14.5 }}>
                     Ajouter
                   </button>
                 </div>
@@ -4143,7 +4163,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
             <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 12 }}>
               Choisis le jour à copier — tout ce qui a été mangé à ce repas ce jour-là sera ajouté à aujourd'hui.
             </div>
-            <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>DATE À COPIER</div>
+            <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Date à copier</div>
             <input
               type="date"
               value={dateACopier}
@@ -4625,26 +4645,31 @@ function PhotoTile({ cat, url, onChange, uploading }) {
   const [localPreview, setLocalPreview] = useState(null);
   const displayUrl = localPreview || url;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <button
         onClick={() => ref.current && ref.current.click()}
         style={{
-          width: "100%", aspectRatio: "3/4", borderRadius: 14,
-          border: `1.5px dashed ${displayUrl ? C.blue : C.cardBorderLight}`,
-          background: displayUrl ? `url(${displayUrl}) center/cover` : C.surface,
+          width: "100%", aspectRatio: "3/4", borderRadius: 18, padding: 0,
+          border: displayUrl ? `1.5px solid ${C.blueBorder}` : "1px solid rgba(255,255,255,0.1)",
+          background: displayUrl ? `url(${displayUrl}) center/cover` : "linear-gradient(160deg, rgba(76,125,240,0.22), rgba(255,255,255,0.03) 70%)",
           display: "flex", alignItems: "center", justifyContent: "center",
           position: "relative", overflow: "hidden",
         }}
       >
-        {!displayUrl && <Camera size={22} color={C.textDim} />}
+        {!displayUrl && <User size={38} color="rgba(185,196,224,0.35)" strokeWidth={1.5} />}
+        {!displayUrl && (
+          <div style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: "50%", background: "#4C7DF0", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(76,125,240,0.5)" }}>
+            <Plus size={15} color="#FFFFFF" strokeWidth={3} />
+          </div>
+        )}
         {uploading && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,17,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontSize: 10, color: C.text, fontWeight: 700 }}>Envoi...</div>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(5,7,16,0.65)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ fontSize: 12, color: C.text, fontWeight: 700 }}>Envoi...</div>
           </div>
         )}
         {displayUrl && !uploading && (
-          <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(10,12,17,0.7)", borderRadius: "50%", padding: 5 }}>
-            <Check size={12} color={C.green} />
+          <div style={{ position: "absolute", top: 8, right: 8, width: 24, height: 24, borderRadius: "50%", background: C.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Check size={14} color="#062018" strokeWidth={3} />
           </div>
         )}
       </button>
@@ -4658,19 +4683,23 @@ function PhotoTile({ cat, url, onChange, uploading }) {
           }
         }}
       />
-      <div style={{ fontSize: 10.5, color: C.textMuted, textAlign: "center", fontWeight: 600 }}>{cat.nom}</div>
+      <div style={{ fontSize: 12.5, color: displayUrl ? C.text : C.textMuted, textAlign: "center", fontWeight: 600, lineHeight: 1.25 }}>{cat.nom}</div>
     </div>
   );
 }
 
 function CheckinSlider({ label, value, onChange, emojis }) {
+  const fill = ((value - 1) / 4) * 100;
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: 16 }}>{emojis[value - 1]}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontSize: 14.5, color: C.text, fontWeight: 600 }}>{label}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 19 }}>{emojis[value - 1]}</span>
+          <span style={{ fontSize: 13.5, color: C.textMuted, fontWeight: 700 }}>{value}/5</span>
+        </span>
       </div>
-      <input type="range" min={1} max={5} value={value} onChange={(e) => onChange(parseInt(e.target.value))} style={{ width: "100%" }} />
+      <input type="range" min={1} max={5} value={value} onChange={(e) => onChange(parseInt(e.target.value))} style={{ width: "100%", "--fill": `${fill}%` }} />
     </div>
   );
 }
@@ -4870,40 +4899,91 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
     localStorage.removeItem(BILAN_DRAFT_KEY);
   };
 
+  const dernierPoids = weightHistory.length ? weightHistory[weightHistory.length - 1].poids : null;
+  const premierPoids = weightHistory.length ? weightHistory[0].poids : null;
+  const delta = dernierPoids != null && premierPoids != null ? dernierPoids - premierPoids : null;
+  const fmtKg = (n) => Number(n).toFixed(1).replace(".", ",");
+  const nbPhotosMois = PHOTO_CATS.filter((c) => photosActuelles[c.key]).length;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 600 }}>Suivi</div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Bilans</div>
+        <div style={{ fontFamily: FONT_BODY, fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600 }}>Suivi · {weightHistory.length} pesée{weightHistory.length > 1 ? "s" : ""}</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, color: C.textOnBg }}>Bilans</div>
       </div>
 
+      {/* Poids actuel + évolution */}
+      {dernierPoids != null && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontSize: 60, fontWeight: 800, color: C.text, lineHeight: 1 }}>{fmtKg(dernierPoids)}</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: C.textMuted }}>kg</span>
+          </div>
+          {delta != null && weightHistory.length > 1 && (
+            <div style={{ background: "rgba(245,184,51,0.2)", border: "1px solid rgba(245,184,51,0.5)", color: "#F8D27A", borderRadius: 12, padding: "7px 12px", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+              {delta <= 0 ? <TrendingDown size={15} /> : <TrendingUp size={15} />} {fmtKg(Math.abs(delta))} kg
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Courbe de poids */}
-      <Card>
-        <SectionLabel icon={TrendingUp}>Évolution du poids</SectionLabel>
-        <div style={{ height: 140, marginBottom: 10 }}>
+      <Card style={{ padding: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: C.textMuted }}>Poids</span>
+          {weightHistory.length > 1 && <span style={{ fontSize: 13, fontWeight: 700, color: "#F5C542" }}>Depuis le {weightHistory[0].date}</span>}
+        </div>
+        <div style={{ height: 190, marginBottom: 14 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={weightHistory} margin={{ top: 6, right: 6, left: -24, bottom: 0 }}>
+            <AreaChart data={weightHistory} margin={{ top: 10, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="wgrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={C.blue} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={C.blue} stopOpacity={0} />
+                  <stop offset="0%" stopColor="#4C7DF0" stopOpacity={0.55} />
+                  <stop offset="100%" stopColor="#4C7DF0" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="wstroke" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#7FA0FF" />
+                  <stop offset="100%" stopColor="#F5C542" />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke={C.cardBorder} vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} />
-              <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 10, fill: C.textDim }} axisLine={false} tickLine={false} width={30} />
-              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, fontSize: 12 }} labelStyle={{ color: C.textMuted }} />
-              <Area type="monotone" dataKey="poids" stroke={C.blue} strokeWidth={2.5} fill="url(#wgrad)" />
+              <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: C.textDim }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
+              <YAxis orientation="right" domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 11, fill: C.textDim }} axisLine={false} tickLine={false} width={34} tickFormatter={(v) => Math.round(v)} />
+              <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, fontSize: 13 }} labelStyle={{ color: C.textMuted }} />
+              <Area
+                type="monotone" dataKey="poids" stroke="url(#wstroke)" strokeWidth={3.5} fill="url(#wgrad)"
+                dot={(pr) => (pr.index === weightHistory.length - 1
+                  ? <circle key={pr.index} cx={pr.cx} cy={pr.cy} r={7} fill="#FFFFFF" stroke="#F5C542" strokeWidth={4} />
+                  : <g key={pr.index} />)}
+                activeDot={{ r: 6, fill: "#FFFFFF", stroke: "#4C7DF0", strokeWidth: 3 }}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input type="number" step="0.1" placeholder="Poids de la semaine (kg)" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 13, fontFamily: FONT_MONO }} />
-          <button onClick={submitWeight} style={{ background: C.blue, border: "none", borderRadius: 10, padding: "0 16px", color: "#06171F", fontWeight: 800 }}>
+        <div style={{ display: "flex", gap: 10 }}>
+          <input type="number" step="0.1" placeholder="Poids de la semaine (kg)" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} style={{ flex: 1, border: "1px solid rgba(255,255,255,0.12)", padding: "13px 14px", color: C.text, fontSize: 14.5 }} />
+          <button onClick={submitWeight} style={{ background: C.blue, border: "none", borderRadius: 14, padding: "0 20px", color: "#FFFFFF", fontWeight: 700, fontSize: 14.5 }}>
             Ajouter
           </button>
         </div>
       </Card>
+
+      {/* Repères rapides */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 16 }}>
+          <div style={{ fontSize: 13.5, color: C.textMuted, fontWeight: 500 }}>Bilans envoyés</div>
+          <div style={{ marginTop: 6 }}>
+            <span style={{ fontSize: 34, fontWeight: 800, color: C.text }}>{checkins.length}</span>
+          </div>
+        </div>
+        <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 16 }}>
+          <div style={{ fontSize: 13.5, color: C.textMuted, fontWeight: 500 }}>Photos du mois</div>
+          <div style={{ marginTop: 6 }}>
+            <span style={{ fontSize: 34, fontWeight: 800, color: C.text }}>{nbPhotosMois}</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: C.textMuted }}> / {PHOTO_CATS.length}</span>
+          </div>
+        </div>
+      </div>
 
       {/* Check-in hebdo */}
       <Card>
@@ -4997,15 +5077,22 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
 
       {/* Photos */}
       <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <SectionLabel icon={Camera}>Bilan photo</SectionLabel>
           {photosHistory.length > 0 && (
-            <button onClick={() => setShowPhotoHistory(true)} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>
+            <button onClick={() => setShowPhotoHistory(true)} style={{ background: C.blueSoft, border: `1px solid ${C.blueBorder}`, borderRadius: 999, padding: "6px 14px", color: "#7FA0FF", fontSize: 13, fontWeight: 700 }}>
               Historique
             </button>
           )}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+          <span style={{ fontSize: 13.5, color: C.textMuted }}>Ce mois-ci</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{nbPhotosMois} / {PHOTO_CATS.length}</span>
+        </div>
+        <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 16 }}>
+          <div style={{ height: "100%", width: `${(nbPhotosMois / PHOTO_CATS.length) * 100}%`, borderRadius: 999, background: "linear-gradient(90deg, #4C7DF0, #F5C542)", transition: "width .4s ease" }} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {PHOTO_CATS.map((c) => (
             <PhotoTile
               key={c.key}
@@ -5076,8 +5163,18 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
           <SectionLabel icon={ClipboardList}>Historique des bilans</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {checkins.slice().reverse().map((c, i) => (
-              <div key={i} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: 10, fontSize: 12, color: C.textMuted }}>
-                <span style={{ color: C.text, fontWeight: 700 }}>{c.date}</span> — force {c.sensationForce}/5, satisfaction {c.satisfaction}/5, sommeil {c.heuresSommeil || "—"}h, écarts {c.ecartsNutrition > 0 ? `${c.ecartsNutrition === 3 ? "3+" : c.ecartsNutrition}` : "0"}
+              <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "12px 14px" }}>
+                <div style={{ fontSize: 14.5, color: C.text, fontWeight: 700, marginBottom: 8 }}>{c.date}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {[
+                    [`Force ${c.sensationForce}/5`, "#7FA0FF"],
+                    [`Satisfaction ${c.satisfaction}/5`, "#F5C542"],
+                    [`Sommeil ${c.heuresSommeil || "—"} h`, "#B9C4E0"],
+                    [`Écarts ${c.ecartsNutrition > 0 ? (c.ecartsNutrition === 3 ? "3+" : c.ecartsNutrition) : "0"}`, "#F28C38"],
+                  ].map(([txt, col]) => (
+                    <span key={txt} style={{ fontSize: 12.5, fontWeight: 600, color: col, background: "rgba(255,255,255,0.06)", borderRadius: 999, padding: "4px 10px" }}>{txt}</span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -6711,11 +6808,11 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
               {exType === "cardio" ? (
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>DURÉE (MINUTES)</div>
+                    <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Durée (minutes)</div>
                     <input type="number" value={exDureeMinutes} onChange={(e) => setExDureeMinutes(parseInt(e.target.value) || 15)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>REPOS APRÈS</div>
+                    <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Repos après</div>
                     <button onClick={() => setShowRepoPickerNew(true)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, textAlign: "left" }}>
                       {formatRepos(exRest)}
                     </button>
