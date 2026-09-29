@@ -9682,20 +9682,19 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           const ilYa30 = Date.now() - 30 * 86400000;
           const seances30 = seancesAvecSeries.filter((x) => new Date(x.date).getTime() >= ilYa30).length;
           const dernierBilan = checkins.length ? checkins[checkins.length - 1] : null;
-          const tuile = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(110,150,255,0.35)", borderRadius: 18, padding: "12px 10px", textAlign: "center", boxShadow: "0 0 14px rgba(76,125,240,0.18)" };
+          const tuile = { display: "flex", flexDirection: "column", justifyContent: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(110,150,255,0.35)", borderRadius: 18, padding: "12px 10px", textAlign: "center", boxShadow: "0 0 14px rgba(76,125,240,0.18)" };
           return (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
-              <div onClick={() => { setTab("bilans"); setTimeout(() => { const el = document.getElementById("coach-poids-chart"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150); }} style={{ ...tuile, cursor: "pointer", border: "1px solid rgba(245,197,66,0.6)", boxShadow: "0 0 16px rgba(245,197,66,0.25)" }}>
+              <div onClick={() => { setTab("bilans"); setTimeout(() => { const el = document.getElementById("coach-poids-chart"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150); }} style={{ ...tuile, cursor: "pointer", border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "0 0 0 1px rgba(140,190,255,0.35), 0 0 22px rgba(120,180,255,0.55), 0 0 8px rgba(160,205,255,0.5)" }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{dernierPoids != null ? Number(dernierPoids).toFixed(1).replace(".", ",") : "—"}<span style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}> kg</span></div>
                 <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>Poids{client.poids_objectif ? ` · obj. ${client.poids_objectif}` : ""}</div>
-                <div style={{ fontSize: 11, color: "#F5C542", fontWeight: 700, marginTop: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>Voir la courbe <ChevronRight size={11} /></div>
                 {deltaPoids != null && deltaPoids !== 0 && <div style={{ fontSize: 12, fontWeight: 800, color: "#F5C542", marginTop: 3 }}>{deltaPoids > 0 ? "+" : ""}{deltaPoids.toFixed(1).replace(".", ",")} kg</div>}
               </div>
               <div style={tuile}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{seances30}</div>
                 <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>Séances · 30 j</div>
               </div>
-              <div style={tuile}>
+              <div onClick={() => { setTab("bilans"); setTimeout(() => { const el = document.getElementById("coach-bilans-list"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150); }} style={{ ...tuile, cursor: "pointer", border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "0 0 0 1px rgba(140,190,255,0.35), 0 0 22px rgba(120,180,255,0.55), 0 0 8px rgba(160,205,255,0.5)" }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: dernierBilan ? C.text : C.textDim }}>{dernierBilan ? formatDateDisplay(dernierBilan.date) : "—"}</div>
                 <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>Dernier bilan</div>
               </div>
@@ -9949,7 +9948,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 <div style={{ color: C.textMuted, fontSize: 14 }}>Aucune donnée de poids</div>
               )}
             </Card>
-            <Card>
+            <Card id="coach-bilans-list" style={{ scrollMarginTop: 12 }}>
               <SectionHead icon={ClipboardList} title="Bilans de semaine" count={checkins.length || null} color="#3AD6A0" />
               {checkins.length === 0 ? (
                 <div style={{ color: C.textMuted, fontSize: 14 }}>Aucun bilan envoyé</div>
