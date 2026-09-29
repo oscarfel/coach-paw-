@@ -975,13 +975,13 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       {mode === "accueil" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBg, fontWeight: 600 }}>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 15, color: C.textOnBgMuted, fontWeight: 600, textAlign: "left" }}>
               Bienvenue,
             </div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, color: C.blue, lineHeight: 1 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, lineHeight: 1.1, textAlign: "left", background: "linear-gradient(90deg, #7FA0FF, #4C7DF0 55%, #F5C542)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>
               {user.prenom}
             </div>
-            <div style={{ fontSize: 12, color: C.textOnBgMuted, fontWeight: 600, marginTop: 4, textAlign: "left" }}>
+            <div style={{ fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, marginTop: 6, textAlign: "left" }}>
               {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
@@ -1036,20 +1036,22 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                       display: "flex",
                       alignItems: "center",
                       gap: 12,
-                      padding: "12px",
-                      borderRadius: 14,
-                      background: "rgba(255,255,255,0.1)",
+                      padding: "14px",
+                      borderRadius: 18,
+                      textAlign: "left",
+                      background: "linear-gradient(135deg, rgba(76,125,240,0.22), rgba(255,255,255,0.05))",
+                      border: "1px solid rgba(76,125,240,0.3)",
                       cursor: "pointer",
                     }}
                   >
-                    <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <RotateCcw size={17} color={C.text} />
+                    <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(76,125,240,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <RotateCcw size={19} color="#BBD0FF" />
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 14.5, color: C.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 17, color: C.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" }}>
                         {routine.nom}
                       </div>
-                      <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                      <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 3, textAlign: "left" }}>
                         {routine.exercices.length} exercice{routine.exercices.length > 1 ? "s" : ""} · {routine.duree_travail}s effort / {routine.duree_repos}s repos
                       </div>
                     </div>
@@ -1062,8 +1064,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                           <Wrench size={12} />
                         </button>
                       )}
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#06171F", fontWeight: 800, background: C.text, padding: "9px 15px", borderRadius: 999 }}>
-                        <Play size={11} fill="#06171F" /> Lancer
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, color: "#FFFFFF", fontWeight: 800, background: C.blue, padding: "10px 18px", borderRadius: 999, boxShadow: "0 4px 14px rgba(76,125,240,0.5)" }}>
+                        <Play size={12} fill="#FFFFFF" /> Lancer
                       </div>
                     </div>
                   </div>
@@ -1124,7 +1126,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             )}
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(255,140,26,0.75)", boxShadow: "0 0 0 1.5px rgba(255,140,26,0.45), 0 0 26px rgba(255,140,26,0.55), 0 0 10px rgba(255,166,64,0.65), 0 4px 24px rgba(201,110,30,0.25)" }} onClick={() => setShowBadgeDetail(true)}>
+            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(245,197,66,0.4)", boxShadow: "0 0 0 1px rgba(245,197,66,0.15), 0 10px 28px rgba(0,0,0,0.45), 0 0 20px rgba(245,197,66,0.16)" }} onClick={() => setShowBadgeDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Award size={14} color={tierInfo.color} />
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Palier du mois</span>
@@ -1149,18 +1151,22 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 {tierInfo.label} · {Math.round(badgeScore)}%
               </div>
             </Card>
-            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(255,140,26,0.75)", boxShadow: "0 0 0 1.5px rgba(255,140,26,0.45), 0 0 26px rgba(255,140,26,0.55), 0 0 10px rgba(255,166,64,0.65), 0 4px 24px rgba(201,110,30,0.25)" }} onClick={() => setTab("nutrition")}>
+            <Card style={{ padding: 14, cursor: "pointer", border: "1px solid rgba(245,197,66,0.4)", boxShadow: "0 0 0 1px rgba(245,197,66,0.15), 0 10px 28px rgba(0,0,0,0.45), 0 0 20px rgba(245,197,66,0.16)" }} onClick={() => setTab("nutrition")}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Flame size={14} color={C.blue} />
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Calories</span>
               </div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>
-                {Math.round(caloriesConsommees)} <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 400 }}>kcal</span>
+              <div style={{ fontSize: 34, color: C.text, fontWeight: 800, lineHeight: 1.1 }}>
+                {Math.round(caloriesConsommees)} <span style={{ fontSize: 14, color: C.textMuted, fontWeight: 600 }}>kcal</span>
               </div>
               <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>
                 {caloriesObjectif ? `sur ${Math.round(caloriesObjectif)} kcal` : "objectif non défini"}
               </div>
-              {caloriesObjectif > 0 && <ProgressBar value={caloriesConsommees} max={caloriesObjectif} color={C.blue} height={6} />}
+              {caloriesObjectif > 0 && (
+                <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, (caloriesConsommees / caloriesObjectif) * 100)}%`, borderRadius: 999, background: "linear-gradient(90deg, #4C7DF0, #7FA0FF)" }} />
+                </div>
+              )}
               {streak > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8 }}>
                   <Flame size={13} color={streakEnAttente ? C.textDim : C.amber} fill={streakEnAttente ? C.textDim : C.amber} />
@@ -1175,13 +1181,13 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <SectionLabel icon={Target}>Objectif de poids</SectionLabel>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 10 }}>
               <div>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 30, color: C.text, fontWeight: 700 }}>
-                  {user.poidsActuel} <span style={{ fontSize: 15, color: C.textMuted }}>kg</span>
+                <div style={{ fontSize: 44, color: C.text, fontWeight: 800, lineHeight: 1.05 }}>
+                  {user.poidsActuel} <span style={{ fontSize: 18, color: C.textMuted, fontWeight: 700 }}>kg</span>
                 </div>
                 <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Poids actuel</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 18, color: C.amber, fontWeight: 700 }}>
+                <div style={{ fontSize: 22, color: "#F5C542", fontWeight: 800 }}>
                   {user.poidsObjectif} kg
                 </div>
                 <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
@@ -1189,7 +1195,9 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 </div>
               </div>
             </div>
-            <ProgressBar value={progressPoids} max={100} color={C.amber} />
+            <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, progressPoids))}%`, borderRadius: 999, background: "linear-gradient(90deg, #4C7DF0, #F5C542)", transition: "width .4s ease" }} />
+            </div>
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
@@ -1197,7 +1205,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 <Flame size={14} color={C.blue} />
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Séances</span>
               </div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 24, color: C.text, fontWeight: 700 }}>{stats.seancesRealisees}</div>
+              <div style={{ fontSize: 34, color: C.text, fontWeight: 800, lineHeight: 1.1 }}>{stats.seancesRealisees}</div>
               <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
               {objectifSeancesSemaine > 0 && (
                 <div style={{ fontSize: 11, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : C.amber, background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : C.amberSoft, borderRadius: 8, padding: "4px 8px", display: "inline-block" }}>
@@ -1347,31 +1355,35 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                       <Card
                         key={jour}
                         style={{
-                          display: "flex", justifyContent: "space-between", alignItems: "center",
-                          border: estValide ? `2px solid ${C.green}` : (estAujourdhui ? `2px solid ${C.amber}` : `1px solid ${C.cardBorder}`),
-                          boxShadow: estValide ? "0 0 14px rgba(34,168,118,0.5)" : (estAujourdhui ? "0 0 14px rgba(240,178,92,0.5)" : undefined),
+                          display: "flex", alignItems: "center", gap: 14, padding: 16,
+                          border: estValide ? `1.5px solid ${C.green}` : (estAujourdhui ? "1.5px solid #F5C542" : `1px solid ${C.cardBorder}`),
+                          boxShadow: estValide ? "0 10px 28px rgba(0,0,0,0.4), 0 0 20px rgba(58,214,160,0.28)" : (estAujourdhui ? "0 10px 28px rgba(0,0,0,0.4), 0 0 20px rgba(245,197,66,0.25)" : undefined),
                           userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",
                         }}
                       >
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <span style={{ fontSize: 12.5, fontWeight: 600, color: estValide ? C.green : (estAujourdhui ? C.amber : C.textMuted), textTransform: "capitalize", letterSpacing: 0 }}>
-                              {jour}{estAujourdhui && " · Aujourd'hui"}{estValide && " · Validé ✓"}
-                            </span>
+                        <div style={{ width: 48, height: 48, borderRadius: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                          background: estValide ? "rgba(58,214,160,0.2)" : (estAujourdhui ? "rgba(245,197,66,0.2)" : "rgba(255,255,255,0.06)"),
+                          border: `1px solid ${estValide ? "rgba(58,214,160,0.5)" : (estAujourdhui ? "rgba(245,197,66,0.5)" : "rgba(255,255,255,0.08)")}` }}>
+                          {estValide ? <Check size={24} color={C.green} strokeWidth={3} /> : p ? <Dumbbell size={22} color={estAujourdhui ? "#F5C542" : "#9DB8FF"} /> : <span style={{ fontSize: 20 }}>😴</span>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: estValide ? C.green : (estAujourdhui ? "#F5C542" : C.textMuted), textTransform: "capitalize", letterSpacing: 0 }}>
+                            {jour}{estAujourdhui && " · Aujourd'hui"}{estValide && " · Validé"}
                           </div>
-                          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: p ? C.text : C.textDim }}>
+                          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: p ? C.text : C.textDim, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p ? p.nom : "Repos"}
                           </div>
                           {p && (
-                            <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                              {p.exercices.length} exercices · {p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
+                            <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{p.exercices.length} exercices</span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries</span>
                             </div>
                           )}
                         </div>
                         {p && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 }}>
-                              <Play size={14} fill="#06171F" /> Démarrer
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6, flexShrink: 0 }}>
+                            <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#FFFFFF", borderRadius: 999, padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 800, fontSize: 14, boxShadow: "0 4px 14px rgba(76,125,240,0.5)" }}>
+                              <Play size={13} fill="#FFFFFF" /> Démarrer
                             </button>
                             {isCoach && (
                               <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
@@ -1419,8 +1431,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                         ⠿
                       </div>
                     )}
-                    <div>
-                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{p.nom}</div>
+                    <div style={{ textAlign: "left" }}>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>{p.nom}</div>
                       <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
                       <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
                         {p.exercices.length} exercices · {p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries · {p.duree}
@@ -1428,8 +1440,8 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#06171F", borderRadius: 999, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 }}>
-                      <Play size={14} fill="#06171F" /> Démarrer
+                    <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#FFFFFF", borderRadius: 999, padding: "11px 18px", display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 14, boxShadow: "0 4px 14px rgba(76,125,240,0.5)" }}>
+                      <Play size={13} fill="#FFFFFF" /> Démarrer
                     </button>
                     {isCoach && (
                       <button onClick={() => { setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
@@ -1661,8 +1673,9 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
         overflow: "hidden",
         background: cardFillGradient(),
         transition: "background 0.4s ease",
-        border: `2px solid ${C.amber}`,
-        boxShadow: "0 0 0 1px rgba(240,178,92,0.35), 0 0 16px rgba(240,178,92,0.35)",
+        border: progressionPct >= 100 ? `1.5px solid ${C.green}` : "1px solid rgba(76,125,240,0.4)",
+        boxShadow: progressionPct >= 100 ? "0 10px 28px rgba(0,0,0,0.4), 0 0 18px rgba(58,214,160,0.25)" : "0 10px 28px rgba(0,0,0,0.4), 0 0 18px rgba(59,111,224,0.18)",
+        borderRadius: 22,
       }}
     >
       <button
@@ -1700,14 +1713,14 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{ex.nom}</div>
-            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+            <div style={{ fontSize: 16.5, fontWeight: 800, color: C.text }}>{ex.nom}</div>
+            <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 4, lineHeight: 1.5 }}>
               {ex.type === "cardio" ? (
                 <>🏃 {ex.dureeMinutes} min {log.sets.length > 0 && "· Fait ✓"}</>
               ) : (
                 <>
                   {seriesEffectivesValidees}/{ex.sets} séries
-                  {nbEchauffement > 0 && <span style={{ color: C.amber }}> · {Math.min(log.sets.length, nbEchauffement)}/{nbEchauffement} échauffement</span>}
+                  {nbEchauffement > 0 && <span style={{ color: "#F5C542" }}> · {Math.min(log.sets.length, nbEchauffement)}/{nbEchauffement} échauffement</span>}
                   {derniereSerieGlobale && (
                     <span style={{ color: C.blue }}> · dernière fois {derniereSerieGlobale.poids}kg × {derniereSerieGlobale.reps}</span>
                   )}
@@ -1821,13 +1834,13 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
             return (
             <div
               style={{
-                background: "#FFFFFF",
-                border: `2px solid ${C.amber}`,
-                borderRadius: 14,
+                background: "linear-gradient(135deg, rgba(245,197,66,0.16), rgba(76,125,240,0.14))",
+                border: "1px solid rgba(245,197,66,0.5)",
+                borderRadius: 18,
                 padding: enEchauffement ? "9px 11px" : "12px 14px",
                 fontSize: enEchauffement ? 11 : 13,
-                color: "#132345", // carte volontairement blanche (badge de rappel) : texte foncé fixe, indépendant du thème
-                boxShadow: "0 0 16px rgba(240,178,92,0.5), 0 4px 12px rgba(10,30,70,0.2)",
+                color: C.text,
+                boxShadow: "0 8px 22px rgba(0,0,0,0.35), 0 0 16px rgba(245,197,66,0.15)",
                 opacity: enEchauffement ? 0.75 : 1,
               }}
             >
@@ -1841,18 +1854,18 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
                   <span
                     key={i}
                     style={{
-                      fontSize: enEchauffement ? 9 : 10.5, fontFamily: FONT_MONO, fontWeight: 700,
-                      color: i === currentSetIndex ? "#FFFFFF" : C.textOnBgMuted,
-                      background: i === currentSetIndex ? C.amber : "#F1F3EA",
-                      border: `1px solid ${i === currentSetIndex ? C.amber : C.cardBorder}`,
-                      borderRadius: 6, padding: enEchauffement ? "2px 5px" : "3px 7px",
+                      fontSize: enEchauffement ? 10 : 12, fontFamily: FONT_SANS, fontWeight: 700,
+                      color: i === currentSetIndex ? "#2B1D00" : "#B9C4E0",
+                      background: i === currentSetIndex ? "#F5C542" : "rgba(255,255,255,0.08)",
+                      border: `1px solid ${i === currentSetIndex ? "#F5C542" : "rgba(255,255,255,0.1)"}`,
+                      borderRadius: 8, padding: enEchauffement ? "3px 7px" : "5px 10px",
                     }}
                   >
                     S{i + 1}: {s.poids}kg×{s.reps}
                   </span>
                 ))}
               </div>
-              <div style={{ fontSize: enEchauffement ? 9 : 10, color: C.textOnBgMuted, marginTop: 6, fontWeight: 600 }}>Séance du {historique.date}</div>
+              <div style={{ fontSize: enEchauffement ? 10 : 11.5, color: C.textMuted, marginTop: 8, fontWeight: 600 }}>Séance du {historique.date}</div>
             </div>
             );
           })()}
@@ -1934,7 +1947,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
             <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
-              <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Charge (kg)</div>
+              <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 6, fontWeight: 600 }}>Charge (kg)</div>
               <input
                 type="number"
                 value={poids}
@@ -1944,17 +1957,19 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
                   width: "100%",
                   background: C.surface,
                   border: `1px solid ${C.cardBorderLight}`,
-                  borderRadius: 10,
-                  padding: "9px 10px",
+                  borderRadius: 16,
+                  padding: "14px 14px",
                   color: C.text,
-                  fontSize: 15,
-                  fontFamily: FONT_MONO,
+                  fontSize: 22,
+                  fontWeight: 800,
+                  textAlign: "center",
+                  fontFamily: FONT_SANS,
                 }}
               />
             </div>
             <div>
-              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>
-                RÉPÉTITIONS{rangeActuelle && <span style={{ color: "#FF9500", fontWeight: 800, fontSize: 15, textShadow: "0 0 3px rgba(255,149,0,0.5)" }}> · vise {rangeActuelle.min}-{rangeActuelle.max}</span>}
+              <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 6, fontWeight: 600 }}>
+                Répétitions{rangeActuelle && <span style={{ color: "#F5C542", fontWeight: 800, fontSize: 14 }}> · vise {rangeActuelle.min}-{rangeActuelle.max}</span>}
               </div>
               <input
                 type="number"
@@ -1965,11 +1980,13 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
                   width: "100%",
                   background: C.surface,
                   border: `1px solid ${C.cardBorderLight}`,
-                  borderRadius: 10,
-                  padding: "9px 10px",
+                  borderRadius: 16,
+                  padding: "14px 14px",
                   color: C.text,
-                  fontSize: 15,
-                  fontFamily: FONT_MONO,
+                  fontSize: 22,
+                  fontWeight: 800,
+                  textAlign: "center",
+                  fontFamily: FONT_SANS,
                 }}
               />
             </div>
@@ -1983,7 +2000,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
-              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>TEMPO</div>
+              <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 6, fontWeight: 600 }}>Tempo</div>
               <input
                 type="text"
                 value={tempo}
@@ -2001,7 +2018,7 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
               />
             </div>
             <div>
-              <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>RPE</div>
+              <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 6, fontWeight: 600 }}>RPE</div>
               <select
                 value={rpe}
                 onChange={(e) => setRpe(e.target.value)}
@@ -2027,20 +2044,21 @@ function ExerciceCard({ ex, history, log, onValidate, onVideo, programmeNom, onS
               onClick={submit}
               style={{
                 flex: 1,
-                background: C.blue,
+                background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)",
                 border: "none",
-                color: "#06171F",
-                borderRadius: 10,
-                padding: "10px 12px",
+                color: "#FFFFFF",
+                borderRadius: 16,
+                padding: "16px 12px",
                 fontWeight: 800,
-                fontSize: 13,
+                fontSize: 16,
+                boxShadow: "0 6px 18px rgba(76,125,240,0.45)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 6,
               }}
             >
-              <Check size={15} /> Valider la série
+              <Check size={18} strokeWidth={3} /> Valider la série
             </button>
             </div>
             </>
@@ -4811,6 +4829,7 @@ function DailyCheckinModal({ onSubmit }) {
 function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan, uploadingPhotoKey, checkins, addCheckin, mensurationsHistory, addMensuration }) {
   const [newWeight, setNewWeight] = useState("");
   const [showPhotoHistory, setShowPhotoHistory] = useState(false);
+  const [showBilanForm, setShowBilanForm] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(null);
 
   const photosActuelles = useMemo(() => {
@@ -4897,6 +4916,7 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
     addCheckin({ ...form, date: todayIso() });
     setForm(emptyForm);
     localStorage.removeItem(BILAN_DRAFT_KEY);
+    setShowBilanForm(false);
   };
 
   const dernierPoids = weightHistory.length ? weightHistory[weightHistory.length - 1].poids : null;
@@ -4985,9 +5005,64 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
         </div>
       </div>
 
-      {/* Check-in hebdo */}
-      <Card>
-        <SectionLabel icon={ClipboardList}>Bilan de semaine</SectionLabel>
+      {/* Check-in hebdo : carte résumé, le formulaire s'ouvre au clic */}
+      {(() => {
+        const brouillon = JSON.stringify(form) !== JSON.stringify(emptyForm);
+        const dernier = checkins.length ? checkins[checkins.length - 1] : null;
+        return (
+          <button
+            onClick={() => setShowBilanForm(true)}
+            style={{
+              width: "100%", textAlign: "left", cursor: "pointer", padding: 18, borderRadius: 24,
+              background: "linear-gradient(135deg, rgba(76,125,240,0.28), rgba(26,34,74,0.9) 60%)",
+              border: "1px solid rgba(76,125,240,0.45)",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.4), 0 0 22px rgba(59,111,224,0.2)",
+              display: "flex", alignItems: "center", gap: 14, color: C.text,
+            }}
+          >
+            <div style={{ width: 50, height: 50, borderRadius: 16, background: "rgba(76,125,240,0.25)", border: "1px solid rgba(76,125,240,0.5)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <ClipboardList size={24} color="#9DB8FF" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: C.text }}>Bilan de la semaine</div>
+              <div style={{ fontSize: 13, color: C.textMuted, marginTop: 3 }}>
+                {brouillon ? "Brouillon en cours · reprends où tu t'es arrêté" : dernier ? `Dernier envoi : ${dernier.date}` : "Prends 2 minutes pour faire le point"}
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                {["Sensation de force", "Satisfaction", "Sommeil"].map((t) => (
+                  <span key={t} style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "4px 10px" }}>{t}</span>
+                ))}
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#F8D27A", background: "rgba(245,184,51,0.16)", borderRadius: 999, padding: "4px 10px" }}>+ 6 questions</span>
+              </div>
+            </div>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: C.blue, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 14px rgba(76,125,240,0.55)" }}>
+              <Plus size={22} color="#FFFFFF" strokeWidth={3} />
+            </div>
+          </button>
+        );
+      })()}
+
+      {showBilanForm && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(2,4,14,0.75)", zIndex: 130, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+          onClick={() => setShowBilanForm(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 520, maxHeight: "92vh", overflowY: "auto",
+              background: "linear-gradient(180deg, #151D42, #0B1230)", borderRadius: "28px 28px 0 0",
+              border: "1px solid rgba(76,125,240,0.35)", borderBottom: "none", padding: "20px 20px 28px",
+              boxShadow: "0 -12px 40px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 800, color: C.text }}>Bilan de la semaine</div>
+              <button onClick={() => setShowBilanForm(false)} style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", color: C.text }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 18 }}>Tes réponses sont enregistrées en brouillon si tu quittes.</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <CheckinSlider label="Sensation de force" value={form.sensationForce} onChange={(v) => setForm({ ...form, sensationForce: v })} emojis={["🪫", "😓", "🙂", "💪", "🔥"]} />
 
@@ -5070,10 +5145,12 @@ function Bilans({ weightHistory, addWeightEntry, photosHistory, uploadPhotoBilan
           )}
 
           <button onClick={submitCheckin} style={{ background: C.blue, border: "none", color: "#02071A", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            <Send size={15} /> Envoyer le bilan de semaine
+            <Send size={16} /> Envoyer le bilan de semaine
           </button>
         </div>
-      </Card>
+          </div>
+        </div>
+      )}
 
       {/* Photos */}
       <Card>
