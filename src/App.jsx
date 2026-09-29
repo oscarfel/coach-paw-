@@ -4526,7 +4526,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
           onSave={(np) => { saveObjectifsNutrition(np); setShowGoalEditor(false); }}
           onSaveParJour={(k) => { onSaveParJour?.(k); setShowGoalEditor(false); }}
           onSaveParKg={(k) => { onSaveParKg?.(k); setShowGoalEditor(false); }}
-          onSaveNutritionParJour={(cfg) => { onSaveNutritionParJour?.(cfg); }}
+          onSaveNutritionParJour={(cfg) => { onSaveNutritionParJour?.(cfg); setShowGoalEditor(false); }}
         />
       ) : showGoalEditor ? (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setShowGoalEditor(false)}>
@@ -8456,9 +8456,12 @@ function PlanAlimentaireModal({ planActuel, onSave, onSaveParJour, onSaveParKg, 
       } else {
         for (const j of JOURS_SEMAINE) finalConfig[j] = { ...joursConfig[j], kcal: parseInt(joursConfig[j].kcal) || planActuel.kcal };
       }
-      const kcalParJourOnly = {};
-      for (const j of JOURS_SEMAINE) kcalParJourOnly[j] = finalConfig[j].kcal;
-      onSaveParJour?.(kcalParJourOnly);
+      // Un seul appel, une seule écriture en base : "nutrition_par_jour" contient déjà les
+      // calories de chaque jour (finalConfig[j].kcal), donc plus besoin d'un deuxième appel
+      // à onSaveParJour en parallèle sur l'ancienne colonne "objectifs_kcal_par_jour" — les
+      // deux appels indépendants (deux requêtes réseau, deux mises à jour d'état séparées)
+      // pouvaient se terminer dans un ordre imprévisible et laisser les grammes de macros
+      // affichés ne pas refléter la dernière sauvegarde.
       onSaveNutritionParJour?.(finalConfig);
       return;
     }
