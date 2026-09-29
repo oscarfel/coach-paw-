@@ -112,6 +112,7 @@ const FontImports = () => (
     }
     input::placeholder, textarea::placeholder { color: rgba(185,196,224,0.55); }
     /* Boutons principaux bleus : texte blanc (comme le visuel) au lieu du texte sombre */
+    button[style*="background: rgb(59, 111, 224)"] { box-shadow: 0 4px 16px rgba(59,111,224,0.5) !important; font-weight: 800; }
     button[style*="rgb(6, 23, 31)"][style*="background: rgb(59, 111, 224)"],
     button[style*="rgb(2, 7, 26)"][style*="background: rgb(59, 111, 224)"] { color: #FFFFFF !important; }
     button { font-family: ${FONT_BODY}; cursor: pointer; }
@@ -146,6 +147,29 @@ const Card = React.forwardRef(({ children, style, ...rest }, ref) => (
     {children}
   </div>
 ));
+
+const IconBadge = ({ icon: Icon, color = "#9DB8FF", size = 36, iconSize = 18 }) => (
+  <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.34), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: `1px solid ${color}55`, boxShadow: `0 0 12px ${color}33` }}>
+    <Icon size={iconSize} color={color} />
+  </div>
+);
+
+const SectionHead = ({ icon, title, count, color = "#9DB8FF", action }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+    <IconBadge icon={icon} color={color} size={34} iconSize={17} />
+    <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: C.text, textAlign: "left" }}>{title}</div>
+    {count != null && <span style={{ fontSize: 12.5, fontWeight: 800, color: color, background: `${color}22`, border: `1px solid ${color}55`, borderRadius: 999, padding: "3px 10px" }}>{count}</span>}
+    {action}
+  </div>
+);
+
+const AvatarInitiales = ({ prenom, nom, photo, size = 40, ring = "#4C7DF0" }) => (
+  <div style={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, background: photo ? `url(${photo}) center/cover` : "linear-gradient(135deg, #4C7DF0, #2B3F8F)", border: `2px solid ${ring}`, boxShadow: `0 0 12px ${ring}66`, display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", fontWeight: 800, fontSize: Math.round(size * 0.38) }}>
+    {!photo && `${(prenom || "?").charAt(0)}${(nom || "").charAt(0)}`.toUpperCase()}
+  </div>
+);
+
+const ROW_STYLE = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "11px 14px" };
 
 const SectionLabel = ({ children, icon: Icon, onBg }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -5791,13 +5815,15 @@ function LogoutButton({ onLogout }) {
         display: "flex",
         alignItems: "center",
         gap: 6,
-        background: C.surface,
-        border: `1px solid ${C.cardBorderLight}`,
-        color: C.textMuted,
-        borderRadius: 999,
-        padding: "8px 14px",
-        fontSize: 12,
-        fontWeight: 600,
+        background: "rgba(240,84,110,0.12)",
+        border: "1px solid rgba(240,84,110,0.45)",
+        color: "#FF8FA0",
+        borderRadius: 16,
+        padding: "12px 16px",
+        width: "100%",
+        justifyContent: "center",
+        fontSize: 14.5,
+        fontWeight: 700,
       }}
     >
       <LogOut size={15} /> Déconnexion
@@ -5814,8 +5840,9 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
       <button
         onClick={() => setOpen(true)}
         style={{
-          width: 40, height: 40, borderRadius: 12,
-          background: C.surface, border: `1px solid ${C.cardBorderLight}`,
+          width: 44, height: 44, borderRadius: 14,
+          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(110,150,255,0.5)",
+          boxShadow: "0 0 14px rgba(76,125,240,0.3)",
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0,
         }}
@@ -5823,188 +5850,94 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
         <Menu size={19} color={C.text} />
       </button>
 
-      {open && (
+      {open && (() => {
+        const go = (tab) => { setCoachTab(tab); setOpen(false); };
+        const NavItem = ({ tab, icon: Icon, label, badge, onClick, actif, chevron, chevronOpen }) => {
+          const on = actif !== undefined ? actif : coachTab === tab;
+          return (
+            <button
+              onClick={onClick || (() => go(tab))}
+              style={{
+                position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", borderRadius: 16, width: "100%", textAlign: "left",
+                background: on ? "linear-gradient(90deg, rgba(76,125,240,0.32), rgba(76,125,240,0.08))" : "transparent",
+                border: on ? "1px solid rgba(110,150,255,0.55)" : "1px solid transparent",
+                boxShadow: on ? "0 0 18px rgba(76,125,240,0.35)" : "none",
+                color: on ? "#FFFFFF" : C.textMuted, fontWeight: 700, fontSize: 15,
+              }}
+            >
+              <span style={{ width: 34, height: 34, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: on ? "#4C7DF0" : "rgba(255,255,255,0.06)", boxShadow: on ? "0 4px 12px rgba(76,125,240,0.55)" : "none" }}>
+                <Icon size={17} color={on ? "#FFFFFF" : "#9DB8FF"} />
+              </span>
+              <span style={{ flex: 1 }}>{label}</span>
+              {badge > 0 && <span style={{ background: C.red, color: "#FFFFFF", fontSize: 11, fontWeight: 800, borderRadius: 999, padding: "2px 8px", boxShadow: "0 0 10px rgba(240,84,110,0.6)" }}>{badge}</span>}
+              {chevron && <ChevronDown size={16} style={{ transform: chevronOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />}
+            </button>
+          );
+        };
+        const SubItem = ({ tab, icon: Icon, label }) => {
+          const on = coachTab === tab;
+          return (
+            <button onClick={() => go(tab)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 13, textAlign: "left", background: on ? "rgba(76,125,240,0.25)" : "transparent", border: on ? "1px solid rgba(110,150,255,0.5)" : "1px solid transparent", color: on ? "#FFFFFF" : C.textMuted, fontWeight: 600, fontSize: 14 }}>
+              <Icon size={15} color={on ? "#FFFFFF" : "#9DB8FF"} /> {label}
+            </button>
+          );
+        };
+        const subWrap = { display: "flex", flexDirection: "column", gap: 4, paddingLeft: 12, borderLeft: "2px solid rgba(110,150,255,0.3)", marginLeft: 22, marginTop: 2, marginBottom: 4 };
+        const titreSection = { fontSize: 12.5, color: C.textDim, fontWeight: 700, marginBottom: 10, paddingLeft: 4 };
+        return (
         <div style={{ position: "fixed", inset: 0, zIndex: 150, display: "flex" }}>
-          <div
-            onClick={() => setOpen(false)}
-            style={{ position: "absolute", inset: 0, background: "rgba(5,6,9,0.55)" }}
-          />
+          <div onClick={() => setOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(2,4,14,0.7)", backdropFilter: "blur(3px)" }} />
           <div
             style={{
-              position: "relative", width: 260, maxWidth: "80%", height: "100%",
-              background: C.card, borderRight: `1px solid ${C.cardBorderLight}`,
-              padding: "24px 18px", display: "flex", flexDirection: "column", gap: 22,
-              animation: "slideInLeft .25s ease",
-              overflowY: "auto",
+              position: "relative", width: 292, maxWidth: "84%", height: "100%",
+              background: "linear-gradient(180deg, #151D42 0%, #0B1230 100%)",
+              borderRight: "1px solid rgba(110,150,255,0.5)",
+              boxShadow: "6px 0 40px rgba(0,0,0,0.6), 0 0 26px rgba(76,125,240,0.25)",
+              padding: "26px 16px 22px", display: "flex", flexDirection: "column", gap: 22,
+              animation: "slideInLeft .25s ease", overflowY: "auto",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>Menu</div>
-              <button onClick={() => setOpen(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingLeft: 4 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.text }}>Menu</div>
+              <button onClick={() => setOpen(false)} style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", color: C.text }}>
                 <X size={18} />
               </button>
             </div>
 
             {showViewToggle && (
               <div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginBottom: 10 }}>
-                  Affichage
+                <div style={titreSection}>Affichage</div>
+                <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(110,150,255,0.3)", borderRadius: 18, padding: "12px 14px" }}>
+                  <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
                 </div>
-                <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
               </div>
             )}
 
             {viewMode === "coach" && coachTab && setCoachTab && (
               <div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0, marginBottom: 10 }}>
-                  Navigation
-                </div>
+                <div style={titreSection}>Navigation</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <button
-                    onClick={() => { setCoachTab("dashboard"); setOpen(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: coachTab === "dashboard" ? C.blueSoft : "transparent", border: "none",
-                      color: coachTab === "dashboard" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <LayoutDashboard size={16} /> Tableau de bord
-                  </button>
-                  <button
-                    onClick={() => { setCoachTab("clients"); setOpen(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: coachTab === "clients" ? C.blueSoft : "transparent", border: "none",
-                      color: coachTab === "clients" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <User size={16} /> Client
-                  </button>
-                  <button
-                    onClick={() => { setCoachTab("taches"); setOpen(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: coachTab === "taches" ? C.blueSoft : "transparent", border: "none",
-                      color: coachTab === "taches" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <ClipboardList size={16} /> Tâches
-                    {tachesEnAttenteCount > 0 && (
-                      <span style={{ marginLeft: "auto", background: C.red, color: "#FFFFFF", fontSize: 10.5, fontWeight: 800, borderRadius: 999, padding: "2px 7px" }}>
-                        {tachesEnAttenteCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => { setCoachTab("programmes"); setOpen(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: coachTab === "programmes" ? C.blueSoft : "transparent", border: "none",
-                      color: coachTab === "programmes" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <Dumbbell size={16} /> Programmes
-                  </button>
-                  <button
-                    onClick={() => setAlimentationOuvert(!alimentationOuvert)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: (coachTab === "alimentation-recettes" || coachTab === "alimentation-courses" || coachTab === "alimentation-supplements") ? C.blueSoft : "transparent", border: "none",
-                      color: (coachTab === "alimentation-recettes" || coachTab === "alimentation-courses" || coachTab === "alimentation-supplements") ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <Apple size={16} /> Alimentation
-                    <ChevronDown size={14} style={{ marginLeft: "auto", transform: alimentationOuvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
-                  </button>
+                  <NavItem tab="dashboard" icon={LayoutDashboard} label="Tableau de bord" />
+                  <NavItem tab="clients" icon={User} label="Clients" />
+                  <NavItem tab="taches" icon={ClipboardList} label="Tâches" badge={tachesEnAttenteCount} />
+                  <NavItem tab="programmes" icon={Dumbbell} label="Programmes" />
+                  <NavItem icon={Apple} label="Alimentation" chevron chevronOpen={alimentationOuvert} onClick={() => setAlimentationOuvert(!alimentationOuvert)} actif={["alimentation-recettes", "alimentation-courses", "alimentation-supplements"].includes(coachTab)} />
                   {alimentationOuvert && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 14, borderLeft: `1px solid ${C.cardBorderLight}`, marginLeft: 12 }}>
-                      <button
-                        onClick={() => { setCoachTab("alimentation-recettes"); setOpen(false); }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
-                          background: coachTab === "alimentation-recettes" ? C.blueSoft : "transparent", border: "none",
-                          color: coachTab === "alimentation-recettes" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
-                        }}
-                      >
-                        <ClipboardList size={14} /> Recettes
-                      </button>
-                      <button
-                        onClick={() => { setCoachTab("alimentation-courses"); setOpen(false); }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
-                          background: coachTab === "alimentation-courses" ? C.blueSoft : "transparent", border: "none",
-                          color: coachTab === "alimentation-courses" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
-                        }}
-                      >
-                        <ShoppingCart size={14} /> Liste de courses
-                      </button>
-                      <button
-                        onClick={() => { setCoachTab("alimentation-supplements"); setOpen(false); }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
-                          background: coachTab === "alimentation-supplements" ? C.blueSoft : "transparent", border: "none",
-                          color: coachTab === "alimentation-supplements" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
-                        }}
-                      >
-                        <Pill size={14} /> Suppléments
-                      </button>
+                    <div style={subWrap}>
+                      <SubItem tab="alimentation-recettes" icon={ClipboardList} label="Recettes" />
+                      <SubItem tab="alimentation-courses" icon={ShoppingCart} label="Liste de courses" />
+                      <SubItem tab="alimentation-supplements" icon={Pill} label="Suppléments" />
                     </div>
                   )}
-                  <button
-                    onClick={() => setOutilsOuvert(!outilsOuvert)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: (coachTab === "outils-drive" || coachTab === "outils-automatisation") ? C.blueSoft : "transparent", border: "none",
-                      color: (coachTab === "outils-drive" || coachTab === "outils-automatisation") ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <Wrench size={16} /> Outils
-                    <ChevronDown size={14} style={{ marginLeft: "auto", transform: outilsOuvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
-                  </button>
+                  <NavItem icon={Wrench} label="Outils" chevron chevronOpen={outilsOuvert} onClick={() => setOutilsOuvert(!outilsOuvert)} actif={["outils-drive", "outils-automatisation"].includes(coachTab)} />
                   {outilsOuvert && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 14, borderLeft: `1px solid ${C.cardBorderLight}`, marginLeft: 12 }}>
-                      <button
-                        onClick={() => { setCoachTab("outils-drive"); setOpen(false); }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
-                          background: coachTab === "outils-drive" ? C.blueSoft : "transparent", border: "none",
-                          color: coachTab === "outils-drive" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
-                        }}
-                      >
-                        <FileText size={14} /> Drive
-                      </button>
-                      <button
-                        onClick={() => { setCoachTab("outils-automatisation"); setOpen(false); }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10,
-                          background: coachTab === "outils-automatisation" ? C.blueSoft : "transparent", border: "none",
-                          color: coachTab === "outils-automatisation" ? C.blue : C.textMuted, fontWeight: 600, fontSize: 12.5,
-                        }}
-                      >
-                        <Zap size={14} /> Automatisation
-                      </button>
+                    <div style={subWrap}>
+                      <SubItem tab="outils-drive" icon={FileText} label="Drive" />
+                      <SubItem tab="outils-automatisation" icon={Zap} label="Automatisation" />
                     </div>
                   )}
-                  <button
-                    onClick={() => { setCoachTab("vod"); setOpen(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: coachTab === "vod" ? C.blueSoft : "transparent", border: "none",
-                      color: coachTab === "vod" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <VideoIcon size={16} /> VOD
-                  </button>
-                  <button
-                    onClick={() => { setCoachTab("notifications"); setOpen(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12,
-                      background: coachTab === "notifications" ? C.blueSoft : "transparent", border: "none",
-                      color: coachTab === "notifications" ? C.blue : C.textMuted, fontWeight: 700, fontSize: 13.5,
-                    }}
-                  >
-                    <Bell size={16} /> Notifications
-                  </button>
+                  <NavItem tab="vod" icon={VideoIcon} label="VOD" />
+                  <NavItem tab="notifications" icon={Bell} label="Notifications" />
                 </div>
               </div>
             )}
@@ -6014,7 +5947,8 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </>
   );
 }
@@ -7217,14 +7151,14 @@ function TachesView({ coachId, fireToast }) {
 
   return (
     <>
-      <div style={{ fontSize: 12.5, color: C.textOnBgMuted, marginBottom: 14 }}>
+      <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 16, textAlign: "left" }}>
         Gérez vos tâches quotidiennes et suivez leur avancement.
       </div>
       <button
         onClick={openNew}
-        style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+        style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)" }}
       >
-        <Plus size={18} /> Créer une tâche
+        <Plus size={20} strokeWidth={3} /> Créer une tâche
       </button>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -7243,7 +7177,7 @@ function TachesView({ coachId, fireToast }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtered.map((t) => (
-            <Card key={t.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Card key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, ...(t.statut === "termine" ? { border: "1.5px solid rgba(58,214,160,0.6)", boxShadow: "0 0 18px rgba(58,214,160,0.3), 0 10px 28px rgba(0,0,0,0.4)" } : {}) }}>
               <button
                 onClick={() => toggleStatut(t)}
                 style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${t.statut === "termine" ? C.green : C.cardBorderLight}`, background: t.statut === "termine" ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
@@ -7251,8 +7185,8 @@ function TachesView({ coachId, fireToast }) {
                 {t.statut === "termine" && <Check size={13} color="#FFFFFF" />}
               </button>
               <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openEdit(t)}>
-                <div style={{ fontSize: 14, color: C.text, fontWeight: 600, textDecoration: t.statut === "termine" ? "line-through" : "none" }}>{t.titre}</div>
-                {t.date_echeance && <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>📅 {formatDateDisplay(t.date_echeance)}</div>}
+                <div style={{ fontSize: 16, color: t.statut === "termine" ? C.textMuted : C.text, fontWeight: 700, textAlign: "left", textDecoration: t.statut === "termine" ? "line-through" : "none" }}>{t.titre}</div>
+                {t.date_echeance && <span style={{ display: "inline-block", fontSize: 12.5, color: "#F5C542", fontWeight: 700, background: "rgba(245,197,66,0.14)", borderRadius: 999, padding: "3px 10px", marginTop: 6 }}>{formatDateDisplay(t.date_echeance)}</span>}
               </div>
               <button onClick={() => remove(t.id)} style={{ background: "transparent", border: "none", color: C.red }}>
                 <Trash2 size={15} />
@@ -10470,8 +10404,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
           <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={true} coachTab={coachTab} setCoachTab={setCoachTab} tachesEnAttenteCount={tachesEnAttenteCount} />
           <div>
-            <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 600 }}>Espace coach</div>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>
+            <div style={{ fontFamily: FONT_BODY, fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600 }}>Espace coach</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, lineHeight: 1.15, color: C.textOnBg }}>
               {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes" : coachTab === "alimentation-recettes" ? "Recettes" : coachTab === "alimentation-courses" ? "Liste de courses" : coachTab === "alimentation-supplements" ? "Suppléments" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
             </div>
           </div>
@@ -10499,34 +10433,29 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <NotificationsView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
         ) : coachTab === "dashboard" ? (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-              <Card style={{ padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <User size={14} color={C.blue} />
-                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Clients actifs</span>
-                </div>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: C.text, fontWeight: 700 }}>{clients.length}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <Card style={{ padding: 16 }}>
+                <IconBadge icon={User} color="#7FA0FF" size={38} />
+                <div style={{ fontSize: 44, color: C.text, fontWeight: 800, lineHeight: 1, marginTop: 14 }}>{clients.length}</div>
+                <div style={{ fontSize: 13.5, color: C.textMuted, fontWeight: 600, marginTop: 4 }}>Clients actifs</div>
               </Card>
-              <Card style={{ padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <AlertCircle size={14} color={bilansEnAttente.length > 0 ? C.red : C.green} />
-                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Bilans en attente</span>
-                </div>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: bilansEnAttente.length > 0 ? C.red : C.green, fontWeight: 700 }}>{bilansEnAttente.length}</div>
+              <Card style={{ padding: 16, border: bilansEnAttente.length > 0 ? "1.5px solid rgba(240,84,110,0.85)" : "1.5px solid rgba(58,214,160,0.7)", boxShadow: bilansEnAttente.length > 0 ? "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(240,84,110,0.3), 0 0 24px rgba(240,84,110,0.45), 0 10px 28px rgba(0,0,0,0.4)" : "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 22px rgba(58,214,160,0.4), 0 10px 28px rgba(0,0,0,0.4)" }}>
+                <IconBadge icon={bilansEnAttente.length > 0 ? AlertCircle : CheckCircle2} color={bilansEnAttente.length > 0 ? "#FF6B84" : "#3AD6A0"} size={38} />
+                <div style={{ fontSize: 44, color: bilansEnAttente.length > 0 ? "#FF6B84" : C.green, fontWeight: 800, lineHeight: 1, marginTop: 14 }}>{bilansEnAttente.length}</div>
+                <div style={{ fontSize: 13.5, color: C.textMuted, fontWeight: 600, marginTop: 4 }}>Bilans en attente</div>
               </Card>
             </div>
 
             {tachesApercu.length > 0 && (
-              <Card style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <SectionLabel icon={ClipboardList}>Tes prochaines tâches</SectionLabel>
-                  <button onClick={() => setCoachTab("taches")} style={{ background: "transparent", border: "none", color: C.blue, fontSize: 12, fontWeight: 700 }}>Voir tout</button>
-                </div>
+              <Card style={{ marginBottom: 16 }}>
+                <SectionHead icon={ClipboardList} title="Tes prochaines tâches" count={tachesApercu.length} action={
+                  <button onClick={() => setCoachTab("taches")} style={{ background: "transparent", border: "none", color: "#7FA0FF", fontSize: 13.5, fontWeight: 700, padding: 0 }}>Voir tout</button>
+                } />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {tachesApercu.map((t) => (
-                    <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 12px" }}>
-                      <span style={{ fontSize: 13, color: C.text }}>{t.titre}</span>
-                      {t.date_echeance && <span style={{ fontSize: 11, color: C.textMuted }}>{formatDateDisplay(t.date_echeance)}</span>}
+                    <div key={t.id} style={ROW_STYLE}>
+                      <span style={{ fontSize: 14.5, color: C.text, fontWeight: 600, textAlign: "left" }}>{t.titre}</span>
+                      {t.date_echeance && <span style={{ fontSize: 12.5, color: "#F5C542", fontWeight: 700, background: "rgba(245,197,66,0.14)", borderRadius: 999, padding: "3px 10px", flexShrink: 0 }}>{formatDateDisplay(t.date_echeance)}</span>}
                     </div>
                   ))}
                 </div>
@@ -10534,13 +10463,16 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
             )}
 
             {clientsInactifs.length > 0 && (
-              <Card style={{ marginBottom: 14 }}>
-                <SectionLabel icon={AlertCircle}>À relancer (inactifs)</SectionLabel>
+              <Card style={{ marginBottom: 16 }}>
+                <SectionHead icon={AlertCircle} title="À relancer" count={clientsInactifs.length} color="#F5C542" />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {clientsInactifs.slice(0, 5).map(({ client, joursSince }) => (
-                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>
-                      <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{client.prenom} {client.nom}</span>
-                      <span style={{ fontSize: 11.5, color: C.red }}>{joursSince === null ? "Aucune séance" : `Il y a ${joursSince} j`}</span>
+                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ ...ROW_STYLE, cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                        <AvatarInitiales prenom={client.prenom} nom={client.nom} photo={client.photo_url} size={38} ring="#F5C542" />
+                        <span style={{ fontSize: 15, color: C.text, fontWeight: 700 }}>{client.prenom} {client.nom}</span>
+                      </div>
+                      <span style={{ fontSize: 12.5, color: "#FF8FA0", fontWeight: 700, background: "rgba(240,84,110,0.14)", borderRadius: 999, padding: "4px 10px", flexShrink: 0 }}>{joursSince === null ? "Aucune séance" : `Il y a ${joursSince} j`}</span>
                     </div>
                   ))}
                 </div>
@@ -10548,15 +10480,18 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
             )}
 
             {seancesEnAttente.length > 0 && (
-              <Card style={{ marginBottom: 14 }}>
-                <SectionLabel icon={Dumbbell}>Séances en attente aujourd'hui</SectionLabel>
+              <Card style={{ marginBottom: 16 }}>
+                <SectionHead icon={Dumbbell} title="Séances en attente aujourd'hui" count={seancesEnAttente.length} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {seancesEnAttente.slice(0, 6).map(({ client, programme }) => (
-                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>
-                      <span style={{ fontSize: 13, color: C.text }}>
-                        <span style={{ fontWeight: 700 }}>{client.prenom}</span> doit faire « {programme} » aujourd'hui
-                      </span>
-                      <ChevronRight size={14} color={C.textDim} />
+                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ ...ROW_STYLE, cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                        <AvatarInitiales prenom={client.prenom} nom={client.nom} photo={client.photo_url} size={38} />
+                        <span style={{ fontSize: 14, color: C.textMuted, textAlign: "left" }}>
+                          <span style={{ fontWeight: 800, color: C.text }}>{client.prenom}</span> doit faire « {programme} »
+                        </span>
+                      </div>
+                      <ChevronRight size={18} color={C.textDim} />
                     </div>
                   ))}
                 </div>
@@ -10564,13 +10499,16 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
             )}
 
             {bilansEnAttente.length > 0 && (
-              <Card style={{ marginBottom: 14 }}>
-                <SectionLabel icon={AlertCircle}>Bilans en attente</SectionLabel>
+              <Card style={{ marginBottom: 16 }}>
+                <SectionHead icon={AlertCircle} title="Bilans en attente" count={bilansEnAttente.length} color="#FF6B84" />
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {bilansEnAttente.slice(0, 5).map(({ client, joursSince }) => (
-                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.surface, borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>
-                      <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{client.prenom} {client.nom}</span>
-                      <span style={{ fontSize: 11.5, color: C.red }}>{joursSince === null ? "Jamais envoyé" : `Il y a ${joursSince} j`}</span>
+                    <div key={client.id} onClick={() => setSelectedClient(client)} style={{ ...ROW_STYLE, cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                        <AvatarInitiales prenom={client.prenom} nom={client.nom} photo={client.photo_url} size={38} ring="#FF6B84" />
+                        <span style={{ fontSize: 15, color: C.text, fontWeight: 700 }}>{client.prenom} {client.nom}</span>
+                      </div>
+                      <span style={{ fontSize: 12.5, color: "#FF8FA0", fontWeight: 700, background: "rgba(240,84,110,0.14)", borderRadius: 999, padding: "4px 10px", flexShrink: 0 }}>{joursSince === null ? "Jamais envoyé" : `Il y a ${joursSince} j`}</span>
                     </div>
                   ))}
                 </div>
@@ -10579,8 +10517,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
 
             {(recentSeances.length > 0 || recentBilans.length > 0) && (
               <Card>
-                <SectionLabel icon={Flame}>Activité récente</SectionLabel>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <SectionHead icon={Flame} title="Activité récente" color="#F5C542" />
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {[
                     ...recentSeances.map((s) => ({ type: "seance", date: s.date, data: s })),
                     ...recentBilans.map((b) => ({ type: "bilan", date: b.date, data: b })),
@@ -10591,20 +10529,21 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                     .slice(0, 6)
                     .map((item) => {
                       const c = clients.find((cl) => cl.id === item.data.profil_id);
-                      return item.type === "seance" ? (
-                        <div key={`s-${item.data.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                          <Dumbbell size={13} color={C.blue} />
-                          <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a terminé « {item.data.nom_programme} » · {formatDateDisplay(item.data.date)}
-                        </div>
-                      ) : (
-                        <div key={`b-${item.data.id}`} style={{ fontSize: 12.5, color: C.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
-                          <ClipboardList size={13} color={C.green} />
-                          <span style={{ color: C.text, fontWeight: 600 }}>{c ? `${c.prenom}` : "Un client"}</span> a rempli son bilan de semaine · {formatDateDisplay(item.data.date)}
+                      const estSeance = item.type === "seance";
+                      return (
+                        <div key={`${item.type}-${item.data.id}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <IconBadge icon={estSeance ? Dumbbell : ClipboardList} color={estSeance ? "#7FA0FF" : "#3AD6A0"} size={36} iconSize={17} />
+                          <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                            <div style={{ fontSize: 14, color: C.textMuted, lineHeight: 1.35 }}>
+                              <span style={{ color: C.text, fontWeight: 800 }}>{c ? c.prenom : "Un client"}</span>{estSeance ? ` a terminé « ${item.data.nom_programme} »` : " a rempli son bilan de semaine"}
+                            </div>
+                            <div style={{ fontSize: 12, color: C.textDim, marginTop: 1 }}>{formatDateDisplay(item.data.date)}</div>
+                          </div>
                         </div>
                       );
                     })}
                   {recentSeances.length === 0 && recentBilans.length === 0 && (
-                    <div style={{ fontSize: 12.5, color: C.textDim }}>Aucune activité récente</div>
+                    <div style={{ fontSize: 13, color: C.textDim }}>Aucune activité récente</div>
                   )}
                 </div>
               </Card>
@@ -10614,9 +10553,9 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <>
             <button
               onClick={() => setShowAddForm(true)}
-              style={{ width: "100%", background: C.blue, border: "none", color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}
+              style={{ width: "100%", background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14, boxShadow: "0 6px 20px rgba(76,125,240,0.5)" }}
             >
-              <Plus size={18} /> Ajouter un client
+              <Plus size={20} strokeWidth={3} /> Ajouter un client
             </button>
 
             {showAddForm && (
@@ -10630,13 +10569,13 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
             )}
 
             <div style={{ position: "relative", marginBottom: 10 }}>
-              <Search size={15} color={C.textDim} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+              <Search size={18} color="#9DB8FF" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Rechercher un client..."
-                style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 12, padding: "10px 12px 10px 36px", color: C.text, fontSize: 13.5 }}
+                style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 18, padding: "14px 14px 14px 42px", color: C.text, fontSize: 15 }}
               />
             </div>
 
@@ -10656,19 +10595,17 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                   <Card key={c.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div onClick={() => setSelectedClient(c)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 44, height: 44, borderRadius: "50%", background: c.photo_url ? `url(${c.photo_url}) center/cover` : C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          {!c.photo_url && <User size={18} color={C.blue} />}
-                        </div>
+                                                <AvatarInitiales prenom={c.prenom} nom={c.nom} photo={c.photo_url} size={52} />
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 16, color: C.text }}>{c.prenom} {c.nom}</div>
+                            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>{c.prenom} {c.nom}</div>
                             {premiereSeanceParClient[c.id] && (
                               <span style={{ fontSize: 10, color: C.blue, background: C.blueSoft, border: `1px solid ${C.blueBorder}`, borderRadius: 999, padding: "2px 7px", fontWeight: 700, whiteSpace: "nowrap" }}>
                                 {formatDureeSuivi(premiereSeanceParClient[c.id])}
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{c.objectif_principal}</div>
+                          <div style={{ fontSize: 13.5, color: C.textMuted, marginTop: 2, textAlign: "left" }}>{c.objectif_principal}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
                             {(() => {
                               const derniereDate = dernierSeanceParClient[c.id];
@@ -10700,7 +10637,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                           </div>
                         </div>
                       </div>
-                      <ChevronRight size={18} color={C.textMuted} />
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ChevronRight size={18} color="#9DB8FF" /></div>
                     </div>
                     {editingGroupeId === c.id ? (
                       <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
