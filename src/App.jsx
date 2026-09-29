@@ -1005,8 +1005,17 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, lineHeight: 1.1, textAlign: "center", background: "linear-gradient(90deg, #7FA0FF, #4C7DF0 55%, #F5C542)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>
               {user.prenom}
             </div>
-            <div style={{ fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, marginTop: 6, textAlign: "center" }}>
-              {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+            <div style={{ position: "relative", marginTop: 6, minHeight: 58, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600, textAlign: "center" }}>
+                {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+              </div>
+              <button
+                onClick={() => setShowBadgeDetail(true)}
+                aria-label={`Palier du mois : ${tierInfo.label}`}
+                style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", width: 58, height: 58, borderRadius: "50%", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `radial-gradient(circle at 50% 35%, ${tierInfo.color}40, rgba(255,255,255,0.04) 70%)`, border: `1.5px solid ${tierInfo.color}`, boxShadow: `0 0 20px ${tierInfo.color}99, 0 0 6px ${tierInfo.color}` }}
+              >
+                <MedalBadge color={tierInfo.color} size={34} />
+              </button>
             </div>
           </div>
           <Card>
@@ -1151,29 +1160,19 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             )}
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14, cursor: "pointer", border: "1.5px solid rgba(255,150,40,0.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(255,140,26,0.4), 0 0 24px rgba(255,140,26,0.5), 0 0 8px rgba(255,166,64,0.6), 0 10px 28px rgba(0,0,0,0.45)" }} onClick={() => setShowBadgeDetail(true)}>
+            <Card style={{ padding: 14, cursor: "pointer", border: "1.5px solid rgba(255,150,40,0.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(255,140,26,0.4), 0 0 24px rgba(255,140,26,0.5), 0 0 8px rgba(255,166,64,0.6), 0 10px 28px rgba(0,0,0,0.45)", display: "flex", flexDirection: "column" }} onClick={() => setShowCalendrier(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Award size={14} color={tierInfo.color} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Palier du mois</span>
+                <Flame size={14} color={C.blue} />
+                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Séances</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
-                <div style={{ position: "relative", width: 84, height: 84 }}>
-                  <svg width="84" height="84" viewBox="0 0 84 84">
-                    <circle cx="42" cy="42" r={badgeRingRadius} fill="none" stroke={C.cardBorderLight} strokeWidth="7" />
-                    <circle
-                      cx="42" cy="42" r={badgeRingRadius} fill="none" stroke={tierInfo.color} strokeWidth="7"
-                      strokeDasharray={badgeRingCirc} strokeDashoffset={badgeRingOffset}
-                      strokeLinecap="round" transform="rotate(-90 42 42)"
-                      style={{ transition: "stroke-dashoffset .4s ease" }}
-                    />
-                  </svg>
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <MedalBadge color={tierInfo.color} size={40} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                <div style={{ fontSize: 52, color: C.text, fontWeight: 800, lineHeight: 1 }}>{stats.seancesRealisees}</div>
+                <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4, marginBottom: 10 }}>réalisées ce mois</div>
+                {objectifSeancesSemaine > 0 && (
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : "#F5C542", background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : "rgba(245,197,66,0.16)", borderRadius: 999, padding: "5px 12px" }}>
+                    {seancesCetteSemaine}/{objectifSeancesSemaine} cette semaine
                   </div>
-                </div>
-              </div>
-              <div style={{ textAlign: "center", fontSize: 11, color: tierInfo.color, fontWeight: 700, marginTop: 2 }}>
-                {tierInfo.label} · {Math.round(badgeScore)}%
+                )}
               </div>
             </Card>
             <Card style={{ padding: 14, cursor: "pointer", border: "1.5px solid rgba(255,150,40,0.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(255,140,26,0.4), 0 0 24px rgba(255,140,26,0.5), 0 0 8px rgba(255,166,64,0.6), 0 10px 28px rgba(0,0,0,0.45)" }} onClick={() => setTab("nutrition")}>
@@ -1224,20 +1223,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
               <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, progressPoids))}%`, borderRadius: 999, background: "linear-gradient(90deg, #4C7DF0, #F5C542)", transition: "width .4s ease" }} />
             </div>
           </Card>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card style={{ padding: 14, cursor: "pointer" }} onClick={() => setShowCalendrier(true)}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Flame size={14} color={C.blue} />
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Séances</span>
-              </div>
-              <div style={{ fontSize: 34, color: C.text, fontWeight: 800, lineHeight: 1.1 }}>{stats.seancesRealisees}</div>
-              <div style={{ fontSize: 11, color: C.textDim, marginBottom: 6 }}>réalisées ce mois</div>
-              {objectifSeancesSemaine > 0 && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: seancesCetteSemaine >= objectifSeancesSemaine ? C.green : seancesCetteSemaine === 0 ? C.red : C.amber, background: seancesCetteSemaine >= objectifSeancesSemaine ? C.greenSoft : seancesCetteSemaine === 0 ? C.redSoft : C.amberSoft, borderRadius: 8, padding: "4px 8px", display: "inline-block" }}>
-                  {seancesCetteSemaine}/{objectifSeancesSemaine} cette semaine
-                </div>
-              )}
-            </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
             <Card style={{ padding: 14, cursor: exerciceProgres ? "pointer" : "default" }} onClick={() => exerciceProgres && setShowProgresDetail(true)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Dumbbell size={14} color={C.blue} />
