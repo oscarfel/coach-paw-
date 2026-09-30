@@ -6040,40 +6040,6 @@ function ViewModeToggle({ viewMode, setViewMode }) {
   );
 }
 
-function LoginWaves({ variant = "bottom" }) {
-  const periode = (x) => `C${x + 100} 20 ${x + 200} 20 ${x + 300} 100 C${x + 400} 180 ${x + 500} 180 ${x + 600} 100`;
-  const crest = `M0 100 ${[0, 600, 1200, 1800].map(periode).join(" ")}`;
-  const fill = `${crest} L2400 200 L0 200 Z`;
-  const layers = variant === "bottom"
-    ? [
-        { h: "40%", op: 0.55, dur: 22, dir: 1, c1: "rgba(90,150,255,0.55)", c2: "rgba(20,50,140,0.85)", off: "0%" },
-        { h: "31%", op: 0.8, dur: 16, dir: -1, c1: "rgba(60,120,240,0.6)", c2: "rgba(10,30,100,0.92)", off: "-25%" },
-        { h: "22%", op: 1, dur: 12, dir: 1, c1: "rgba(40,90,210,0.75)", c2: "rgba(6,16,60,0.98)", off: "-50%" },
-      ]
-    : [
-        { h: "14%", op: 0.5, dur: 26, dir: -1, c1: "rgba(90,150,255,0.5)", c2: "rgba(20,50,140,0.1)", off: "0%" },
-        { h: "9%", op: 0.7, dur: 18, dir: 1, c1: "rgba(60,120,240,0.55)", c2: "rgba(10,30,100,0.1)", off: "-30%" },
-      ];
-  return (
-    <>
-      {layers.map((l, k) => (
-        <div key={k} aria-hidden style={{ position: "absolute", left: 0, right: 0, [variant === "bottom" ? "bottom" : "top"]: 0, height: l.h, overflow: "hidden", opacity: l.op, pointerEvents: "none", transform: variant === "bottom" ? "none" : "scaleY(-1)" }}>
-          <svg viewBox="0 0 2400 200" preserveAspectRatio="none" style={{ width: "200%", height: "100%", display: "block", marginLeft: l.off, animation: `loginWave${l.dir > 0 ? "A" : "B"} ${l.dur}s linear infinite`, filter: "drop-shadow(0 -4px 14px rgba(120,180,255,0.7))" }}>
-            <defs>
-              <linearGradient id={`lw-${variant}-${k}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={l.c1} />
-                <stop offset="100%" stopColor={l.c2} />
-              </linearGradient>
-            </defs>
-            <path d={fill} fill={`url(#lw-${variant}-${k})`} />
-            <path d={crest} fill="none" stroke="rgba(220,236,255,0.9)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-          </svg>
-        </div>
-      ))}
-    </>
-  );
-}
-
 function LoginScreen({ fireToast }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -6096,20 +6062,12 @@ function LoginScreen({ fireToast }) {
     <div style={{ ...appShellStyle, background: "#050A24", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
       <FontImports />
       <style>{`
-        @keyframes loginWaveA { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes loginWaveB { from { transform: translateX(-50%); } to { transform: translateX(0); } }
-        @keyframes loginFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5%); } }
         #login-root input::placeholder { color: rgba(220,232,255,0.6); }
       `}</style>
 
       {/* Fond plein écran : dégradé, vague + biceps, reflets */}
       <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #0A1A5C 0%, #0B2A8A 38%, #0A3FB8 62%, #061A5E 100%)" }} />
-      <div aria-hidden style={{ position: "fixed", "--w": "min(220vw, 1500px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(60vw - var(--w) * 0.6)", bottom: "16dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 78%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 78%, transparent 100%)", filter: "saturate(1.45) contrast(1.15) brightness(1.08) drop-shadow(0 0 26px rgba(90,150,255,0.9)) drop-shadow(0 14px 20px rgba(0,10,50,0.65))", animation: "loginFloat 9s ease-in-out infinite", pointerEvents: "none" }} />
-      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "radial-gradient(ellipse 60% 35% at 30% 12%, rgba(180,215,255,0.35) 0%, rgba(180,215,255,0) 70%), radial-gradient(ellipse 50% 30% at 80% 55%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 70%), linear-gradient(180deg, rgba(5,10,36,0.25) 0%, rgba(5,10,36,0) 30%, rgba(5,10,36,0) 70%, rgba(5,10,36,0.45) 100%)", pointerEvents: "none" }} />
-      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-        <LoginWaves variant="top" />
-        <LoginWaves variant="bottom" />
-      </div>
+      <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", pointerEvents: "none" }} />
 
       <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 40, textAlign: "center", color: "#FFFFFF", letterSpacing: "-0.02em", textShadow: "0 0 24px rgba(120,180,255,0.9), 0 4px 18px rgba(0,10,50,0.7)" }}>
