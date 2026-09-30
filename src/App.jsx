@@ -578,17 +578,17 @@ const BottomNav = ({ active, setActive }) => {
         transform: "translateX(-50%)",
         width: "calc(100% - 28px)",
         maxWidth: 440,
-        background: "rgba(30,86,201,0.5)",
-        backdropFilter: "blur(18px)",
-        WebkitBackdropFilter: "blur(18px)",
-        border: `1px solid ${C.cardBorder}`,
+        background: "linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.05))",
+        backdropFilter: "blur(26px) saturate(1.8)",
+        WebkitBackdropFilter: "blur(26px) saturate(1.8)",
+        border: "1px solid rgba(255,255,255,0.2)",
         borderRadius: 24,
-        padding: "10px 8px",
+        padding: "10.5px 8px",
         display: "flex",
         justifyContent: "space-around",
         alignItems: "center",
         zIndex: 50,
-        boxShadow: "0 0 18px rgba(59,111,224,0.35), 0 -8px 28px rgba(0,0,0,0.5)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 30px rgba(0,0,0,0.35)",
       }}
     >
       {/* Bulle qui glisse d'un onglet à l'autre */}
@@ -599,7 +599,8 @@ const BottomNav = ({ active, setActive }) => {
           bottom: 8,
           left: `calc(${itemWidth * activeIndex}% + 6px)`,
           width: `calc(${itemWidth}% - 12px)`,
-          background: "rgba(255,255,255,0.2)",
+          background: "rgba(255,255,255,0.18)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25)",
           borderRadius: 16,
           transition: "left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
         }}
@@ -621,19 +622,19 @@ const BottomNav = ({ active, setActive }) => {
               background: "transparent",
               border: "none",
               borderRadius: 16,
-              padding: "7px 4px",
+              padding: "7.5px 4px",
               position: "relative",
               zIndex: 1,
             }}
           >
             <div style={{ transform: isActive ? "scale(1.18)" : "scale(1)", transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)" }}>
-              <Icon size={20} color={isActive ? "#FFFFFF" : "rgba(255,255,255,0.55)"} strokeWidth={isActive ? 2.4 : 2} fill={isActive ? "#FFFFFF" : "none"} fillOpacity={isActive ? 0.25 : 0} />
+              <Icon size={21} color={isActive ? "#FFFFFF" : "rgba(255,255,255,0.7)"} strokeWidth={isActive ? 2.4 : 2} fill={isActive ? "#FFFFFF" : "none"} fillOpacity={isActive ? 0.25 : 0} />
             </div>
             <span
               style={{
-                fontSize: 9.5,
+                fontSize: 10,
                 fontWeight: 700,
-                color: isActive ? "#FFFFFF" : "rgba(255,255,255,0.55)",
+                color: isActive ? "#FFFFFF" : "rgba(255,255,255,0.7)",
                 letterSpacing: 0.3,
                 whiteSpace: "nowrap",
               }}
