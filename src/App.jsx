@@ -3509,45 +3509,65 @@ function ScannerCodeBarres({ onClose, onScan }) {
   const [erreur, setErreur] = useState(null);
 
   useEffect(() => {
+    let annule = false;
     const html5Qrcode = new Html5Qrcode("scanner-zone-cowave");
     scannerRef.current = html5Qrcode;
-    html5Qrcode
-      .start(
-        {
-          facingMode: "environment",
-          // Résolution plus haute + mise au point continue : le code-barres reste net et
-          // lisible sans avoir à rapprocher l'emballage à quelques centimètres de l'appareil,
-          // et l'appareil refait la mise au point tout seul si le client s'approche quand même.
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          advanced: [{ focusMode: "continuous" }],
-        },
-        {
-          fps: 10,
-          // Zone de scan plus large (proportionnelle à l'écran, jusqu'à une taille max) : le
-          // code-barres peut remplir la zone à une distance plus confortable, sans avoir à
-          // coller le produit à la caméra.
-          qrbox: (viewfinderWidth, viewfinderHeight) => ({
-            width: Math.min(320, Math.floor(viewfinderWidth * 0.9)),
-            height: Math.min(200, Math.floor(viewfinderHeight * 0.5)),
-          }),
-          aspectRatio: 1.5,
-          // Utilise le détecteur de codes-barres natif du téléphone quand il est disponible
-          // (plus rapide et plus tolérant à la distance/l'angle que le décodeur JS pur).
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-        },
-        (decodedText) => {
-          if (scannerRef.current && scannerRef.current.isScanning) {
-            scannerRef.current.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
-          }
-        },
-        () => {} // erreur de lecture image par image, ignorée : le scan continue
-      )
-      .catch((err) => {
-        console.error("Erreur démarrage caméra:", err);
-        setErreur("Impossible d'accéder à la caméra. Vérifie que tu as autorisé l'accès dans les réglages.");
-      });
+
+    const onSuccess = (decodedText) => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
+      }
+    };
+    const onFrameError = () => {}; // erreur de lecture image par image, ignorée : le scan continue
+
+    // Config "confort" (haute résolution, mise au point continue, grande zone, détecteur natif)
+    const configAvancee = [
+      {
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        advanced: [{ focusMode: "continuous" }],
+      },
+      {
+        fps: 10,
+        qrbox: (vw, vh) => ({ width: Math.min(320, Math.floor(vw * 0.9)), height: Math.min(200, Math.floor(vh * 0.5)) }),
+        aspectRatio: 1.5,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+      },
+    ];
+    // Config d'origine, la plus compatible (celle qui marchait avant) : sert de repli
+    const configSimple = [
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 260, height: 160 } },
+    ];
+
+    const demarrer = async () => {
+      let derniereErreur = null;
+      for (const [camera, options] of [configAvancee, configSimple]) {
+        if (annule) return;
+        try {
+          await html5Qrcode.start(camera, options, onSuccess, onFrameError);
+          return; // démarré
+        } catch (err) {
+          derniereErreur = err;
+          console.error("Erreur démarrage caméra:", err);
+          try { if (html5Qrcode.isScanning) await html5Qrcode.stop(); } catch (e) { /* ignoré */ }
+        }
+      }
+      if (annule) return;
+      const nom = derniereErreur && (derniereErreur.name || "");
+      const detail = derniereErreur ? String(derniereErreur.message || derniereErreur) : "";
+      const refuse = /NotAllowed|Permission|denied/i.test(nom + " " + detail);
+      setErreur(
+        refuse
+          ? "Accès à la caméra refusé. Autorise-la dans Réglages > Safari (ou l'app installée) > Caméra, puis rouvre le scanner."
+          : "Impossible de démarrer la caméra. Ferme puis rouvre le scanner. Détail : " + (nom || detail || "inconnu")
+      );
+    };
+    demarrer();
+
     return () => {
+      annule = true;
       if (scannerRef.current && scannerRef.current.isScanning) {
         scannerRef.current.stop().catch(() => {});
       }
