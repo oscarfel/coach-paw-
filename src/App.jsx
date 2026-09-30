@@ -6039,6 +6039,40 @@ function ViewModeToggle({ viewMode, setViewMode }) {
   );
 }
 
+function LoginWaves({ variant = "bottom" }) {
+  const periode = (x) => `C${x + 100} 20 ${x + 200} 20 ${x + 300} 100 C${x + 400} 180 ${x + 500} 180 ${x + 600} 100`;
+  const crest = `M0 100 ${[0, 600, 1200, 1800].map(periode).join(" ")}`;
+  const fill = `${crest} L2400 200 L0 200 Z`;
+  const layers = variant === "bottom"
+    ? [
+        { h: "40%", op: 0.55, dur: 22, dir: 1, c1: "rgba(90,150,255,0.55)", c2: "rgba(20,50,140,0.85)", off: "0%" },
+        { h: "31%", op: 0.8, dur: 16, dir: -1, c1: "rgba(60,120,240,0.6)", c2: "rgba(10,30,100,0.92)", off: "-25%" },
+        { h: "22%", op: 1, dur: 12, dir: 1, c1: "rgba(40,90,210,0.75)", c2: "rgba(6,16,60,0.98)", off: "-50%" },
+      ]
+    : [
+        { h: "14%", op: 0.5, dur: 26, dir: -1, c1: "rgba(90,150,255,0.5)", c2: "rgba(20,50,140,0.1)", off: "0%" },
+        { h: "9%", op: 0.7, dur: 18, dir: 1, c1: "rgba(60,120,240,0.55)", c2: "rgba(10,30,100,0.1)", off: "-30%" },
+      ];
+  return (
+    <>
+      {layers.map((l, k) => (
+        <div key={k} aria-hidden style={{ position: "absolute", left: 0, right: 0, [variant === "bottom" ? "bottom" : "top"]: 0, height: l.h, overflow: "hidden", opacity: l.op, pointerEvents: "none", transform: variant === "bottom" ? "none" : "scaleY(-1)" }}>
+          <svg viewBox="0 0 2400 200" preserveAspectRatio="none" style={{ width: "200%", height: "100%", display: "block", marginLeft: l.off, animation: `loginWave${l.dir > 0 ? "A" : "B"} ${l.dur}s linear infinite`, filter: "drop-shadow(0 -4px 14px rgba(120,180,255,0.7))" }}>
+            <defs>
+              <linearGradient id={`lw-${variant}-${k}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={l.c1} />
+                <stop offset="100%" stopColor={l.c2} />
+              </linearGradient>
+            </defs>
+            <path d={fill} fill={`url(#lw-${variant}-${k})`} />
+            <path d={crest} fill="none" stroke="rgba(220,236,255,0.9)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+          </svg>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function LoginScreen({ fireToast }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -6053,60 +6087,71 @@ function LoginScreen({ fireToast }) {
     if (error) fireToast(error.message);
   };
 
-  const loginInput = { width: "100%", background: "rgba(255,255,255,0.82)", border: "1px solid rgba(120,180,255,0.7)", borderRadius: 14, padding: "14px 16px", color: "#0B1433", fontSize: 15, boxShadow: "inset 0 2px 6px rgba(20,40,100,0.10), 0 1px 0 rgba(255,255,255,0.9)" };
-  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#FFFFFF", marginBottom: 6, fontWeight: 700, textAlign: "left", textShadow: "0 1px 8px rgba(10,20,60,0.8)" };
+  const loginInput = { width: "100%", background: "rgba(6,14,50,0.42)", border: "1.5px solid rgba(140,195,255,0.95)", borderRadius: 14, padding: "14px 16px", color: "#FFFFFF", fontSize: 15, boxShadow: "0 0 12px rgba(100,160,255,0.5), inset 0 1px 0 rgba(255,255,255,0.18)" };
+  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#FFFFFF", marginBottom: 6, fontWeight: 700, textAlign: "left", textShadow: "0 1px 8px rgba(5,12,45,0.9)" };
+  const bgImg = "url(/cowave-icon-transparent.png)";
 
   return (
-    <div style={{ ...appShellStyle, background: `radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59,111,224,0.35) 0%, rgba(8,11,26,0) 70%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(59,111,224,0.18) 0%, rgba(8,11,26,0) 70%), ${C.bg}`, overflow: "hidden" }}>
+    <div style={{ ...appShellStyle, background: "#050A24", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
       <FontImports />
-      <div style={{ width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, textAlign: "center", background: "linear-gradient(135deg,#FFFFFF,#9DB8FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "-0.02em" }}>
+      <style>{`
+        @keyframes loginWaveA { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        @keyframes loginWaveB { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+        @keyframes loginFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5%); } }
+        #login-root input::placeholder { color: rgba(220,232,255,0.6); }
+      `}</style>
+
+      {/* Fond plein écran : dégradé, vague + biceps, reflets */}
+      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #0A1A5C 0%, #0B2A8A 38%, #0A3FB8 62%, #061A5E 100%)" }} />
+      <div aria-hidden style={{ position: "fixed", "--w": "min(220vw, 1500px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(60vw - var(--w) * 0.6)", bottom: "16dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 78%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 78%, transparent 100%)", filter: "saturate(1.45) contrast(1.15) brightness(1.08) drop-shadow(0 0 26px rgba(90,150,255,0.9)) drop-shadow(0 14px 20px rgba(0,10,50,0.65))", animation: "loginFloat 9s ease-in-out infinite", pointerEvents: "none" }} />
+      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "radial-gradient(ellipse 60% 35% at 30% 12%, rgba(180,215,255,0.35) 0%, rgba(180,215,255,0) 70%), radial-gradient(ellipse 50% 30% at 80% 55%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 70%), linear-gradient(180deg, rgba(5,10,36,0.25) 0%, rgba(5,10,36,0) 30%, rgba(5,10,36,0) 70%, rgba(5,10,36,0.45) 100%)", pointerEvents: "none" }} />
+      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+        <LoginWaves variant="top" />
+        <LoginWaves variant="bottom" />
+      </div>
+
+      <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 40, textAlign: "center", color: "#FFFFFF", letterSpacing: "-0.02em", textShadow: "0 0 24px rgba(120,180,255,0.9), 0 4px 18px rgba(0,10,50,0.7)" }}>
           CoWave
         </div>
-        <div style={{ fontSize: 14, color: C.textMuted, marginTop: 4, marginBottom: 30, textAlign: "center" }}>Ton coaching, au même endroit</div>
+        <div style={{ fontSize: 14, color: "#E6EEFF", marginTop: 4, marginBottom: 30, textAlign: "center", textShadow: "0 1px 10px rgba(5,12,45,0.9)" }}>Ton coaching, au même endroit</div>
 
-        <div style={{ position: "relative" }}>
-          {/* Vague + biceps en fond, derrière la carte */}
-          <div aria-hidden style={{ position: "absolute", left: "50%", top: "50%", width: 600, height: 600, transform: "translate(-50%,-50%)", backgroundImage: "url(/cowave-icon-transparent.png)", backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", filter: "drop-shadow(0 0 44px rgba(76,125,240,0.85))", pointerEvents: "none" }} />
-
-          <div style={{ position: "relative", padding: 24, borderRadius: 28, textAlign: "left", overflow: "hidden",
-            background: "linear-gradient(150deg, rgba(255,255,255,0.42) 0%, rgba(210,226,255,0.24) 55%, rgba(190,212,255,0.32) 100%)",
-            backdropFilter: "blur(1.5px) saturate(1.2)", WebkitBackdropFilter: "blur(1.5px) saturate(1.2)",
-            border: "2px solid rgba(120,180,255,0.95)",
-            boxShadow: "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 0 24px rgba(120,170,255,0.25), 0 0 8px rgba(160,205,255,0.9), 0 0 34px rgba(76,125,240,0.75), 0 26px 50px rgba(0,0,0,0.5)" }}>
-            {/* la vague reste lisible à travers la carte */}
-            <div aria-hidden style={{ position: "absolute", left: "50%", top: "50%", width: 600, height: 600, transform: "translate(-50%,-50%)", backgroundImage: "url(/cowave-icon-transparent.png)", backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", opacity: 0.55, pointerEvents: "none" }} />
-            <div aria-hidden style={{ position: "absolute", top: -60, left: -40, width: "70%", height: 150, transform: "rotate(-18deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0))", borderRadius: 999, pointerEvents: "none" }} />
-            <div style={{ position: "relative" }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: "#FFFFFF", marginBottom: 4, textShadow: "0 1px 10px rgba(10,20,60,0.7)" }}>Connexion</div>
-              <div style={{ fontSize: 13.5, color: "#E6EEFF", marginBottom: 20, textShadow: "0 1px 8px rgba(10,20,60,0.7)" }}>Connecte-toi pour continuer</div>
-              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div>
-                  <div style={loginLabel}>Email</div>
-                  <input type="email" required autoComplete="email" placeholder="toi@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} style={loginInput} />
+        <div style={{ position: "relative", padding: 24, borderRadius: 28, textAlign: "left", overflow: "hidden",
+          background: "linear-gradient(150deg, rgba(255,255,255,0.20) 0%, rgba(150,190,255,0.08) 55%, rgba(150,190,255,0.14) 100%)",
+          backdropFilter: "blur(2px) saturate(1.2)", WebkitBackdropFilter: "blur(2px) saturate(1.2)",
+          border: "2px solid rgba(140,195,255,0.98)",
+          boxShadow: "inset 0 2px 0 rgba(255,255,255,0.5), inset 0 0 26px rgba(120,170,255,0.25), 0 0 8px rgba(170,210,255,0.95), 0 0 34px rgba(76,125,240,0.8), 0 26px 50px rgba(0,5,40,0.55)" }}>
+          <div aria-hidden style={{ position: "absolute", top: -60, left: -40, width: "70%", height: 150, transform: "rotate(-18deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0))", borderRadius: 999, pointerEvents: "none" }} />
+          <div style={{ position: "relative" }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: "#FFFFFF", marginBottom: 4, textShadow: "0 1px 10px rgba(5,12,45,0.8)" }}>Connexion</div>
+            <div style={{ fontSize: 13.5, color: "#E6EEFF", marginBottom: 20, textShadow: "0 1px 8px rgba(5,12,45,0.8)" }}>Connecte-toi pour continuer</div>
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <div style={loginLabel}>Email</div>
+                <input type="email" required autoComplete="email" placeholder="toi@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} style={loginInput} />
+              </div>
+              <div>
+                <div style={loginLabel}>Mot de passe</div>
+                <div style={{ position: "relative" }}>
+                  <input type={showPwd ? "text" : "password"} required autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...loginInput, paddingRight: 46 }} />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#DCE8FF", padding: 6, display: "flex" }}>
+                    {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
-                <div>
-                  <div style={loginLabel}>Mot de passe</div>
-                  <div style={{ position: "relative" }}>
-                    <input type={showPwd ? "text" : "password"} required autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...loginInput, paddingRight: 46 }} />
-                    <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#3A4A7A", padding: 6, display: "flex" }}>
-                      {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{ marginTop: 6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2A52C4)", boxShadow: "0 0 22px rgba(91,140,255,0.8), 0 8px 24px rgba(42,82,196,0.55), inset 0 1px 0 rgba(255,255,255,0.45)", border: "1px solid rgba(190,215,255,0.8)", color: "#FFFFFF", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15, opacity: submitting ? 0.6 : 1 }}
-                >
-                  {submitting ? "Connexion..." : "Se connecter"}
-                </button>
-              </form>
-            </div>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{ marginTop: 6, background: "rgba(255,255,255,0.04)", backgroundImage: "none", border: "2px solid rgba(150,205,255,1)", color: "#FFFFFF", borderRadius: 16, padding: "15px", fontWeight: 800, fontSize: 16, letterSpacing: "0.01em", textShadow: "0 0 12px rgba(150,205,255,0.9), 0 1px 6px rgba(5,12,45,0.8)",
+                  boxShadow: "0 0 10px rgba(170,215,255,0.95), 0 0 30px rgba(76,140,255,0.85), inset 0 0 18px rgba(120,180,255,0.4)", opacity: submitting ? 0.6 : 1 }}
+              >
+                {submitting ? "Connexion..." : "Se connecter"}
+              </button>
+            </form>
           </div>
         </div>
 
-        <div style={{ fontSize: 13, color: "rgba(185,196,224,0.8)", fontStyle: "italic", textAlign: "center", marginTop: 30, padding: "0 16px" }}>
+        <div style={{ fontSize: 13, color: "#DCE8FF", fontStyle: "italic", textAlign: "center", marginTop: 30, padding: "0 16px", textShadow: "0 1px 10px rgba(5,12,45,0.9)" }}>
           « Chaque séance te rapproche de la meilleure version de toi-même. »
         </div>
       </div>
