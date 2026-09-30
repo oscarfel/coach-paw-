@@ -6007,47 +6007,59 @@ function LoginScreen({ fireToast }) {
     if (error) fireToast(error.message);
   };
 
-  const loginInput = { width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 14, padding: "14px 16px", color: C.text, fontSize: 15 };
-  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: C.textMuted, marginBottom: 6, fontWeight: 700, textAlign: "left" };
+  const loginInput = { width: "100%", background: "rgba(255,255,255,0.75)", border: "1px solid rgba(60,90,170,0.28)", borderRadius: 14, padding: "14px 16px", color: "#0B1433", fontSize: 15, boxShadow: "inset 0 2px 6px rgba(20,40,100,0.10), 0 1px 0 rgba(255,255,255,0.9)" };
+  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#3A4A7A", marginBottom: 6, fontWeight: 700, textAlign: "left" };
 
   return (
-    <div style={{ ...appShellStyle, background: `radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59,111,224,0.35) 0%, rgba(8,11,26,0) 70%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(245,184,51,0.12) 0%, rgba(8,11,26,0) 70%), ${C.bg}` }}>
+    <div style={{ ...appShellStyle, background: `radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59,111,224,0.35) 0%, rgba(8,11,26,0) 70%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(59,111,224,0.18) 0%, rgba(8,11,26,0) 70%), ${C.bg}`, overflow: "hidden" }}>
       <FontImports />
-      <div style={{ width: "100%", maxWidth: 420, padding: "40px 20px", margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
-          <img src="/cowave-icon-transparent.png" alt="CoWave" style={{ width: 170, height: "auto", filter: "drop-shadow(0 0 24px rgba(76,125,240,0.6))" }} />
-        </div>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 34, textAlign: "center", background: "linear-gradient(135deg,#FFFFFF,#9DB8FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "-0.02em" }}>
+      <div style={{ width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 38, textAlign: "center", background: "linear-gradient(135deg,#FFFFFF,#9DB8FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "-0.02em" }}>
           CoWave
         </div>
-        <div style={{ fontSize: 14, color: C.textMuted, marginTop: 4, marginBottom: 22, textAlign: "center" }}>Ton coaching, au même endroit</div>
-        <Card style={{ padding: 22, border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 0 30px rgba(120,170,255,0.5), 0 0 8px rgba(160,205,255,0.6), 0 14px 36px rgba(0,0,0,0.5)" }}>
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20, color: C.text, marginBottom: 4, textAlign: "left" }}>Connexion</div>
-          <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 18, textAlign: "left" }}>Connecte-toi pour continuer</div>
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <div style={loginLabel}>Email</div>
-              <input type="email" required autoComplete="email" placeholder="toi@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} style={loginInput} />
-            </div>
-            <div>
-              <div style={loginLabel}>Mot de passe</div>
-              <div style={{ position: "relative" }}>
-                <input type={showPwd ? "text" : "password"} required autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...loginInput, paddingRight: 46 }} />
-                <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.textMuted, padding: 6, display: "flex" }}>
-                  {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+        <div style={{ fontSize: 14, color: C.textMuted, marginTop: 4, marginBottom: 30, textAlign: "center" }}>Ton coaching, au même endroit</div>
+
+        <div style={{ position: "relative" }}>
+          {/* Vague + biceps en fond, derrière la carte */}
+          <div aria-hidden style={{ position: "absolute", left: "50%", top: "50%", width: 520, height: 520, transform: "translate(-50%,-50%)", backgroundImage: "url(/cowave-icon-transparent.png)", backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", filter: "drop-shadow(0 0 40px rgba(76,125,240,0.75)) saturate(1.15)", pointerEvents: "none" }} />
+
+          <div style={{ position: "relative", padding: 24, borderRadius: 28, textAlign: "left", overflow: "hidden",
+            background: "linear-gradient(150deg, rgba(255,255,255,0.80) 0%, rgba(240,246,255,0.62) 55%, rgba(225,236,255,0.70) 100%)",
+            backdropFilter: "blur(7px) saturate(1.3)", WebkitBackdropFilter: "blur(7px) saturate(1.3)",
+            border: "1.5px solid rgba(255,255,255,0.85)",
+            boxShadow: "inset 0 2px 0 rgba(255,255,255,0.95), inset 0 -18px 40px rgba(120,160,255,0.18), 0 30px 60px rgba(0,0,0,0.55), 0 0 50px rgba(120,170,255,0.45)" }}>
+            {/* reflet diagonal */}
+            <div aria-hidden style={{ position: "absolute", top: -60, left: -40, width: "70%", height: 160, transform: "rotate(-18deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0))", borderRadius: 999, pointerEvents: "none" }} />
+            <div style={{ position: "relative" }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: "#0B1433", marginBottom: 4 }}>Connexion</div>
+              <div style={{ fontSize: 13.5, color: "#3A4A7A", marginBottom: 20 }}>Connecte-toi pour continuer</div>
+              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <div style={loginLabel}>Email</div>
+                  <input type="email" required autoComplete="email" placeholder="toi@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} style={loginInput} />
+                </div>
+                <div>
+                  <div style={loginLabel}>Mot de passe</div>
+                  <div style={{ position: "relative" }}>
+                    <input type={showPwd ? "text" : "password"} required autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...loginInput, paddingRight: 46 }} />
+                    <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#3A4A7A", padding: 6, display: "flex" }}>
+                      {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{ marginTop: 6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2A52C4)", boxShadow: "0 8px 24px rgba(42,82,196,0.55), inset 0 1px 0 rgba(255,255,255,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15, opacity: submitting ? 0.6 : 1 }}
+                >
+                  {submitting ? "Connexion..." : "Se connecter"}
                 </button>
-              </div>
+              </form>
             </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{ marginTop: 6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 6px 22px rgba(59,111,224,0.55)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15, opacity: submitting ? 0.6 : 1 }}
-            >
-              {submitting ? "Connexion..." : "Se connecter"}
-            </button>
-          </form>
-        </Card>
-        <div style={{ fontSize: 13, color: "rgba(185,196,224,0.75)", fontStyle: "italic", textAlign: "center", marginTop: 22, padding: "0 16px" }}>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 13, color: "rgba(185,196,224,0.8)", fontStyle: "italic", textAlign: "center", marginTop: 30, padding: "0 16px" }}>
           « Chaque séance te rapproche de la meilleure version de toi-même. »
         </div>
       </div>
