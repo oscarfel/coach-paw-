@@ -3510,12 +3510,12 @@ function ScannerCodeBarres({ onClose, onScan }) {
 
   useEffect(() => {
     let annule = false;
-    const html5Qrcode = new Html5Qrcode("scanner-zone-cowave");
-    scannerRef.current = html5Qrcode;
+    let instanceCourante = null;
 
     const onSuccess = (decodedText) => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
+      const inst = instanceCourante;
+      if (inst && inst.isScanning) {
+        inst.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
       }
     };
     const onFrameError = () => {}; // erreur de lecture image par image, ignorée : le scan continue
@@ -3535,23 +3535,43 @@ function ScannerCodeBarres({ onClose, onScan }) {
         experimentalFeatures: { useBarCodeDetectorIfSupported: true },
       },
     ];
-    // Config d'origine, la plus compatible (celle qui marchait avant) : sert de repli
+    // Config d'origine, la plus compatible : sert de repli
     const configSimple = [
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 260, height: 160 } },
     ];
 
+    const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // Une NOUVELLE instance par tentative : réutiliser l'instance après un échec provoque
+    // « Cannot transition to a new state, already under transition ».
+    const essayer = async ([camera, options]) => {
+      const inst = new Html5Qrcode("scanner-zone-cowave");
+      instanceCourante = inst;
+      scannerRef.current = inst;
+      try {
+        await inst.start(camera, options, onSuccess, onFrameError);
+      } catch (err) {
+        try { await inst.clear(); } catch (e) { /* ignoré */ }
+        throw err;
+      }
+      if (annule) {
+        // le composant a été fermé pendant le démarrage : on libère la caméra
+        try { await inst.stop(); } catch (e) { /* ignoré */ }
+      }
+    };
+
     const demarrer = async () => {
       let derniereErreur = null;
-      for (const [camera, options] of [configAvancee, configSimple]) {
+      for (const config of [configAvancee, configSimple]) {
         if (annule) return;
         try {
-          await html5Qrcode.start(camera, options, onSuccess, onFrameError);
-          return; // démarré
+          await essayer(config);
+          return;
         } catch (err) {
           derniereErreur = err;
           console.error("Erreur démarrage caméra:", err);
-          try { if (html5Qrcode.isScanning) await html5Qrcode.stop(); } catch (e) { /* ignoré */ }
+          await pause(300); // laisse la caméra se libérer avant la tentative suivante
         }
       }
       if (annule) return;
@@ -3564,12 +3584,16 @@ function ScannerCodeBarres({ onClose, onScan }) {
           : "Impossible de démarrer la caméra. Ferme puis rouvre le scanner. Détail : " + (nom || detail || "inconnu")
       );
     };
-    demarrer();
+
+    // Petit délai : évite le double démarrage (double montage du composant) sur le même élément
+    const minuteur = setTimeout(demarrer, 250);
 
     return () => {
       annule = true;
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(() => {});
+      clearTimeout(minuteur);
+      const inst = instanceCourante;
+      if (inst && inst.isScanning) {
+        inst.stop().catch(() => {});
       }
     };
   }, []);
