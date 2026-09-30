@@ -4801,45 +4801,70 @@ function PhotoProfilObligatoireModal({ onUpload }) {
 }
 
 function DailyCheckinModal({ onSubmit }) {
-  const [fatigue, setFatigue] = useState(3);
-  const [sommeil, setSommeil] = useState(3);
-  const [energie, setEnergie] = useState(3);
+  const [rep, setRep] = useState({ fatigue: null, sommeil: null, energie: null });
   const [submitting, setSubmitting] = useState(false);
+  const questions = [
+    { key: "fatigue", label: "Comment est ta fatigue ?", low: "Épuisé", high: "En forme", emojis: ["😴", "😪", "🙂", "💪", "🔥"], color: "#FF9628" },
+    { key: "sommeil", label: "Comment as-tu dormi ?", low: "Très mal", high: "Très bien", emojis: ["😵", "😕", "🙂", "😌", "😍"], color: "#8CBEFF" },
+    { key: "energie", label: "Ton niveau d'énergie ?", low: "À plat", high: "Au top", emojis: ["🪫", "😐", "🙂", "⚡", "🚀"], color: "#3AD6A0" },
+  ];
+  const nbRep = questions.filter((q) => rep[q.key] != null).length;
+  const complet = nbRep === questions.length;
 
   const submit = async () => {
+    if (!complet) return;
     setSubmitting(true);
-    await onSubmit({ fatigue, sommeil, energie });
+    await onSubmit({ fatigue: rep.fatigue, sommeil: rep.sommeil, energie: rep.energie });
     setSubmitting(false);
   };
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 200,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 20, background: "rgba(5,6,9,0.6)",
-      }}
-    >
-      <Card style={{ width: "100%", maxWidth: 400 }}>
-        <SectionLabel icon={ClipboardList}>Check-in du jour</SectionLabel>
-        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 18 }}>
-          Réponds en quelques secondes avant de continuer.
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <CheckinSlider label="Fatigue" value={fatigue} onChange={setFatigue} emojis={["😴", "😪", "🙂", "💪", "🔥"]} />
-          <CheckinSlider label="Qualité du sommeil" value={sommeil} onChange={setSommeil} emojis={["😵", "😕", "🙂", "😌", "😍"]} />
-          <CheckinSlider label="Niveau d'énergie" value={energie} onChange={setEnergie} emojis={["🪫", "😐", "🙂", "⚡", "🚀"]} />
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(5,6,12,0.72)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}>
+      <Card style={{ width: "100%", maxWidth: 400, padding: 20, textAlign: "left", border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 0 28px rgba(120,170,255,0.55), 0 14px 36px rgba(0,0,0,0.5)" }}>
+        <SectionHead icon={ClipboardList} title="Check-in du jour" count={`${nbRep}/3`} color="#8CBEFF" />
+        <div style={{ fontSize: 13, color: C.textMuted, marginTop: -6, marginBottom: 16 }}>Touche une réponse pour chaque question.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {questions.map((q) => (
+            <div key={q.key}>
+              <div style={{ fontSize: 14.5, color: C.text, fontWeight: 700, marginBottom: 8 }}>{q.label}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
+                {q.emojis.map((em, idx) => {
+                  const v = idx + 1;
+                  const sel = rep[q.key] === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setRep({ ...rep, [q.key]: v })}
+                      style={{
+                        aspectRatio: "1 / 1", borderRadius: 14, fontSize: 24, display: "flex", alignItems: "center", justifyContent: "center",
+                        background: sel ? `${q.color}26` : "rgba(255,255,255,0.05)",
+                        border: sel ? `1.5px solid ${q.color}` : "1px solid rgba(255,255,255,0.1)",
+                        boxShadow: sel ? `0 0 14px ${q.color}88` : "none",
+                        transform: sel ? "scale(1.06)" : "none", transition: "all .15s",
+                        opacity: rep[q.key] != null && !sel ? 0.55 : 1,
+                      }}
+                    >{em}</button>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: C.textDim, marginTop: 5, padding: "0 2px" }}>
+                <span>{q.low}</span><span>{q.high}</span>
+              </div>
+            </div>
+          ))}
         </div>
         <button
           onClick={submit}
-          disabled={submitting}
+          disabled={submitting || !complet}
           style={{
-            width: "100%", marginTop: 22, background: C.blue, border: "none",
-            color: "#06171F", borderRadius: 14, padding: "13px", fontWeight: 800,
-            fontSize: 14, opacity: submitting ? 0.6 : 1,
+            width: "100%", marginTop: 20, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)",
+            border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15,
+            boxShadow: complet ? "0 6px 22px rgba(59,111,224,0.55)" : "none",
+            opacity: submitting ? 0.6 : complet ? 1 : 0.4,
           }}
         >
-          {submitting ? "Enregistrement..." : "Valider"}
+          {submitting ? "Enregistrement..." : complet ? "Valider" : `Réponds aux ${questions.length - nbRep} question${questions.length - nbRep > 1 ? "s" : ""}`}
         </button>
       </Card>
     </div>
@@ -5479,10 +5504,31 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: C.text }}>{user.prenom} {user.nom}</div>
             <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>{user.age} ans · {user.taille} cm</div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, fontWeight: 700, color: "#8CBEFF", background: "rgba(140,190,255,0.12)", border: "1px solid rgba(140,190,255,0.4)", borderRadius: 999, padding: "3px 10px" }}><Target size={12} /> {user.objectifPrincipal}</div>
+            {user.objectifPrincipal && <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, fontWeight: 700, color: "#8CBEFF", background: "rgba(140,190,255,0.12)", border: "1px solid rgba(140,190,255,0.4)", borderRadius: 999, padding: "3px 10px" }}><Target size={12} /> {user.objectifPrincipal}</div>}
           </div>
         </div>
       </Card>
+
+      {(() => {
+        const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isNaN(n) ? null : n; };
+        const pa = num(user.poidsActuel), po = num(user.poidsObjectif), t = num(user.taille);
+        const imc = pa && t ? pa / Math.pow(t / 100, 2) : null;
+        const ecart = pa != null && po != null ? pa - po : null;
+        const tile = (label, val, unit, col, Icon) => (
+          <div style={{ borderRadius: 18, padding: "12px 10px", textAlign: "center", background: "rgba(255,255,255,0.05)", border: `1.5px solid ${col}`, boxShadow: `0 0 16px ${col}66, inset 0 1px 0 rgba(255,255,255,0.1)` }}>
+            <Icon size={15} color={col} />
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.text, marginTop: 4, lineHeight: 1.1 }}>{val}<span style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}>{unit}</span></div>
+            <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 3, fontWeight: 600 }}>{label}</div>
+          </div>
+        );
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            {tile("Poids actuel", pa != null ? pa.toString().replace(".", ",") : "–", " kg", "rgba(255,170,50,0.9)", TrendingUp)}
+            {tile("Objectif", po != null ? po.toString().replace(".", ",") : "–", " kg", "rgba(140,190,255,0.9)", Target)}
+            {tile(ecart != null && ecart < 0 ? "À prendre" : "À perdre", ecart != null ? Math.abs(ecart).toFixed(1).replace(".", ",") : "–", " kg", "#3AD6A0", Flame)}
+          </div>
+        );
+      })()}
 
       {notificationsRecues && notificationsRecues.length > 0 && (
         <Card>
@@ -6007,8 +6053,8 @@ function LoginScreen({ fireToast }) {
     if (error) fireToast(error.message);
   };
 
-  const loginInput = { width: "100%", background: "rgba(255,255,255,0.75)", border: "1px solid rgba(60,90,170,0.28)", borderRadius: 14, padding: "14px 16px", color: "#0B1433", fontSize: 15, boxShadow: "inset 0 2px 6px rgba(20,40,100,0.10), 0 1px 0 rgba(255,255,255,0.9)" };
-  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#3A4A7A", marginBottom: 6, fontWeight: 700, textAlign: "left" };
+  const loginInput = { width: "100%", background: "rgba(255,255,255,0.82)", border: "1px solid rgba(120,180,255,0.7)", borderRadius: 14, padding: "14px 16px", color: "#0B1433", fontSize: 15, boxShadow: "inset 0 2px 6px rgba(20,40,100,0.10), 0 1px 0 rgba(255,255,255,0.9)" };
+  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#FFFFFF", marginBottom: 6, fontWeight: 700, textAlign: "left", textShadow: "0 1px 8px rgba(10,20,60,0.8)" };
 
   return (
     <div style={{ ...appShellStyle, background: `radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59,111,224,0.35) 0%, rgba(8,11,26,0) 70%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(59,111,224,0.18) 0%, rgba(8,11,26,0) 70%), ${C.bg}`, overflow: "hidden" }}>
@@ -6021,18 +6067,19 @@ function LoginScreen({ fireToast }) {
 
         <div style={{ position: "relative" }}>
           {/* Vague + biceps en fond, derrière la carte */}
-          <div aria-hidden style={{ position: "absolute", left: "50%", top: "50%", width: 520, height: 520, transform: "translate(-50%,-50%)", backgroundImage: "url(/cowave-icon-transparent.png)", backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", filter: "drop-shadow(0 0 40px rgba(76,125,240,0.75)) saturate(1.15)", pointerEvents: "none" }} />
+          <div aria-hidden style={{ position: "absolute", left: "50%", top: "50%", width: 600, height: 600, transform: "translate(-50%,-50%)", backgroundImage: "url(/cowave-icon-transparent.png)", backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", filter: "drop-shadow(0 0 44px rgba(76,125,240,0.85))", pointerEvents: "none" }} />
 
           <div style={{ position: "relative", padding: 24, borderRadius: 28, textAlign: "left", overflow: "hidden",
-            background: "linear-gradient(150deg, rgba(255,255,255,0.80) 0%, rgba(240,246,255,0.62) 55%, rgba(225,236,255,0.70) 100%)",
-            backdropFilter: "blur(7px) saturate(1.3)", WebkitBackdropFilter: "blur(7px) saturate(1.3)",
-            border: "1.5px solid rgba(255,255,255,0.85)",
-            boxShadow: "inset 0 2px 0 rgba(255,255,255,0.95), inset 0 -18px 40px rgba(120,160,255,0.18), 0 30px 60px rgba(0,0,0,0.55), 0 0 50px rgba(120,170,255,0.45)" }}>
-            {/* reflet diagonal */}
-            <div aria-hidden style={{ position: "absolute", top: -60, left: -40, width: "70%", height: 160, transform: "rotate(-18deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0))", borderRadius: 999, pointerEvents: "none" }} />
+            background: "linear-gradient(150deg, rgba(255,255,255,0.42) 0%, rgba(210,226,255,0.24) 55%, rgba(190,212,255,0.32) 100%)",
+            backdropFilter: "blur(1.5px) saturate(1.2)", WebkitBackdropFilter: "blur(1.5px) saturate(1.2)",
+            border: "2px solid rgba(120,180,255,0.95)",
+            boxShadow: "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 0 24px rgba(120,170,255,0.25), 0 0 8px rgba(160,205,255,0.9), 0 0 34px rgba(76,125,240,0.75), 0 26px 50px rgba(0,0,0,0.5)" }}>
+            {/* la vague reste lisible à travers la carte */}
+            <div aria-hidden style={{ position: "absolute", left: "50%", top: "50%", width: 600, height: 600, transform: "translate(-50%,-50%)", backgroundImage: "url(/cowave-icon-transparent.png)", backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center", opacity: 0.55, pointerEvents: "none" }} />
+            <div aria-hidden style={{ position: "absolute", top: -60, left: -40, width: "70%", height: 150, transform: "rotate(-18deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0))", borderRadius: 999, pointerEvents: "none" }} />
             <div style={{ position: "relative" }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: "#0B1433", marginBottom: 4 }}>Connexion</div>
-              <div style={{ fontSize: 13.5, color: "#3A4A7A", marginBottom: 20 }}>Connecte-toi pour continuer</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: "#FFFFFF", marginBottom: 4, textShadow: "0 1px 10px rgba(10,20,60,0.7)" }}>Connexion</div>
+              <div style={{ fontSize: 13.5, color: "#E6EEFF", marginBottom: 20, textShadow: "0 1px 8px rgba(10,20,60,0.7)" }}>Connecte-toi pour continuer</div>
               <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <div style={loginLabel}>Email</div>
@@ -6050,7 +6097,7 @@ function LoginScreen({ fireToast }) {
                 <button
                   type="submit"
                   disabled={submitting}
-                  style={{ marginTop: 6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2A52C4)", boxShadow: "0 8px 24px rgba(42,82,196,0.55), inset 0 1px 0 rgba(255,255,255,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15, opacity: submitting ? 0.6 : 1 }}
+                  style={{ marginTop: 6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2A52C4)", boxShadow: "0 0 22px rgba(91,140,255,0.8), 0 8px 24px rgba(42,82,196,0.55), inset 0 1px 0 rgba(255,255,255,0.45)", border: "1px solid rgba(190,215,255,0.8)", color: "#FFFFFF", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15, opacity: submitting ? 0.6 : 1 }}
                 >
                   {submitting ? "Connexion..." : "Se connecter"}
                 </button>
