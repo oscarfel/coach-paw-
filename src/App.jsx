@@ -6040,6 +6040,29 @@ function ViewModeToggle({ viewMode, setViewMode }) {
   );
 }
 
+function LoginDrops() {
+  // Quelques gouttes statiques autour de la vague (l en vw, t en dvh, s en px, r rotation en degrés)
+  const drops = [
+    { l: 6, t: 17, s: 14, r: 40 }, { l: 13, t: 24, s: 8, r: 20 }, { l: 3, t: 38, s: 10, r: 70 },
+    { l: 8, t: 55, s: 16, r: 30 }, { l: 2.5, t: 70, s: 9, r: 60 }, { l: 12, t: 78, s: 12, r: 50 },
+    { l: 88, t: 15, s: 12, r: -40 }, { l: 93, t: 26, s: 9, r: -20 }, { l: 90, t: 40, s: 16, r: -60 },
+    { l: 95, t: 58, s: 10, r: -30 }, { l: 87, t: 72, s: 13, r: -50 }, { l: 80, t: 81, s: 8, r: -70 },
+    { l: 30, t: 84, s: 9, r: 20 }, { l: 62, t: 86, s: 11, r: -20 },
+  ];
+  return (
+    <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+      {drops.map((d, k) => (
+        <div key={k} style={{
+          position: "absolute", left: `${d.l}vw`, top: `${d.t}dvh`, width: d.s, height: d.s,
+          borderRadius: "50% 0 50% 50%", transform: `rotate(${d.r + 45}deg)`,
+          background: "radial-gradient(circle at 35% 32%, #FFFFFF 0%, #FFFFFF 14%, #CFE4FF 42%, #6FA5FF 100%)",
+          border: "1px solid rgba(255,255,255,0.75)", boxShadow: "0 2px 6px rgba(15,40,120,0.3)",
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function LoginScreen({ fireToast }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -6069,6 +6092,7 @@ function LoginScreen({ fireToast }) {
       <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #86A9EE 0%, #4F80DC 45%, #2A55B8 100%)" }} />
       <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", pointerEvents: "none" }} />
 
+      <LoginDrops />
       <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 40, textAlign: "center", color: "#08122E", letterSpacing: "-0.02em" }}>
           CoWave
