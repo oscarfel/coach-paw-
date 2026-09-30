@@ -6054,36 +6054,36 @@ function LoginScreen({ fireToast }) {
     if (error) fireToast(error.message);
   };
 
-  const loginInput = { width: "100%", background: "rgba(6,14,50,0.42)", border: "1.5px solid rgba(140,195,255,0.95)", borderRadius: 14, padding: "14px 16px", color: "#FFFFFF", fontSize: 15, boxShadow: "0 0 12px rgba(100,160,255,0.5), inset 0 1px 0 rgba(255,255,255,0.18)" };
-  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#FFFFFF", marginBottom: 6, fontWeight: 700, textAlign: "left", textShadow: "0 1px 8px rgba(5,12,45,0.9)" };
+  const loginInput = { width: "100%", background: "rgba(255,255,255,0.88)", border: "1.5px solid rgba(40,100,230,0.85)", borderRadius: 14, padding: "14px 16px", color: "#08122E", fontSize: 15, fontWeight: 600, boxShadow: "0 0 10px rgba(60,120,255,0.35)" };
+  const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#08122E", marginBottom: 6, fontWeight: 800, textAlign: "left" };
   const bgImg = "url(/cowave-icon-transparent.png)";
 
   return (
-    <div style={{ ...appShellStyle, background: "#050A24", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
+    <div style={{ ...appShellStyle, background: "#BBD6FB", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
       <FontImports />
       <style>{`
-        #login-root input::placeholder { color: rgba(220,232,255,0.6); }
+        #login-root input::placeholder { color: rgba(8,18,46,0.5); }
       `}</style>
 
       {/* Fond plein écran : dégradé, vague + biceps, reflets */}
-      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #0A1A5C 0%, #0B2A8A 38%, #0A3FB8 62%, #061A5E 100%)" }} />
+      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #E4EFFF 0%, #B9D5FB 45%, #7FAEF2 100%)" }} />
       <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", pointerEvents: "none" }} />
 
       <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
-        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 40, textAlign: "center", color: "#FFFFFF", letterSpacing: "-0.02em", textShadow: "0 0 24px rgba(120,180,255,0.9), 0 4px 18px rgba(0,10,50,0.7)" }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 40, textAlign: "center", color: "#08122E", letterSpacing: "-0.02em" }}>
           CoWave
         </div>
-        <div style={{ fontSize: 14, color: "#E6EEFF", marginTop: 4, marginBottom: 30, textAlign: "center", textShadow: "0 1px 10px rgba(5,12,45,0.9)" }}>Ton coaching, au même endroit</div>
+        <div style={{ fontSize: 14, color: "#1B2C5E", fontWeight: 600, marginTop: 4, marginBottom: 30, textAlign: "center" }}>Ton coaching, au même endroit</div>
 
         <div style={{ position: "relative", padding: 24, borderRadius: 28, textAlign: "left", overflow: "hidden",
-          background: "linear-gradient(150deg, rgba(255,255,255,0.20) 0%, rgba(150,190,255,0.08) 55%, rgba(150,190,255,0.14) 100%)",
+          background: "linear-gradient(150deg, rgba(255,255,255,0.62) 0%, rgba(235,244,255,0.42) 55%, rgba(220,235,255,0.5) 100%)",
           backdropFilter: "blur(2px) saturate(1.2)", WebkitBackdropFilter: "blur(2px) saturate(1.2)",
-          border: "2px solid rgba(140,195,255,0.98)",
-          boxShadow: "inset 0 2px 0 rgba(255,255,255,0.5), inset 0 0 26px rgba(120,170,255,0.25), 0 0 8px rgba(170,210,255,0.95), 0 0 34px rgba(76,125,240,0.8), 0 26px 50px rgba(0,5,40,0.55)" }}>
+          border: "2px solid rgba(40,110,255,0.95)",
+          boxShadow: "inset 0 2px 0 rgba(255,255,255,0.8), 0 0 8px rgba(70,130,255,0.9), 0 0 28px rgba(50,110,255,0.55), 0 18px 40px rgba(20,50,120,0.3)" }}>
           <div aria-hidden style={{ position: "absolute", top: -60, left: -40, width: "70%", height: 150, transform: "rotate(-18deg)", background: "linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0))", borderRadius: 999, pointerEvents: "none" }} />
           <div style={{ position: "relative" }}>
-            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: "#FFFFFF", marginBottom: 4, textShadow: "0 1px 10px rgba(5,12,45,0.8)" }}>Connexion</div>
-            <div style={{ fontSize: 13.5, color: "#E6EEFF", marginBottom: 20, textShadow: "0 1px 8px rgba(5,12,45,0.8)" }}>Connecte-toi pour continuer</div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: "#08122E", marginBottom: 4 }}>Connexion</div>
+            <div style={{ fontSize: 13.5, color: "#1B2C5E", fontWeight: 600, marginBottom: 20 }}>Connecte-toi pour continuer</div>
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <div style={loginLabel}>Email</div>
@@ -6093,7 +6093,7 @@ function LoginScreen({ fireToast }) {
                 <div style={loginLabel}>Mot de passe</div>
                 <div style={{ position: "relative" }}>
                   <input type={showPwd ? "text" : "password"} required autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...loginInput, paddingRight: 46 }} />
-                  <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#DCE8FF", padding: 6, display: "flex" }}>
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#1B2C5E", padding: 6, display: "flex" }}>
                     {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -6101,8 +6101,8 @@ function LoginScreen({ fireToast }) {
               <button
                 type="submit"
                 disabled={submitting}
-                style={{ marginTop: 6, background: "rgba(255,255,255,0.04)", backgroundImage: "none", border: "2px solid rgba(150,205,255,1)", color: "#FFFFFF", borderRadius: 16, padding: "15px", fontWeight: 800, fontSize: 16, letterSpacing: "0.01em", textShadow: "0 0 12px rgba(150,205,255,0.9), 0 1px 6px rgba(5,12,45,0.8)",
-                  boxShadow: "0 0 10px rgba(170,215,255,0.95), 0 0 30px rgba(76,140,255,0.85), inset 0 0 18px rgba(120,180,255,0.4)", opacity: submitting ? 0.6 : 1 }}
+                style={{ marginTop: 6, background: "rgba(255,255,255,0.12)", backgroundImage: "none", border: "2px solid rgba(30,100,255,1)", color: "#0A1F66", borderRadius: 16, padding: "15px", fontWeight: 800, fontSize: 16, letterSpacing: "0.01em",
+                  boxShadow: "0 0 10px rgba(70,130,255,0.9), 0 0 24px rgba(50,110,255,0.6), inset 0 0 14px rgba(70,130,255,0.25)", opacity: submitting ? 0.6 : 1 }}
               >
                 {submitting ? "Connexion..." : "Se connecter"}
               </button>
@@ -6110,7 +6110,7 @@ function LoginScreen({ fireToast }) {
           </div>
         </div>
 
-        <div style={{ fontSize: 13, color: "#DCE8FF", fontStyle: "italic", textAlign: "center", marginTop: 30, padding: "0 16px", textShadow: "0 1px 10px rgba(5,12,45,0.9)" }}>
+        <div style={{ fontSize: 13, color: "#1B2C5E", fontWeight: 600, fontStyle: "italic", textAlign: "center", marginTop: 30, padding: "0 16px" }}>
           « Chaque séance te rapproche de la meilleure version de toi-même. »
         </div>
       </div>
