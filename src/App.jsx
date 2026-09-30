@@ -6041,44 +6041,14 @@ function ViewModeToggle({ viewMode, setViewMode }) {
 }
 
 function LoginWaveArt() {
-  const base = { position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", backgroundImage: "url(/cowave-wave-clean.png)", backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", pointerEvents: "none", zIndex: 0 };
-  const fade = "linear-gradient(to bottom, #000 80%, transparent 100%)";
+  const base = { position: "fixed", "--w": "min(170vw, 920px)", width: "var(--w)", aspectRatio: "900 / 684", left: "calc(50vw - var(--w) * 0.49)", bottom: "7dvh", zIndex: 0, pointerEvents: "none" };
+  const fade = "linear-gradient(to bottom, #000 84%, transparent 100%)";
   return (
     <>
-      {/* houle qui monte vers le titre et descend sous la citation (dessinée, sans doublon du biceps) */}
-      <svg aria-hidden viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" }}>
-        <defs>
-          <linearGradient id="lwTop" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0" stopColor="#1F4FC0" /><stop offset="0.45" stopColor="#4C86F0" /><stop offset="1" stopColor="#CFE4FF" />
-          </linearGradient>
-          <linearGradient id="lwTop2" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0" stopColor="#163E9E" /><stop offset="0.6" stopColor="#2F66D8" /><stop offset="1" stopColor="#8DBBFF" />
-          </linearGradient>
-          <linearGradient id="lwBot" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#1F4FC0" /><stop offset="0.5" stopColor="#3E77E6" /><stop offset="1" stopColor="#BFDAFF" />
-          </linearGradient>
-          <linearGradient id="lwBot2" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#12358F" /><stop offset="0.6" stopColor="#2A5FD2" /><stop offset="1" stopColor="#7FB0FF" />
-          </linearGradient>
-          <filter id="lwSh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="7" floodColor="#0A1E6E" floodOpacity="0.4" /></filter>
-        </defs>
-        {/* haut : houle qui monte vers le titre */}
-        <g filter="url(#lwSh)">
-          <path d="M-20 600 C-30 260 130 40 420 -10 C215 110 50 320 -20 600 Z" fill="url(#lwTop2)" opacity="0.85" />
-          <path d="M-20 560 C-10 280 150 70 420 0 C230 120 70 320 -20 560 Z" fill="url(#lwTop)" opacity="0.9" />
-        </g>
-        <path d="M-20 560 C-10 280 150 70 420 0" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
-        {/* bas : houle qui redescend sous la citation */}
-        <g filter="url(#lwSh)">
-          <path d="M420 560 C440 800 230 900 -20 880 C190 850 380 760 420 560 Z" fill="url(#lwBot2)" opacity="0.85" />
-          <path d="M420 640 C430 840 240 930 -20 930 C210 890 390 800 420 640 Z" fill="url(#lwBot)" opacity="0.9" />
-        </g>
-        <path d="M420 560 C440 800 230 900 -20 880" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
-      </svg>
-      {/* halo de remplissage */}
-      <div aria-hidden style={{ ...base, backgroundImage: "none", bottom: "14dvh", background: "radial-gradient(ellipse 30% 42% at 49% 56%, rgba(25,70,190,0.75) 0%, rgba(40,95,215,0.45) 55%, rgba(60,120,230,0) 100%)" }} />
-      {/* vague principale */}
-      <div aria-hidden style={{ ...base, bottom: "14dvh", WebkitMaskImage: fade, maskImage: fade, filter: "saturate(1.15) drop-shadow(0 10px 18px rgba(10,30,110,0.45))" }} />
+      {/* halo de remplissage derrière la vague */}
+      <div aria-hidden style={{ ...base, background: "radial-gradient(ellipse 30% 40% at 49% 55%, rgba(25,70,190,0.7) 0%, rgba(40,95,215,0.4) 55%, rgba(60,120,230,0) 100%)" }} />
+      {/* vague principale (image retravaillée : plus de volume, plus haute) */}
+      <div aria-hidden style={{ ...base, backgroundImage: "url(/cowave-wave-vol.png)", backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: fade, maskImage: fade, filter: "saturate(1.12) drop-shadow(0 10px 18px rgba(10,30,110,0.45))" }} />
     </>
   );
 }
