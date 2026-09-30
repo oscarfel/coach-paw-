@@ -6059,14 +6059,14 @@ function LoginScreen({ fireToast }) {
   const bgImg = "url(/cowave-icon-transparent.png)";
 
   return (
-    <div style={{ ...appShellStyle, background: "#BBD6FB", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
+    <div style={{ ...appShellStyle, background: "#6C9CEC", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
       <FontImports />
       <style>{`
         #login-root input::placeholder { color: rgba(8,18,46,0.5); }
       `}</style>
 
       {/* Fond plein écran : dégradé, vague + biceps, reflets */}
-      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #E4EFFF 0%, #B9D5FB 45%, #7FAEF2 100%)" }} />
+      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #A9C8F7 0%, #6C9CEC 45%, #3F72D6 100%)" }} />
       <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", pointerEvents: "none" }} />
 
       <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
@@ -6110,7 +6110,7 @@ function LoginScreen({ fireToast }) {
           </div>
         </div>
 
-        <div style={{ fontSize: 13, color: "#1B2C5E", fontWeight: 600, fontStyle: "italic", textAlign: "center", marginTop: 30, padding: "0 16px" }}>
+        <div style={{ fontSize: 13, color: "#FFFFFF", fontWeight: 600, fontStyle: "italic", textAlign: "center", marginTop: 30, textShadow: "0 1px 8px rgba(8,18,60,0.6)", padding: "0 16px" }}>
           « Chaque séance te rapproche de la meilleure version de toi-même. »
         </div>
       </div>
