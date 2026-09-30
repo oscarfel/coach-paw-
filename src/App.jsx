@@ -6040,14 +6040,42 @@ function ViewModeToggle({ viewMode, setViewMode }) {
   );
 }
 
+function LoginWater() {
+  const h = "20dvh";
+  return (
+    <div aria-hidden style={{ position: "fixed", left: 0, right: 0, bottom: 0, height: h, zIndex: 0, pointerEvents: "none" }}>
+      <svg viewBox="0 0 1200 300" preserveAspectRatio="none" style={{ width: "100%", height: "100%", display: "block" }}>
+        <defs>
+          <linearGradient id="lwA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#8DB4F5" stopOpacity="0.85" /><stop offset="1" stopColor="#3A68CC" stopOpacity="0.95" /></linearGradient>
+          <linearGradient id="lwB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4F80E0" /><stop offset="1" stopColor="#2A55B8" /></linearGradient>
+          <linearGradient id="lwC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2F5FC4" /><stop offset="1" stopColor="#1E409A" /></linearGradient>
+        </defs>
+        <path d="M0 120 C150 60 300 60 450 110 S750 170 900 110 S1100 60 1200 100 V300 H0Z" fill="url(#lwA)" />
+        <path d="M0 120 C150 60 300 60 450 110 S750 170 900 110 S1100 60 1200 100" fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth="3" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <path d="M0 170 C200 110 350 130 500 170 S800 220 1000 160 S1150 130 1200 150 V300 H0Z" fill="url(#lwB)" />
+        <path d="M0 170 C200 110 350 130 500 170 S800 220 1000 160 S1150 130 1200 150" fill="none" stroke="rgba(220,235,255,0.85)" strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <path d="M0 225 C180 185 350 195 520 228 S850 262 1050 218 S1160 205 1200 215 V300 H0Z" fill="url(#lwC)" />
+        <path d="M0 225 C180 185 350 195 520 228 S850 262 1050 218 S1160 205 1200 215" fill="none" stroke="rgba(190,215,255,0.7)" strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+    </div>
+  );
+}
+
 function LoginDrops() {
   // Quelques gouttes statiques autour de la vague (l en vw, t en dvh, s en px, r rotation en degrés)
   const drops = [
-    { l: 6, t: 17, s: 14, r: 40 }, { l: 13, t: 24, s: 8, r: 20 }, { l: 3, t: 38, s: 10, r: 70 },
-    { l: 8, t: 55, s: 16, r: 30 }, { l: 2.5, t: 70, s: 9, r: 60 }, { l: 12, t: 78, s: 12, r: 50 },
-    { l: 88, t: 15, s: 12, r: -40 }, { l: 93, t: 26, s: 9, r: -20 }, { l: 90, t: 40, s: 16, r: -60 },
-    { l: 95, t: 58, s: 10, r: -30 }, { l: 87, t: 72, s: 13, r: -50 }, { l: 80, t: 81, s: 8, r: -70 },
-    { l: 30, t: 84, s: 9, r: 20 }, { l: 62, t: 86, s: 11, r: -20 },
+    // autour du titre
+    { l: 20, t: 5, s: 10, r: 30 }, { l: 26, t: 9.5, s: 6, r: 10 }, { l: 12, t: 12, s: 14, r: 50 },
+    { l: 74, t: 5.5, s: 11, r: -30 }, { l: 80, t: 10, s: 7, r: -10 }, { l: 88, t: 13, s: 13, r: -50 },
+    { l: 8, t: 19, s: 8, r: 40 }, { l: 93, t: 21, s: 9, r: -40 },
+    // flancs
+    { l: 3, t: 34, s: 10, r: 70 }, { l: 95, t: 37, s: 15, r: -60 }, { l: 6, t: 50, s: 16, r: 30 },
+    { l: 96, t: 55, s: 9, r: -30 }, { l: 2.5, t: 66, s: 9, r: 60 }, { l: 91, t: 68, s: 12, r: -50 },
+    // sous la vague
+    { l: 14, t: 78, s: 12, r: 50 }, { l: 22, t: 83, s: 7, r: 20 }, { l: 32, t: 87, s: 10, r: 10 },
+    { l: 45, t: 90, s: 6, r: 0 }, { l: 58, t: 88, s: 11, r: -15 }, { l: 69, t: 84, s: 8, r: -30 },
+    { l: 80, t: 80, s: 13, r: -50 }, { l: 88, t: 86, s: 8, r: -60 }, { l: 8, t: 91, s: 9, r: 40 },
+    { l: 38, t: 94, s: 8, r: 5 }, { l: 76, t: 93, s: 10, r: -20 },
   ];
   return (
     <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
@@ -6090,8 +6118,10 @@ function LoginScreen({ fireToast }) {
 
       {/* Fond plein écran : dégradé, vague + biceps, reflets */}
       <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #86A9EE 0%, #4F80DC 45%, #2A55B8 100%)" }} />
+      <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, background: "radial-gradient(ellipse 30% 42% at 49% 56%, rgba(25,70,190,0.75) 0%, rgba(40,95,215,0.45) 55%, rgba(60,120,230,0) 100%)", pointerEvents: "none" }} />
       <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", pointerEvents: "none" }} />
 
+      <LoginWater />
       <LoginDrops />
       <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 40, textAlign: "center", color: "#08122E", letterSpacing: "-0.02em" }}>
