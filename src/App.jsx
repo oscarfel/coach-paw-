@@ -6056,17 +6056,17 @@ function LoginScreen({ fireToast }) {
 
   const loginInput = { width: "100%", background: "rgba(255,255,255,0.88)", border: "1.5px solid rgba(40,100,230,0.85)", borderRadius: 14, padding: "14px 16px", color: "#08122E", fontSize: 15, fontWeight: 600, boxShadow: "0 0 10px rgba(60,120,255,0.35)" };
   const loginLabel = { fontFamily: FONT_DISPLAY, fontSize: 12.5, color: "#08122E", marginBottom: 6, fontWeight: 800, textAlign: "left" };
-  const bgImg = "url(/cowave-icon-transparent.png)";
+  const bgImg = "url(/cowave-wave-clean.png)";
 
   return (
-    <div style={{ ...appShellStyle, background: "#6C9CEC", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
+    <div style={{ ...appShellStyle, background: "#4F80DC", position: "relative", overflow: "hidden", minHeight: "100dvh" }}>
       <FontImports />
       <style>{`
         #login-root input::placeholder { color: rgba(8,18,46,0.5); }
       `}</style>
 
       {/* Fond plein écran : dégradé, vague + biceps, reflets */}
-      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #A9C8F7 0%, #6C9CEC 45%, #3F72D6 100%)" }} />
+      <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #86A9EE 0%, #4F80DC 45%, #2A55B8 100%)" }} />
       <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", pointerEvents: "none" }} />
 
       <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
