@@ -6040,24 +6040,46 @@ function ViewModeToggle({ viewMode, setViewMode }) {
   );
 }
 
-function LoginWater() {
-  const h = "20dvh";
+function LoginWaveArt() {
+  const base = { position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", backgroundImage: "url(/cowave-wave-clean.png)", backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", pointerEvents: "none", zIndex: 0 };
+  const fade = "linear-gradient(to bottom, #000 80%, transparent 100%)";
   return (
-    <div aria-hidden style={{ position: "fixed", left: 0, right: 0, bottom: 0, height: h, zIndex: 0, pointerEvents: "none" }}>
-      <svg viewBox="0 0 1200 300" preserveAspectRatio="none" style={{ width: "100%", height: "100%", display: "block" }}>
+    <>
+      {/* houle qui monte vers le titre et descend sous la citation (dessinée, sans doublon du biceps) */}
+      <svg aria-hidden viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" }}>
         <defs>
-          <linearGradient id="lwA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#8DB4F5" stopOpacity="0.85" /><stop offset="1" stopColor="#3A68CC" stopOpacity="0.95" /></linearGradient>
-          <linearGradient id="lwB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4F80E0" /><stop offset="1" stopColor="#2A55B8" /></linearGradient>
-          <linearGradient id="lwC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2F5FC4" /><stop offset="1" stopColor="#1E409A" /></linearGradient>
+          <linearGradient id="lwTop" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stopColor="#1F4FC0" /><stop offset="0.45" stopColor="#4C86F0" /><stop offset="1" stopColor="#CFE4FF" />
+          </linearGradient>
+          <linearGradient id="lwTop2" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stopColor="#163E9E" /><stop offset="0.6" stopColor="#2F66D8" /><stop offset="1" stopColor="#8DBBFF" />
+          </linearGradient>
+          <linearGradient id="lwBot" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#1F4FC0" /><stop offset="0.5" stopColor="#3E77E6" /><stop offset="1" stopColor="#BFDAFF" />
+          </linearGradient>
+          <linearGradient id="lwBot2" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#12358F" /><stop offset="0.6" stopColor="#2A5FD2" /><stop offset="1" stopColor="#7FB0FF" />
+          </linearGradient>
+          <filter id="lwSh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="7" floodColor="#0A1E6E" floodOpacity="0.4" /></filter>
         </defs>
-        <path d="M0 120 C150 60 300 60 450 110 S750 170 900 110 S1100 60 1200 100 V300 H0Z" fill="url(#lwA)" />
-        <path d="M0 120 C150 60 300 60 450 110 S750 170 900 110 S1100 60 1200 100" fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth="3" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-        <path d="M0 170 C200 110 350 130 500 170 S800 220 1000 160 S1150 130 1200 150 V300 H0Z" fill="url(#lwB)" />
-        <path d="M0 170 C200 110 350 130 500 170 S800 220 1000 160 S1150 130 1200 150" fill="none" stroke="rgba(220,235,255,0.85)" strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-        <path d="M0 225 C180 185 350 195 520 228 S850 262 1050 218 S1160 205 1200 215 V300 H0Z" fill="url(#lwC)" />
-        <path d="M0 225 C180 185 350 195 520 228 S850 262 1050 218 S1160 205 1200 215" fill="none" stroke="rgba(190,215,255,0.7)" strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        {/* haut : houle qui monte vers le titre */}
+        <g filter="url(#lwSh)">
+          <path d="M-20 600 C-30 260 130 40 420 -10 C215 110 50 320 -20 600 Z" fill="url(#lwTop2)" opacity="0.85" />
+          <path d="M-20 560 C-10 280 150 70 420 0 C230 120 70 320 -20 560 Z" fill="url(#lwTop)" opacity="0.9" />
+        </g>
+        <path d="M-20 560 C-10 280 150 70 420 0" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
+        {/* bas : houle qui redescend sous la citation */}
+        <g filter="url(#lwSh)">
+          <path d="M420 560 C440 800 230 900 -20 880 C190 850 380 760 420 560 Z" fill="url(#lwBot2)" opacity="0.85" />
+          <path d="M420 640 C430 840 240 930 -20 930 C210 890 390 800 420 640 Z" fill="url(#lwBot)" opacity="0.9" />
+        </g>
+        <path d="M420 560 C440 800 230 900 -20 880" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
       </svg>
-    </div>
+      {/* halo de remplissage */}
+      <div aria-hidden style={{ ...base, backgroundImage: "none", bottom: "14dvh", background: "radial-gradient(ellipse 30% 42% at 49% 56%, rgba(25,70,190,0.75) 0%, rgba(40,95,215,0.45) 55%, rgba(60,120,230,0) 100%)" }} />
+      {/* vague principale */}
+      <div aria-hidden style={{ ...base, bottom: "14dvh", WebkitMaskImage: fade, maskImage: fade, filter: "saturate(1.15) drop-shadow(0 10px 18px rgba(10,30,110,0.45))" }} />
+    </>
   );
 }
 
@@ -6118,10 +6140,7 @@ function LoginScreen({ fireToast }) {
 
       {/* Fond plein écran : dégradé, vague + biceps, reflets */}
       <div aria-hidden style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(180deg, #86A9EE 0%, #4F80DC 45%, #2A55B8 100%)" }} />
-      <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, background: "radial-gradient(ellipse 30% 42% at 49% 56%, rgba(25,70,190,0.75) 0%, rgba(40,95,215,0.45) 55%, rgba(60,120,230,0) 100%)", pointerEvents: "none" }} />
-      <div aria-hidden style={{ position: "fixed", "--w": "min(165vw, 900px)", width: "var(--w)", aspectRatio: "900 / 595", left: "calc(50vw - var(--w) * 0.49)", bottom: "14dvh", zIndex: 0, backgroundImage: bgImg, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", WebkitMaskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 80%, transparent 100%)", pointerEvents: "none" }} />
-
-      <LoginWater />
+      <LoginWaveArt />
       <LoginDrops />
       <div id="login-root" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 420, padding: "56px 20px 40px", margin: "0 auto" }}>
         <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 40, textAlign: "center", color: "#08122E", letterSpacing: "-0.02em" }}>
