@@ -3834,6 +3834,11 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   const searchTimeoutRef = useRef(null);
 
   const totalKcal = items.reduce((a, i) => a + i.kcal, 0);
+  const [showDetailRepas, setShowDetailRepas] = useState(false);
+  const totalProt = items.reduce((a, i) => a + (parseFloat(i.prot) || 0), 0);
+  const totalGluc = items.reduce((a, i) => a + (parseFloat(i.gluc) || 0), 0);
+  const totalLip = items.reduce((a, i) => a + (parseFloat(i.lip) || 0), 0);
+  const fmt1 = (n) => (Math.round(n * 10) / 10).toString().replace(".", ",");
 
   useEffect(() => {
     if (searchQuery.trim().length < 2 || selectedFood) {
@@ -3992,7 +3997,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   return (
     <Card style={{ padding: 0 }}>
       <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14 }}>
-        <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
+        <div onClick={() => setShowDetailRepas(true)} style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", cursor: "pointer" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 42, height: 42, borderRadius: 14, background: C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, flexShrink: 0 }}>{meal.emoji}</div>
             <div>
@@ -4003,6 +4008,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
           <div style={{ textAlign: "right" }}>
             <span style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{totalKcal}</span>
             <span style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 600 }}> kcal</span>
+            <ChevronRight size={16} color={C.textDim} style={{ marginLeft: 4, verticalAlign: "middle" }} />
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -4094,6 +4100,60 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
           >
             <Plus size={16} /> Ajouter un aliment
           </button>
+        </div>
+      )}
+      {showDetailRepas && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowDetailRepas(false)}>
+          <Card style={{ width: "100%", maxWidth: 380, textAlign: "left", border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 0 26px rgba(120,170,255,0.5), 0 14px 36px rgba(0,0,0,0.5)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 14, background: C.blueSoft, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21 }}>{meal.emoji}</div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: C.text, lineHeight: 1.2 }}>{meal.nom}</div>
+                  <div style={{ fontSize: 12.5, color: C.textMuted }}>{items.length} aliment{items.length > 1 ? "s" : ""}</div>
+                </div>
+              </div>
+              <button onClick={() => setShowDetailRepas(false)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 12, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
+            </div>
+            {(() => {
+              const tuile = (valeur, unite, label, couleur) => (
+                <div style={{ textAlign: "center", padding: "16px 8px", borderRadius: 16, background: "rgba(255,255,255,0.05)", border: `1.5px solid ${couleur}`, boxShadow: `0 0 14px ${couleur}55, inset 0 1px 0 rgba(255,255,255,0.08)` }}>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: C.text, lineHeight: 1.1 }}>{valeur}<span style={{ fontSize: 13, fontWeight: 700, color: C.textMuted }}> {unite}</span></div>
+                  <div style={{ fontSize: 12.5, color: couleur, marginTop: 5, fontWeight: 700 }}>{label}</div>
+                </div>
+              );
+              const kP = totalProt * 4, kG = totalGluc * 4, kL = totalLip * 9;
+              const kT = kP + kG + kL;
+              const pct = (k) => (kT > 0 ? (k / kT) * 100 : 0);
+              return (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {tuile(totalKcal, "kcal", "Calories", "#FFFFFF")}
+                    {tuile(fmt1(totalGluc), "g", "Glucides", "#F5C542")}
+                    {tuile(fmt1(totalProt), "g", "Protéines", "#7FA0FF")}
+                    {tuile(fmt1(totalLip), "g", "Lipides", "#F28C38")}
+                  </div>
+                  {kT > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ display: "flex", height: 10, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.06)" }}>
+                        <div style={{ width: `${pct(kP)}%`, background: "#7FA0FF" }} />
+                        <div style={{ width: `${pct(kG)}%`, background: "#F5C542" }} />
+                        <div style={{ width: `${pct(kL)}%`, background: "#F28C38" }} />
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted, marginTop: 6, fontWeight: 600 }}>
+                        <span style={{ color: "#7FA0FF" }}>P {Math.round(pct(kP))}%</span>
+                        <span style={{ color: "#F5C542" }}>G {Math.round(pct(kG))}%</span>
+                        <span style={{ color: "#F28C38" }}>L {Math.round(pct(kL))}%</span>
+                      </div>
+                    </div>
+                  )}
+                  {items.length === 0 && (
+                    <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", marginTop: 14 }}>Aucun aliment pour ce repas.</div>
+                  )}
+                </>
+              );
+            })()}
+          </Card>
         </div>
       )}
       {showAddForm && (
