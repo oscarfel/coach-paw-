@@ -400,6 +400,29 @@ async function subscribeToPush(profilId, fireToast) {
   }
 }
 
+// Rattrapage des séances non validées : le serveur transforme en vraies séances celles
+// dont le client a rempli des séries puis oublié d'appuyer sur « Terminer » (1h sans
+// activité). Appelé à l'ouverture de l'app (client) et du tableau de bord (coach), en plus
+// du scheduler externe. Silencieux en cas d'échec (ex : en local sans /api).
+async function rattraperSeancesOubliees() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return null;
+    const ctrl = new AbortController();
+    const minuteur = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch("/api/finaliser-seances", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      signal: ctrl.signal,
+    });
+    clearTimeout(minuteur);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 async function fetchProfilByAuthUserId(authUserId) {
   const { data, error } = await supabase
     .from("profils")
@@ -2722,8 +2745,55 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         { profil_id: profilId, coach_id: coachId || null, programme_nom: programme.nom, demarree_a: demarreeA, alerte_envoyee: false },
         { onConflict: "profil_id" }
       )
-      .then(({ error }) => { if (error) console.error("Erreur suivi séance en cours:", error); });
+      .then(({ error }) => {
+        if (error) { console.error("Erreur suivi séance en cours:", error); return; }
+        // Nouvelle séance (rien de rempli) : on repart d'une progression vide, sans lien avec
+        // une éventuelle séance auto-enregistrée précédente. Séance reprise : on garde tout.
+        const aucuneSerie = Object.values(logs).every((l) => !l?.sets?.length);
+        const maj = aucuneSerie
+          ? { progression: null, derniere_maj: new Date().toISOString(), seance_auto_id: null, finalisee_a: null }
+          : { derniere_maj: new Date().toISOString() };
+        supabase.from("seances_en_cours").update(maj).eq("profil_id", profilId)
+          .then(({ error: e2 }) => { if (e2) console.error("Suivi séance (colonnes progression absentes ?) :", e2.message); });
+      });
   }, [profilId]);
+
+  // Enregistrement au fil de la séance : chaque série remplie est recopiée côté serveur
+  // (seances_en_cours.progression). Si le client oublie de valider, le serveur transforme
+  // cette progression en séance pour le coach après 1h sans activité (api/_lib/seances-auto.js).
+  const secondsRef = useRef(0);
+  secondsRef.current = seconds;
+  useEffect(() => {
+    if (!profilId) return;
+    const series = [];
+    for (const ex of programme.exercices) {
+      const log = logs[ex.id];
+      if (!log || !log.sets?.length) continue;
+      log.sets.forEach((set, idx) => {
+        series.push({
+          exercice_nom: ex.nom,
+          poids: Number.isFinite(Number(set.poids)) ? Number(set.poids) : 0,
+          reps: Number.isFinite(Number(set.reps)) ? Number(set.reps) : 0,
+          rpe: set.rpe === "" || set.rpe == null || Number.isNaN(Number(set.rpe)) ? null : String(set.rpe),
+          tempo: set.tempo || "",
+          video_url: typeof log.video === "string" && /^https?:/.test(log.video) ? log.video : null,
+          numero_serie: idx + 1,
+        });
+      });
+    }
+    if (series.length === 0) return;
+    const t = setTimeout(() => {
+      supabase
+        .from("seances_en_cours")
+        .update({
+          progression: { programme_id: programme.id || null, nom_programme: programme.nom, duree_secondes: secondsRef.current, series },
+          derniere_maj: new Date().toISOString(),
+        })
+        .eq("profil_id", profilId)
+        .then(({ error }) => { if (error) console.error("Sauvegarde progression séance :", error.message); });
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [logs, profilId]);
 
   // Chrono de repos basé sur une horloge réelle (timestamp) : reste juste même si l'écran
   // s'éteint ou que l'app passe en arrière-plan, contrairement à un simple compteur.
@@ -3618,7 +3688,7 @@ function ScannerCodeBarres({ onClose, onScan }) {
   );
 }
 
-function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId, isCoach = false }) {
+function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId, isCoach = false, coachIdAliments = null }) {
   const [showScanner, setShowScanner] = useState(false);
   const [editingNomAliment, setEditingNomAliment] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -3849,8 +3919,12 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const [mesAlimentsRes, ciqualRes, offRes] = await Promise.all([
+        const [mesAlimentsRes, alimentsCoachRes, ciqualRes, offRes] = await Promise.all([
           profilId ? supabase.from("aliments_scannes").select("*").eq("profil_id", profilId).ilike("nom", `%${searchQuery}%`).limit(6) : Promise.resolve({ data: [] }),
+          // Aliments créés par le coach (Alimentation > Mes aliments) : visibles par lui et ses clients
+          coachIdAliments
+            ? supabase.from("aliments_coach").select("*").eq("coach_id", coachIdAliments).ilike("nom", `%${searchQuery}%`).limit(10).then((r) => (r.error ? { data: [] } : r))
+            : Promise.resolve({ data: [] }),
           supabase.from("aliments_ciqual").select("*").ilike("nom", `%${searchQuery}%`).limit(10),
           fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQuery)}&search_simple=1&action=process&json=1&page_size=20&lc=fr`).then((r) => r.json()).catch(() => ({ products: [] })),
         ]);
@@ -3870,6 +3944,19 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
           fer: a.fer || 0,
           magnesium: a.magnesium || 0,
           vitamineD: a.vitamine_d || 0,
+        }));
+
+        const alimentsCoachParsed = (alimentsCoachRes.data || []).map((a) => ({
+          nom: a.nom,
+          source: "Aliments du coach",
+          kcal: a.kcal || 0,
+          prot: a.prot || 0,
+          gluc: a.gluc || 0,
+          lip: a.lip || 0,
+          fibres: a.fibres || 0,
+          sucres: a.sucres || 0,
+          sodium: 0, potassium: 0, calcium: 0, fer: 0, magnesium: 0, vitamineD: 0,
+          poidsPortionSuggere: a.portion_g ? Math.round(a.portion_g) : null,
         }));
 
         const ciqualParsed = (ciqualRes.data || []).map((a) => ({
@@ -3909,8 +3996,8 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
             poidsPortionSuggere: p.serving_quantity ? Math.round(p.serving_quantity) : null,
           }));
 
-        // Mes aliments (déjà scannés) en premier, puis CIQUAL (référence officielle), puis Open Food Facts
-        setSearchResults([...mesAlimentsParsed, ...ciqualParsed, ...offParsed]);
+        // Mes aliments (déjà scannés) en premier, puis ceux du coach, puis CIQUAL (référence officielle), puis Open Food Facts
+        setSearchResults([...mesAlimentsParsed, ...alimentsCoachParsed, ...ciqualParsed, ...offParsed]);
       } catch (err) {
         console.error("Erreur recherche aliment:", err);
         setSearchResults([]);
@@ -4542,7 +4629,7 @@ function MacroRing({ label, val, obj, color }) {
   );
 }
 
-function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater, isCoach = false, selfClientPlan = null, onSaveParJour, onSaveParKg, onSaveNutritionParJour }) {
+function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater, isCoach = false, selfClientPlan = null, onSaveParJour, onSaveParKg, onSaveNutritionParJour, coachIdAliments = null }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showNutriDetail, setShowNutriDetail] = useState(false);
   const totals = useMemo(() => {
@@ -4635,7 +4722,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
         <SectionLabel icon={Apple} onBg>Repas</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {MEAL_DEFS.map((m) => (
-            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} fireToast={fireToast} profilId={profilId} isCoach={isCoach} />
+            <MealCard key={m.key} meal={m} items={meals[m.key]} onAdd={onAdd} onRemove={onRemove} onUpdate={onUpdate} fireToast={fireToast} profilId={profilId} isCoach={isCoach} coachIdAliments={coachIdAliments} />
           ))}
         </div>
       </div>
@@ -6071,9 +6158,10 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
                   <NavItem tab="clients" icon={User} label="Clients" />
                   <NavItem tab="taches" icon={ClipboardList} label="Tâches" badge={tachesEnAttenteCount} />
                   <NavItem tab="programmes" icon={Dumbbell} label="Programmes" />
-                  <NavItem icon={Apple} label="Alimentation" chevron chevronOpen={alimentationOuvert} onClick={() => setAlimentationOuvert(!alimentationOuvert)} actif={["alimentation-recettes", "alimentation-courses", "alimentation-supplements"].includes(coachTab)} />
+                  <NavItem icon={Apple} label="Alimentation" chevron chevronOpen={alimentationOuvert} onClick={() => setAlimentationOuvert(!alimentationOuvert)} actif={["alimentation-aliments", "alimentation-recettes", "alimentation-courses", "alimentation-supplements"].includes(coachTab)} />
                   {alimentationOuvert && (
                     <div style={subWrap}>
+                      <SubItem tab="alimentation-aliments" icon={Apple} label="Mes aliments" />
                       <SubItem tab="alimentation-recettes" icon={ClipboardList} label="Recettes" />
                       <SubItem tab="alimentation-courses" icon={ShoppingCart} label="Liste de courses" />
                       <SubItem tab="alimentation-supplements" icon={Pill} label="Suppléments" />
@@ -7822,6 +7910,176 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
   );
 }
 
+// Base d'aliments personnelle du coach : valeurs pour 100 g. Ces aliments apparaissent
+// dans la recherche d'aliments du coach ET de tous ses clients (MealCard, source
+// « Aliments du coach »), en plus de CIQUAL et Open Food Facts.
+function MesAlimentsView({ coachId, fireToast }) {
+  const vide = { nom: "", kcal: "", prot: "", gluc: "", lip: "", fibres: "", sucres: "", portion_g: "" };
+  const [aliments, setAliments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erreurTable, setErreurTable] = useState(false);
+  const [form, setForm] = useState(vide);
+  const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [filtre, setFiltre] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("aliments_coach").select("*").eq("coach_id", coachId).order("nom", { ascending: true });
+    if (error) {
+      console.error("Chargement aliments coach :", error);
+      setErreurTable(true);
+      setAliments([]);
+    } else {
+      setErreurTable(false);
+      setAliments(data || []);
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const num = (v) => {
+    const n = parseFloat(String(v ?? "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  };
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const ouvrirNouveau = () => { setForm(vide); setEditId(null); setShowForm(true); };
+  const ouvrirEdition = (a) => {
+    setForm({
+      nom: a.nom || "", kcal: a.kcal ?? "", prot: a.prot ?? "", gluc: a.gluc ?? "", lip: a.lip ?? "",
+      fibres: a.fibres ?? "", sucres: a.sucres ?? "", portion_g: a.portion_g ?? "",
+    });
+    setEditId(a.id);
+    setShowForm(true);
+  };
+
+  const enregistrer = async () => {
+    if (!form.nom.trim()) { fireToast("Donne un nom à l'aliment"); return; }
+    const prot = num(form.prot) || 0, gluc = num(form.gluc) || 0, lip = num(form.lip) || 0;
+    let kcal = num(form.kcal);
+    if (kcal == null) kcal = Math.round(prot * 4 + gluc * 4 + lip * 9);
+    if (!kcal && !prot && !gluc && !lip) { fireToast("Renseigne au moins les calories ou les macros"); return; }
+    const ligne = {
+      coach_id: coachId,
+      nom: form.nom.trim(),
+      kcal, prot, gluc, lip,
+      fibres: num(form.fibres) || 0,
+      sucres: num(form.sucres) || 0,
+      portion_g: num(form.portion_g),
+    };
+    setSaving(true);
+    try {
+      const { error } = editId
+        ? await supabase.from("aliments_coach").update(ligne).eq("id", editId)
+        : await supabase.from("aliments_coach").insert(ligne);
+      if (error) throw error;
+      fireToast(editId ? "Aliment modifié" : "Aliment ajouté", "green");
+      setShowForm(false);
+      setForm(vide);
+      setEditId(null);
+      load();
+    } catch (err) {
+      console.error(err);
+      fireToast("Erreur enregistrement aliment");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const supprimer = async (a) => {
+    if (!confirm(`Supprimer « ${a.nom} » ?`)) return;
+    const { error } = await supabase.from("aliments_coach").delete().eq("id", a.id);
+    if (error) { fireToast("Erreur suppression"); return; }
+    setAliments((prev) => prev.filter((x) => x.id !== a.id));
+  };
+
+  const fmt = (n) => (Math.round((Number(n) || 0) * 10) / 10).toString().replace(".", ",");
+  const liste = aliments.filter((a) => !filtre.trim() || a.nom.toLowerCase().includes(filtre.trim().toLowerCase()));
+  const btnPrimaire = { background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14.5 };
+
+  return (
+    <div style={{ textAlign: "left" }}>
+      <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>
+        Les aliments que tu ajoutes ici apparaissent dans la recherche d'aliments, pour toi et tous tes clients. Valeurs pour 100 g.
+      </div>
+
+      {erreurTable && (
+        <Card style={{ marginBottom: 14, border: "1.5px solid rgba(255,93,108,0.7)" }}>
+          <div style={{ fontSize: 13.5, color: C.red, fontWeight: 700 }}>La table « aliments_coach » n'existe pas encore dans Supabase.</div>
+          <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 4 }}>Exécute le script SQL fourni dans l'éditeur SQL de Supabase, puis recharge la page.</div>
+        </Card>
+      )}
+
+      <button onClick={ouvrirNouveau} style={{ ...btnPrimaire, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}>
+        <Plus size={17} /> Ajouter un aliment
+      </button>
+
+      <div style={{ position: "relative", marginBottom: 14 }}>
+        <Search size={16} color={C.textDim} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+        <input value={filtre} onChange={(e) => setFiltre(e.target.value)} placeholder="Rechercher dans mes aliments" style={{ ...inputStyle, paddingLeft: 40 }} />
+      </div>
+
+      <Card>
+        <SectionHead icon={Apple} title="Mes aliments" count={aliments.length} />
+        {loading ? (
+          <div style={{ fontSize: 13.5, color: C.textMuted }}>Chargement...</div>
+        ) : liste.length === 0 ? (
+          <div style={{ fontSize: 13.5, color: C.textMuted }}>{aliments.length === 0 ? "Aucun aliment pour l'instant." : "Aucun résultat."}</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {liste.map((a) => (
+              <div key={a.id} onClick={() => ouvrirEdition(a)} style={{ ...ROW_STYLE, cursor: "pointer" }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 14.5, color: C.text, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.nom}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 10px", marginTop: 3, fontSize: 12 }}>
+                    <span style={{ color: "#7FA0FF" }}>P {fmt(a.prot)}</span>
+                    <span style={{ color: "#F5C542" }}>G {fmt(a.gluc)}</span>
+                    <span style={{ color: "#F28C38" }}>L {fmt(a.lip)}</span>
+                    {a.portion_g ? <span style={{ color: C.textMuted }}>portion {fmt(a.portion_g)} g</span> : null}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                  <span style={{ fontSize: 15, color: C.text, fontWeight: 800 }}>{Math.round(a.kcal || 0)}<span style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}> kcal</span></span>
+                  <button onClick={(e) => { e.stopPropagation(); supprimer(a); }} style={{ background: "transparent", border: "none", color: C.textDim, padding: 6, display: "flex" }}><Trash2 size={15} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowForm(false)}>
+          <Card style={{ width: "100%", maxWidth: 400, maxHeight: "88vh", overflowY: "auto", textAlign: "left", border: "1.5px solid rgba(140,190,255,0.9)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}><SectionHead icon={Apple} title={editId ? "Modifier l'aliment" : "Nouvel aliment"} /></div>
+              <button onClick={() => setShowForm(false)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 12, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <Field label="Nom"><input style={inputStyle} value={form.nom} onChange={set("nom")} placeholder="ex : Galette de riz complet" /></Field>
+              <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700 }}>Valeurs pour 100 g</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Field label="Calories (kcal)"><input type="number" inputMode="decimal" style={inputStyle} value={form.kcal} onChange={set("kcal")} placeholder="auto si vide" /></Field>
+                <Field label="Protéines (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.prot} onChange={set("prot")} /></Field>
+                <Field label="Glucides (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.gluc} onChange={set("gluc")} /></Field>
+                <Field label="Lipides (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.lip} onChange={set("lip")} /></Field>
+                <Field label="Fibres (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.fibres} onChange={set("fibres")} placeholder="optionnel" /></Field>
+                <Field label="Sucres (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.sucres} onChange={set("sucres")} placeholder="optionnel" /></Field>
+              </div>
+              <Field label="Poids d'une portion (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.portion_g} onChange={set("portion_g")} placeholder="optionnel, ex : 30" /></Field>
+              <button onClick={enregistrer} disabled={saving} style={{ ...btnPrimaire, opacity: saving ? 0.6 : 1, marginTop: 4 }}>
+                {saving ? "Enregistrement..." : editId ? "Enregistrer les modifications" : "Ajouter l'aliment"}
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AlimentationView({ coachId, clients, fireToast, section }) {
   const [targetClientId, setTargetClientId] = useState("tous");
   const [loading, setLoading] = useState(true);
@@ -9319,6 +9577,7 @@ function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repas
               return (
                 <div>
                   <SectionLabel icon={Dumbbell}>Séance · {seance.nom_programme}</SectionLabel>
+                  {seance.enregistree_auto && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "#F5B833", marginBottom: 6 }}><AlertCircle size={13} /> Enregistrée automatiquement (non validée)</div>}
                   <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>{fmtTime(seance.duree_secondes || 0)}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {parExercice.map((ex, ei) => (
@@ -9831,6 +10090,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                       <div style={{ fontSize: 19, fontWeight: 800, color: C.text }}>{formatDateDisplay(s.date)}</div>
                       <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 700, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "4px 11px" }}><Clock size={13} /> {fmtTime(s.duree_secondes || 0)}</span>
                     </div>
+                    {s.enregistree_auto && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "#F5B833", background: "rgba(245,184,51,0.12)", border: "1px solid rgba(245,184,51,0.45)", borderRadius: 999, padding: "3px 10px", marginBottom: 12 }}><AlertCircle size={13} /> Non validée par le client · enregistrée automatiquement</div>}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 14 }}>
                       <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}>
                         <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{parExerciceAffiche.length}</div>
@@ -10687,7 +10947,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         const ids = clientsData.map((c) => c.id);
         const today = todayIso();
         const [seancesRes, bilansRes, programmesRes, seancesAujourdhuiRes, allSeancesRes, poidsRes, tachesRes, connexionsRes] = await Promise.all([
-          supabase.from("seances").select("id, profil_id, nom_programme, date").in("profil_id", ids).order("date", { ascending: false }).limit(8),
+          supabase.from("seances").select("*").in("profil_id", ids).order("date", { ascending: false }).limit(8),
           supabase.from("bilans_semaine").select("id, profil_id, date").in("profil_id", ids).limit(150),
           supabase.from("programmes").select("id, profil_id, nom").in("profil_id", ids).order("created_at", { ascending: true }),
           supabase.from("seances").select("profil_id").in("profil_id", ids).eq("date", today),
@@ -10767,6 +11027,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
 
   useEffect(() => {
     loadClients();
+    // Rattrape les séances oubliées des clients, puis recharge si de nouvelles ont été créées.
+    rattraperSeancesOubliees().then((r) => { if (r && r.enregistrees > 0) loadClients(); });
   }, [coachProfil.id]);
 
   const saveGroupe = async (clientId, groupe) => {
@@ -10844,7 +11106,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <div>
             <div style={{ fontFamily: FONT_BODY, fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600 }}>Espace coach</div>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, lineHeight: 1.15, color: C.textOnBg }}>
-              {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes" : coachTab === "alimentation-recettes" ? "Recettes" : coachTab === "alimentation-courses" ? "Liste de courses" : coachTab === "alimentation-supplements" ? "Suppléments" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
+              {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes" : coachTab === "alimentation-aliments" ? "Mes aliments" : coachTab === "alimentation-recettes" ? "Recettes" : coachTab === "alimentation-courses" ? "Liste de courses" : coachTab === "alimentation-supplements" ? "Suppléments" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
             </div>
           </div>
         </div>
@@ -10855,7 +11117,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <TachesView coachId={coachProfil.id} fireToast={fireToast} />
         ) : coachTab === "programmes" ? (
           <ProgrammesModelesView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
-        ) : coachTab === "alimentation-recettes" ? (
+        ) : coachTab === "alimentation-aliments" ? (
+          <MesAlimentsView coachId={coachProfil.id} fireToast={fireToast} />        ) : coachTab === "alimentation-recettes" ? (
           <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="recettes" />
         ) : coachTab === "alimentation-courses" ? (
           <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="courses" />
@@ -10973,7 +11236,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                           <IconBadge icon={estSeance ? Dumbbell : ClipboardList} color={estSeance ? "#7FA0FF" : "#3AD6A0"} size={36} iconSize={17} />
                           <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                             <div style={{ fontSize: 14, color: C.textMuted, lineHeight: 1.35 }}>
-                              <span style={{ color: C.text, fontWeight: 800 }}>{c ? c.prenom : "Un client"}</span>{estSeance ? ` a terminé « ${item.data.nom_programme} »` : " a rempli son bilan de semaine"}
+                              <span style={{ color: C.text, fontWeight: 800 }}>{c ? c.prenom : "Un client"}</span>{estSeance ? (item.data.enregistree_auto ? ` n'a pas validé « ${item.data.nom_programme} » (enregistrée auto)` : ` a terminé « ${item.data.nom_programme} »`) : " a rempli son bilan de semaine"}
                             </div>
                             <div style={{ fontSize: 12, color: C.textDim, marginTop: 1 }}>{formatDateDisplay(item.data.date)}</div>
                           </div>
@@ -12091,6 +12354,28 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         }
       }
 
+      // La séance validée par le client remplace celle que le serveur avait enregistrée
+      // automatiquement (client qui avait oublié de valider puis revient terminer).
+      try {
+        const depuis = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+        let autoQuery = supabase
+          .from("seances")
+          .select("id")
+          .eq("profil_id", profilId)
+          .eq("enregistree_auto", true)
+          .gte("date", depuis)
+          .neq("id", seanceId);
+        autoQuery = programme.id ? autoQuery.eq("programme_id", programme.id) : autoQuery.eq("nom_programme", programme.nom);
+        const { data: autos, error: autosErr } = await autoQuery;
+        if (!autosErr && autos && autos.length > 0) {
+          const idsAuto = autos.map((a) => a.id);
+          await supabase.from("series").delete().in("seance_id", idsAuto);
+          await supabase.from("seances").delete().in("id", idsAuto);
+        }
+      } catch (autoErr) {
+        console.error("Remplacement séance auto :", autoErr);
+      }
+
       // Historique borné : on garde seulement les N séances les plus récentes par
       // programme. Le minimum technique est 2 — la couleur Progrès/Stagnation/Régression
       // compare toujours la séance du jour à celle d'avant, donc les deux doivent exister
@@ -12281,6 +12566,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               onSaveParJour={saveObjectifsKcalParJourSelf}
               onSaveParKg={saveObjectifsParKgSelf}
               onSaveNutritionParJour={saveNutritionParJourSelf}
+              coachIdAliments={profilRow.role === "coach" ? profilId : profilRow.coach_id || null}
             />
           )}
           {tab === "bilans" && (
@@ -12348,6 +12634,7 @@ export default function App() {
       try {
         const profil = await fetchProfilByAuthUserId(session.user.id);
         if (active) setMyProfil(profil);
+        if (profil && profil.role !== "coach") rattraperSeancesOubliees();
       } catch (err) {
         console.error(err);
         fireToast("Erreur chargement profil");
