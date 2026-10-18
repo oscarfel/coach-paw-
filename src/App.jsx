@@ -785,6 +785,35 @@ function CalendrierSeances({ recentSeances }) {
     </div>
   );
 }
+// Étiquette orange affichée sur une séance enregistrée automatiquement (le client a
+// rempli des séries mais n'a pas appuyé sur « Terminer »). Cliquable : ouvre une explication.
+const EtiquetteNonValidee = ({ onClick }) => (
+  <button
+    onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
+    style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 8, verticalAlign: "middle", fontSize: 11.5, fontWeight: 800, color: "#FFB547", background: "rgba(255,150,40,0.14)", border: "1.5px solid rgba(255,150,40,0.85)", boxShadow: "0 0 10px rgba(255,150,40,0.45)", borderRadius: 999, padding: "2px 9px", textTransform: "none", letterSpacing: 0, cursor: "pointer" }}
+  >
+    <AlertCircle size={12} /> Non validée
+  </button>
+);
+
+function PopupSeanceNonValidee({ pourCoach = false, onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 360, textAlign: "left", border: "1.5px solid rgba(255,150,40,0.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12), 0 0 26px rgba(255,150,40,0.45), 0 14px 36px rgba(0,0,0,0.5)" }} onClick={(e) => e.stopPropagation()}>
+        <SectionHead icon={AlertCircle} title="Séance non validée" color="#FFB547" />
+        <div style={{ fontSize: 14, color: C.text, lineHeight: 1.55 }}>
+          {pourCoach
+            ? "Ton client a rempli des séries mais n'a pas appuyé sur « Terminer ». La séance a été enregistrée automatiquement avec tout ce qu'il avait rempli : il peut manquer les dernières séries."
+            : "N'oublie pas de valider toute la séance en appuyant sur « Terminer » à la fin ! Cette fois, elle a été enregistrée automatiquement avec les séries que tu avais remplies, mais ton coach peut ne pas avoir tout."}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", marginTop: 16, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14.5 }}>
+          Compris
+        </button>
+      </Card>
+    </div>
+  );
+}
+
 function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, isCoach, profilId, onSeanceCreated, weightHistory, recentSeances, setTab, mode = "accueil", meals, objectifsNutrition, streak = 0, streakEnAttente = false, routinesDuJour = [], onLaunchRoutine, onManageRoutines, prochaineRoutine = null, toutesRoutines = [], onVoirRoutines }) {
   const [showSeanceForm, setShowSeanceForm] = useState(false);
   const [draggedProgIdx, setDraggedProgIdx] = useState(null);
@@ -879,6 +908,28 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
     }
     return valides;
   }, [recentSeances, programmesJourFixe]);
+
+  // Jours validés cette semaine uniquement par une séance enregistrée automatiquement
+  // (aucune séance terminée normalement ce jour-là) : affichés en vert + étiquette orange.
+  const joursNonValidesCetteSemaine = useMemo(() => {
+    if (!recentSeances || recentSeances.length === 0) return new Set();
+    const now = new Date();
+    const decalage = (now.getDay() + 6) % 7;
+    const lundi = new Date(now);
+    lundi.setDate(now.getDate() - decalage);
+    const lundiIso = `${lundi.getFullYear()}-${String(lundi.getMonth() + 1).padStart(2, "0")}-${String(lundi.getDate()).padStart(2, "0")}`;
+    const auto = new Set();
+    const normaux = new Set();
+    for (const s of recentSeances) {
+      if (String(s.date).slice(0, 10) < lundiIso) continue;
+      const p = programmesJourFixe.find((prog) => prog.id === s.programme_id) || programmesJourFixe.find((prog) => prog.nom === s.nom_programme);
+      if (!p) continue;
+      (s.enregistree_auto ? auto : normaux).add(p.jourFixe);
+    }
+    for (const j of normaux) auto.delete(j);
+    return auto;
+  }, [recentSeances, programmesJourFixe]);
+  const [showPopupNonValidee, setShowPopupNonValidee] = useState(false);
 
   const poidsEvol7j = useMemo(() => {
     if (!weightHistory || weightHistory.length < 2) return null;
@@ -1389,6 +1440,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
             {programmesJourFixe.length > 0 && (
               <div style={{ marginBottom: 18 }}>
                 <SectionLabel icon={Calendar} onBg>Semaine type</SectionLabel>
+                {showPopupNonValidee && <PopupSeanceNonValidee onClose={() => setShowPopupNonValidee(false)} />}
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {JOURS_ORDRE.map((jour) => {
                     const p = programmesJourFixe.find((prog) => prog.jourFixe === jour);
@@ -1412,6 +1464,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                         <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                           <div style={{ fontSize: 12.5, fontWeight: 700, color: estValide ? C.green : (estAujourdhui ? "#F5C542" : C.textMuted), textTransform: "capitalize", letterSpacing: 0 }}>
                             {jour}{estAujourdhui && " · Aujourd'hui"}{estValide && " · Validé"}
+                            {estValide && joursNonValidesCetteSemaine.has(jour) && <EtiquetteNonValidee onClick={() => setShowPopupNonValidee(true)} />}
                           </div>
                           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: p ? C.text : C.textDim, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p ? p.nom : "Repos"}
@@ -9644,6 +9697,7 @@ function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repas
 }
 
 function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
+  const [showPopupNonValideeCoach, setShowPopupNonValideeCoach] = useState(false);
   const [tab, setTab] = useState("programme");
   const [openBilans, setOpenBilans] = useState({});
   const [loading, setLoading] = useState(true);
@@ -10233,6 +10287,16 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 const p = avecJour.find((prog) => prog.id === s.programme_id) || avecJour.find((prog) => prog.nom === s.nom_programme);
                 if (p) joursValidesCetteSemaine.add(p.jour_fixe);
               }
+              // Jours "validés" uniquement par une séance enregistrée automatiquement (non validée par le client)
+              const joursNonValidesCetteSemaine = new Set();
+              const joursNormaux = new Set();
+              for (const s of seancesAvecSeries) {
+                if (String(s.date).slice(0, 10) < lundiIso) continue;
+                const p = avecJour.find((prog) => prog.id === s.programme_id) || avecJour.find((prog) => prog.nom === s.nom_programme);
+                if (!p) continue;
+                (s.enregistree_auto ? joursNonValidesCetteSemaine : joursNormaux).add(p.jour_fixe);
+              }
+              for (const j of joursNormaux) joursNonValidesCetteSemaine.delete(j);
 
               const renderProgCard = (p) => (
                 <Card key={p.id} onClick={() => setSelectedProgramme(p)} style={{ cursor: "pointer" }}>
@@ -10262,6 +10326,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   {avecJour.length > 0 && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 6 }}>
                       <SectionLabel icon={Calendar} onBg>Semaine type</SectionLabel>
+                      {showPopupNonValideeCoach && <PopupSeanceNonValidee pourCoach onClose={() => setShowPopupNonValideeCoach(false)} />}
                       {JOURS_ORDRE.map((jour) => {
                         const p = avecJour.find((prog) => prog.jour_fixe === jour);
                         const estValide = joursValidesCetteSemaine.has(jour);
@@ -10281,6 +10346,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                             <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                               <div style={{ fontSize: 12.5, fontWeight: 700, color: estValide ? C.green : C.textMuted, textTransform: "capitalize", letterSpacing: 0 }}>
                                 {jour}{estValide && " · Validé cette semaine"}
+                                {estValide && joursNonValidesCetteSemaine.has(jour) && <EtiquetteNonValidee onClick={() => setShowPopupNonValideeCoach(true)} />}
                               </div>
                               <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: p ? C.text : C.textDim, marginTop: 2 }}>{p ? p.nom : "Repos"}</div>
                               {p && (
