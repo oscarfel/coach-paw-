@@ -1045,6 +1045,21 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
     )
   );
 
+  // Bonus palier « liste de courses » : +0,5 pt par article coché ce mois-ci (max 5).
+  const [pointsCourses, setPointsCourses] = useState(0);
+  useEffect(() => {
+    if (!profilId) return;
+    const debutMois = new Date();
+    debutMois.setDate(1);
+    debutMois.setHours(0, 0, 0, 0);
+    supabase.from("listes_courses_coches").select("coches").eq("profil_id", profilId).gte("updated_at", debutMois.toISOString())
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const n = data.reduce((a, r) => a + (Array.isArray(r.coches) ? r.coches.length : 0), 0);
+        setPointsCourses(Math.min(COURSES_POINTS_MAX, n * COURSES_POINTS_PAR_ARTICLE));
+      });
+  }, [profilId]);
+
   // Score du palier mensuel (0-100), réparti en 4 blocs de 25 points
   const scorePoids = Math.round(Math.pow(Math.min(1, Math.max(0, progressPoids / 100)), 2) * 25);
   const semainesEcoulees = Math.max(1, Math.ceil(new Date().getDate() / 7));
@@ -1052,7 +1067,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
   const scoreSeances = objectifSeancesMois > 0 ? Math.round(Math.min(1, stats.seancesRealisees / objectifSeancesMois) * 25) : 0;
   const scoreNutrition = Math.round(Math.min(1, streak / 10) * 25);
   const scoreCharge = Math.min(25, tousLesProgres.length * 0.5);
-  const badgeScore = scorePoids + scoreSeances + scoreNutrition + scoreCharge;
+  const badgeScore = Math.min(100, scorePoids + scoreSeances + scoreNutrition + scoreCharge + pointsCourses);
   const TIER_INFO = {
     bronze: { label: "Bronze", emoji: "🥉", color: "#CD7F5A" },
     argent: { label: "Argent", emoji: "🥈", color: "#B8C0CC" },
@@ -1603,6 +1618,14 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 </div>
                 <ProgressBar value={scoreCharge} max={25} color={C.red} height={6} />
                 <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>+0,5 point à chaque exercice où tu progresses (poids ou répétitions).</div>
+              </div>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                  <span style={{ color: C.text, fontWeight: 700 }}>🛒 Liste de courses (bonus)</span>
+                  <span style={{ fontFamily: FONT_MONO, color: C.textMuted }}>{String(pointsCourses).replace(".", ",")}/{COURSES_POINTS_MAX}</span>
+                </div>
+                <ProgressBar value={pointsCourses} max={COURSES_POINTS_MAX} color={C.amber} height={6} />
+                <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>+0,5 point par article coché dans ta liste de courses ce mois-ci.</div>
               </div>
             </div>
             <button onClick={() => setShowBadgeDetail(false)} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14, marginTop: 18 }}>Fermer</button>
@@ -4531,25 +4554,433 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   );
 }
 
-function CoursesEtSupplements({ profilId, fireToast }) {
+/* ------------------------------------------------------------------ */
+/*  LISTE DE COURSES (partagé coach / client)                          */
+/* ------------------------------------------------------------------ */
+const COURSES_CATEGORIES = [
+  { key: "proteines", label: "Protéines", emoji: "🥩", color: "#7FA0FF" },
+  { key: "glucides", label: "Glucides", emoji: "🍚", color: "#F5C542" },
+  { key: "lipides", label: "Lipides", emoji: "🥑", color: "#F28C38" },
+  { key: "fibres", label: "Fibres · fruits & légumes", emoji: "🥦", color: "#3AD6A0" },
+  { key: "autres", label: "Autres", emoji: "🧂", color: "#B9C4E0" },
+];
+const COURSES_UNITES = ["g", "kg", "ml", "L", "unités", "tranches", "paquets", "boîtes"];
+
+// Catégorie devinée à partir du nom (modifiable ensuite par le coach). Les expressions les
+// plus précises passent en premier (« beurre de cacahuète » avant « beurre », etc.).
+const COURSES_MOTS_CLES = [
+  ["lipides", /beurre de cacahuete|puree d.amande|huile|avocat|amande|noix|noisette|cacahuete|cajou|pistache|graines|chia|\blin\b|olive|creme|chocolat noir|beurre/],
+  ["proteines", /fromage blanc|skyr|blanc d.oeuf|oeuf|poulet|dinde|boeuf|steak|viande|jambon|poisson|saumon|thon|cabillaud|colin|crevette|sardine|maquereau|whey|proteine|tofu|tempeh|porc|veau|canard|yaourt|cottage|escalope/],
+  ["glucides", /\briz\b|pate|pain|avoine|flocon|patate|pomme de terre|quinoa|semoule|boulgour|cereale|wrap|tortilla|galette|lentille|pois chiche|haricot rouge|miel|granola|muesli|farine|couscous|gnocchi|biscotte/],
+  ["fibres", /legume|brocoli|haricot vert|courgette|epinard|salade|tomate|carotte|poivron|chou|champignon|concombre|oignon|fruit|pomme|banane|fraise|myrtille|framboise|kiwi|orange|citron|\bail\b|poireau|aubergine|asperge|petits pois|ananas|mangue|raisin|poire/],
+  ["lipides", /fromage|emmental|comte|mozzarella|parmesan|feta/],
+];
+function devinerCategorieCourse(nom) {
+  const n = String(nom || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/œ/g, "oe");
+  for (const [cat, re] of COURSES_MOTS_CLES) if (re.test(n)) return cat;
+  return "autres";
+}
+// Les anciennes listes stockaient de simples textes : on les convertit à la volée.
+function normaliserItemCourse(it) {
+  if (typeof it === "string") return { nom: it, qte: null, unite: "", cat: devinerCategorieCourse(it) };
+  return { nom: it?.nom || "", qte: it?.qte ?? null, unite: it?.unite || "", cat: it?.cat || devinerCategorieCourse(it?.nom) };
+}
+function formatQteCourse(it) {
+  if (it.qte == null || it.qte === "") return "";
+  return `${String(it.qte).replace(".", ",")}${it.unite ? (["g", "kg", "ml", "L"].includes(it.unite) ? " " : " ") + it.unite : ""}`;
+}
+function grouperItemsCourse(items) {
+  return COURSES_CATEGORIES.map((c) => ({ ...c, items: items.map((it, i) => ({ ...normaliserItemCourse(it), index: i })).filter((it) => it.cat === c.key) }))
+    .filter((g) => g.items.length > 0);
+}
+const cleItemCourse = (it) => `${it.index}:${it.nom}`;
+
+// Points de palier : +0,5 par article coché ce mois-ci, plafonné à 5 (bonus, voir EntrainementHome).
+const COURSES_POINTS_PAR_ARTICLE = 0.5;
+const COURSES_POINTS_MAX = 5;
+
+function ListeCoursesClient({ liste, profilId, onClose }) {
+  const items = (liste?.items || []).map(normaliserItemCourse);
+  const groupes = grouperItemsCourse(liste?.items || []);
+  const storageKey = liste ? `courses_coches_${liste.id}` : null;
+  const [coches, setCoches] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(storageKey) || "[]")); } catch { return new Set(); }
+  });
+  const [anim, setAnim] = useState(null); // clé de l'article qui vient d'être coché (pop + « +0,5 pt »)
+
+  useEffect(() => {
+    if (!liste || !profilId) return;
+    supabase.from("listes_courses_coches").select("coches").eq("profil_id", profilId).eq("liste_id", liste.id).maybeSingle()
+      .then(({ data, error }) => { if (!error && data && Array.isArray(data.coches)) setCoches(new Set(data.coches)); });
+  }, [liste?.id, profilId]);
+
+  const toggle = (it) => {
+    const k = cleItemCourse(it);
+    const next = new Set(coches);
+    const coche = !next.has(k);
+    if (coche) next.add(k); else next.delete(k);
+    setCoches(next);
+    if (coche) { setAnim(k); setTimeout(() => setAnim((a) => (a === k ? null : a)), 900); if (navigator.vibrate) navigator.vibrate(15); }
+    const arr = [...next];
+    try { localStorage.setItem(storageKey, JSON.stringify(arr)); } catch { /* ignoré */ }
+    if (profilId) {
+      supabase.from("listes_courses_coches")
+        .upsert({ profil_id: profilId, liste_id: liste.id, coches: arr, updated_at: new Date().toISOString() }, { onConflict: "profil_id,liste_id" })
+        .then(({ error }) => { if (error) console.error("Sauvegarde cases cochées :", error.message); });
+    }
+  };
+
+  const total = items.length;
+  const fait = items.filter((it, i) => coches.has(`${i}:${it.nom}`)).length;
+  const pct = total > 0 ? (fait / total) * 100 : 0;
+  const reste = total - fait;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <style>{`
+        @keyframes coursePop { 0% { transform: scale(.6); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        @keyframes courseFloat { 0% { opacity: 0; transform: translateY(4px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px); } }
+        @keyframes courseIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      `}</style>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "86vh", overflowY: "auto", textAlign: "left", padding: 18 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#F5B833", letterSpacing: "0.06em" }}>● COURSES</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 2 }}>{liste?.nom || "Ta liste de courses"}</div>
+          </div>
+          {total > 0 && <span style={{ fontSize: 12.5, fontWeight: 800, color: C.text, background: "rgba(255,255,255,0.08)", borderRadius: 999, padding: "4px 10px", flexShrink: 0 }}>{fait} / {total}</span>}
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 12, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><X size={16} /></button>
+        </div>
+
+        {total === 0 ? (
+          <div style={{ color: C.textMuted, fontSize: 13.5, textAlign: "center", padding: "24px 0 8px" }}>Ton coach ne t'a pas encore envoyé de liste de courses</div>
+        ) : (
+          <>
+            {/* Barre compacte avec le caddie qui avance */}
+            <div style={{ position: "relative", height: 30, margin: "14px 0 4px" }}>
+              <div style={{ position: "absolute", left: 0, right: 0, top: 13, height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)" }} />
+              <div style={{ position: "absolute", left: 0, top: 13, height: 6, borderRadius: 999, width: `${pct}%`, background: "linear-gradient(90deg,#3B6FE0,#3AD6A0)", boxShadow: "0 0 10px rgba(58,214,160,0.5)", transition: "width .5s cubic-bezier(.34,1.3,.64,1)" }} />
+              <div style={{ position: "absolute", top: 0, left: `calc(${pct}% - ${pct * 0.26}px)`, fontSize: 22, lineHeight: 1, transition: "left .5s cubic-bezier(.34,1.3,.64,1)", transform: "scaleX(-1)" }}>🛒</div>
+            </div>
+            <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 14 }}>
+              {reste === 0 ? "Courses terminées, bravo ! 🎉" : `Encore ${reste} produit${reste > 1 ? "s" : ""}, tu tiens le bon bout 💪`}
+              <span style={{ color: "#F5B833", fontWeight: 700 }}> · +{String(COURSES_POINTS_PAR_ARTICLE).replace(".", ",")} pt de palier par article</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {groupes.map((g) => {
+                const faitsGroupe = g.items.filter((it) => coches.has(cleItemCourse(it))).length;
+                return (
+                  <div key={g.key} style={{ animation: "courseIn .35s ease both" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ width: 4, height: 18, borderRadius: 4, background: g.color, boxShadow: `0 0 8px ${g.color}` }} />
+                      <span style={{ fontSize: 16 }}>{g.emoji}</span>
+                      <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: C.text }}>{g.label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: g.color, background: `${g.color}1F`, borderRadius: 999, padding: "2px 9px" }}>{faitsGroupe}/{g.items.length}</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {g.items.map((it) => {
+                        const k = cleItemCourse(it);
+                        const ok = coches.has(k);
+                        const q = formatQteCourse(it);
+                        return (
+                          <div key={k} onClick={() => toggle(it)} style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderRadius: 14, padding: "11px 12px",
+                            background: ok ? "rgba(58,214,160,0.13)" : "rgba(255,255,255,0.04)", border: `1px solid ${ok ? "rgba(58,214,160,0.45)" : "rgba(255,255,255,0.08)"}`, transition: "background .25s, border-color .25s" }}>
+                            <div style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                              background: ok ? C.green : "transparent", border: `2px solid ${ok ? C.green : "rgba(255,255,255,0.3)"}`, boxShadow: ok ? "0 0 10px rgba(58,214,160,0.6)" : "none",
+                              animation: anim === k ? "coursePop .35s ease" : "none", transition: "background .2s" }}>
+                              {ok && <Check size={15} color="#06171F" strokeWidth={3.5} />}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 14.5, fontWeight: 700, color: C.text, opacity: ok ? 0.72 : 1, textDecoration: ok ? "line-through" : "none", textDecorationColor: "rgba(255,255,255,0.55)", textDecorationThickness: 1.5 }}>{it.nom}</div>
+                              {q && <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 1, opacity: ok ? 0.75 : 1 }}>{q}</div>}
+                            </div>
+                            {anim === k && <span style={{ position: "absolute", right: 12, top: 6, fontSize: 12, fontWeight: 800, color: "#F5B833", animation: "courseFloat .9s ease forwards", pointerEvents: "none" }}>+{String(COURSES_POINTS_PAR_ARTICLE).replace(".", ",")} pt</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// Coach : créer des listes, les garder de côté (modèles réutilisables) et les envoyer
+// à un client, à tous, ou à soi-même.
+function CoursesCoachView({ coachId, clients, fireToast }) {
+  const [listes, setListes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState(null);
+  const [nomListe, setNomListe] = useState("");
+  const [items, setItems] = useState([]);
+  const [nomItem, setNomItem] = useState("");
+  const [qteItem, setQteItem] = useState("");
+  const [uniteItem, setUniteItem] = useState("g");
+  const [catItem, setCatItem] = useState("autres");
+  const [catManuelle, setCatManuelle] = useState(false);
+  const [cible, setCible] = useState("tous");
+  const [cibleParModele, setCibleParModele] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("listes_courses").select("*").eq("coach_id", coachId).order("updated_at", { ascending: false });
+    if (error) { console.error(error); fireToast("Erreur chargement des listes"); }
+    setListes(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const modeles = listes.filter((l) => l.envoyee === false);
+  const envoyees = listes.filter((l) => l.envoyee !== false);
+
+  const nomCible = (id) => {
+    if (!id) return "Tous mes clients";
+    if (id === coachId) return "Moi";
+    const c = clients.find((cl) => cl.id === id);
+    return c ? `${c.prenom} ${c.nom}` : "Client";
+  };
+  const optionsCible = (
+    <>
+      <option value="tous">Tous mes clients</option>
+      <option value={coachId}>Moi (ma propre liste)</option>
+      {clients.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+    </>
+  );
+  const selectStyle = { ...inputStyle, padding: "11px 12px" };
+
+  const onNomItem = (v) => {
+    setNomItem(v);
+    if (!catManuelle) setCatItem(devinerCategorieCourse(v));
+  };
+  const ajouterItem = () => {
+    if (!nomItem.trim()) return;
+    const q = parseFloat(String(qteItem).replace(",", "."));
+    setItems((prev) => [...prev, { nom: nomItem.trim(), qte: Number.isFinite(q) ? q : null, unite: Number.isFinite(q) ? uniteItem : "", cat: catItem }]);
+    setNomItem(""); setQteItem(""); setCatManuelle(false); setCatItem("autres");
+  };
+  const reset = () => { setEditId(null); setNomListe(""); setItems([]); setNomItem(""); setQteItem(""); setCatManuelle(false); setCatItem("autres"); };
+
+  const erreurMigration = (err) => /column|envoyee|nom|schema/i.test(err?.message || "")
+    ? "Exécute d'abord le script SQL des listes de courses dans Supabase"
+    : "Erreur enregistrement de la liste";
+
+  const mettreDeCote = async () => {
+    if (items.length === 0) { fireToast("Ajoute au moins un article"); return; }
+    setSaving(true);
+    try {
+      const ligne = { nom: nomListe.trim() || "Liste sans nom", items, updated_at: new Date().toISOString() };
+      const { error } = editId
+        ? await supabase.from("listes_courses").update(ligne).eq("id", editId)
+        : await supabase.from("listes_courses").insert({ ...ligne, coach_id: coachId, client_id: null, envoyee: false });
+      if (error) throw error;
+      fireToast(editId ? "Liste mise à jour" : "Liste mise de côté", "green");
+      reset();
+      load();
+    } catch (err) { console.error(err); fireToast(erreurMigration(err)); } finally { setSaving(false); }
+  };
+
+  const envoyer = async (nom, its, cibleValeur) => {
+    const { error } = await supabase.from("listes_courses").insert({
+      coach_id: coachId, client_id: cibleValeur === "tous" ? null : cibleValeur, nom: nom || "Liste de courses", items: its, envoyee: true, updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    // Prévient le(s) destinataire(s) si ce n'est pas le coach lui-même
+    if (cibleValeur !== coachId) {
+      const ids = cibleValeur === "tous" ? clients.map((c) => c.id) : [cibleValeur];
+      ids.forEach((id) => fetch("/api/send-push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: id, titre: "Nouvelle liste de courses 🛒", message: "Ton coach t'a envoyé une liste de courses, retrouve-la dans Nutrition." }) }).catch(() => {}));
+    }
+  };
+
+  const envoyerBuilder = async () => {
+    if (items.length === 0) { fireToast("Ajoute au moins un article"); return; }
+    setSaving(true);
+    try {
+      await envoyer(nomListe.trim(), items, cible);
+      fireToast(`Liste envoyée à ${nomCible(cible === "tous" ? null : cible)}`, "green");
+      reset();
+      load();
+    } catch (err) { console.error(err); fireToast(erreurMigration(err)); } finally { setSaving(false); }
+  };
+
+  const envoyerModele = async (m) => {
+    const c = cibleParModele[m.id] || "tous";
+    try {
+      await envoyer(m.nom, m.items, c);
+      fireToast(`« ${m.nom} » envoyée à ${nomCible(c === "tous" ? null : c)}`, "green");
+      load();
+    } catch (err) { console.error(err); fireToast(erreurMigration(err)); }
+  };
+
+  const modifier = (m) => {
+    setEditId(m.id); setNomListe(m.nom || ""); setItems((m.items || []).map(normaliserItemCourse));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const supprimer = async (l) => {
+    if (!confirm(`Supprimer « ${l.nom || "cette liste"} » ?`)) return;
+    const { error } = await supabase.from("listes_courses").delete().eq("id", l.id);
+    if (error) { fireToast("Erreur suppression"); return; }
+    setListes((prev) => prev.filter((x) => x.id !== l.id));
+    if (editId === l.id) reset();
+  };
+
+  const resumeCategories = (its) => grouperItemsCourse(its || []).map((g) => (
+    <span key={g.key} style={{ fontSize: 11.5, fontWeight: 700, color: g.color, background: `${g.color}1A`, border: `1px solid ${g.color}55`, borderRadius: 999, padding: "2px 8px" }}>{g.emoji} {g.items.length}</span>
+  ));
+  const btnPrimaire = { background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14.5 };
+  const btnSecondaire = { background: "rgba(59,111,224,0.15)", border: "1px solid rgba(110,150,255,0.6)", color: "#B9D0FF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14.5 };
+
+  return (
+    <div style={{ textAlign: "left" }}>
+      <div style={{ fontSize: 14, color: C.textOnBgMuted, marginBottom: 14 }}>
+        Prépare tes listes, garde-les de côté et envoie-les à un client, à tous, ou à toi-même. Le client les retrouve dans Nutrition et coche ses articles.
+      </div>
+
+      <Card style={{ marginBottom: 18, border: editId ? "1.5px solid rgba(245,184,51,0.85)" : undefined }}>
+        <SectionHead icon={ShoppingCart} title={editId ? "Modifier la liste" : "Nouvelle liste de courses"} count={items.length || null} />
+        <Field label="Nom de la liste">
+          <input style={inputStyle} value={nomListe} onChange={(e) => setNomListe(e.target.value)} placeholder="ex : Sèche – semaine type" />
+        </Field>
+
+        <div style={{ marginTop: 14, padding: 12, borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 8 }}>Ajouter un article</div>
+          <input style={inputStyle} value={nomItem} onChange={(e) => onNomItem(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ajouterItem(); }} placeholder="ex : Pâtes complètes, Œufs, Brocolis…" />
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <input type="number" inputMode="decimal" style={{ ...inputStyle, flex: 1 }} value={qteItem} onChange={(e) => setQteItem(e.target.value)} placeholder="Quantité" />
+            <select style={{ ...selectStyle, flex: 1 }} value={uniteItem} onChange={(e) => setUniteItem(e.target.value)}>
+              {COURSES_UNITES.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+            {COURSES_CATEGORIES.map((c) => {
+              const actif = catItem === c.key;
+              return (
+                <button key={c.key} onClick={() => { setCatItem(c.key); setCatManuelle(true); }} style={{ fontSize: 12.5, fontWeight: 700, borderRadius: 999, padding: "6px 11px",
+                  color: actif ? "#06171F" : c.color, background: actif ? c.color : `${c.color}14`, border: `1px solid ${c.color}${actif ? "" : "66"}`, boxShadow: actif ? `0 0 10px ${c.color}88` : "none" }}>
+                  {c.emoji} {c.label.split(" ·")[0]}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={ajouterItem} style={{ ...btnSecondaire, width: "100%", marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Ajouter à la liste</button>
+        </div>
+
+        {items.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+            {grouperItemsCourse(items).map((g) => (
+              <div key={g.key}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                  <span style={{ width: 4, height: 15, borderRadius: 4, background: g.color }} />
+                  <span style={{ fontSize: 13.5, fontWeight: 800, color: C.text }}>{g.emoji} {g.label}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {g.items.map((it) => (
+                    <div key={it.index} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "8px 10px" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, color: C.text, fontWeight: 700 }}>{it.nom}</div>
+                        {formatQteCourse(it) && <div style={{ fontSize: 12, color: C.textMuted }}>{formatQteCourse(it)}</div>}
+                      </div>
+                      <select value={it.cat} onChange={(e) => setItems((prev) => prev.map((x, i) => (i === it.index ? { ...normaliserItemCourse(x), cat: e.target.value } : x)))}
+                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 10, padding: "5px 6px", fontSize: 12, maxWidth: 96 }}>
+                        {COURSES_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label.split(" ·")[0]}</option>)}
+                      </select>
+                      <button onClick={() => setItems((prev) => prev.filter((_, i) => i !== it.index))} style={{ background: "transparent", border: "none", color: C.textDim, padding: 4, display: "flex" }}><X size={15} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={mettreDeCote} disabled={saving} style={{ ...btnSecondaire, width: "100%", marginTop: 16, opacity: saving ? 0.6 : 1 }}>
+          {editId ? "Enregistrer les modifications" : "Mettre de côté"}
+        </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <select style={{ ...selectStyle, flex: 1 }} value={cible} onChange={(e) => setCible(e.target.value)}>{optionsCible}</select>
+          <button onClick={envoyerBuilder} disabled={saving} style={{ ...btnPrimaire, padding: "11px 16px", display: "flex", alignItems: "center", gap: 6, opacity: saving ? 0.6 : 1 }}><Send size={15} /> Envoyer</button>
+        </div>
+        {editId && <button onClick={reset} style={{ width: "100%", marginTop: 8, background: "transparent", border: "none", color: C.textMuted, fontSize: 13, padding: 6, textDecoration: "underline" }}>Annuler la modification</button>}
+      </Card>
+
+      <Card style={{ marginBottom: 18 }}>
+        <SectionHead icon={Folder} title="Listes de côté" count={modeles.length} color="#F5B833" />
+        {loading ? <div style={{ fontSize: 13.5, color: C.textMuted }}>Chargement...</div> : modeles.length === 0 ? (
+          <div style={{ fontSize: 13.5, color: C.textMuted }}>Aucune liste de côté. Prépare une liste puis « Mettre de côté » pour la réutiliser avec plusieurs clients.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {modeles.map((m) => (
+              <div key={m.id} style={{ borderRadius: 16, padding: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(245,184,51,0.35)" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{m.nom || "Liste sans nom"}</div>
+                    <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>{(m.items || []).length} article{(m.items || []).length > 1 ? "s" : ""}</div>
+                  </div>
+                  <button onClick={() => modifier(m)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 10, padding: 7, display: "flex" }}><Edit3 size={15} /></button>
+                  <button onClick={() => supprimer(m)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 10, padding: 7, display: "flex" }}><Trash2 size={15} /></button>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>{resumeCategories(m.items)}</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <select style={{ ...selectStyle, flex: 1, padding: "9px 10px", fontSize: 14 }} value={cibleParModele[m.id] || "tous"} onChange={(e) => setCibleParModele((p) => ({ ...p, [m.id]: e.target.value }))}>{optionsCible}</select>
+                  <button onClick={() => envoyerModele(m)} style={{ ...btnPrimaire, padding: "9px 14px", fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}><Send size={14} /> Envoyer</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <SectionHead icon={Send} title="Listes envoyées" count={envoyees.length} color={C.green} />
+        {loading ? <div style={{ fontSize: 13.5, color: C.textMuted }}>Chargement...</div> : envoyees.length === 0 ? (
+          <div style={{ fontSize: 13.5, color: C.textMuted }}>Aucune liste envoyée pour le moment.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {envoyees.map((l) => (
+              <div key={l.id} style={{ ...ROW_STYLE, alignItems: "flex-start" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 800, color: C.text }}>{l.nom || "Liste de courses"}</div>
+                  <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>→ {nomCible(l.client_id)} · {(l.items || []).length} articles{l.updated_at ? ` · ${formatDateDisplay(String(l.updated_at).slice(0, 10))}` : ""}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>{resumeCategories(l.items)}</div>
+                </div>
+                <button onClick={() => supprimer(l)} style={{ background: "transparent", border: "none", color: C.textDim, padding: 6, display: "flex" }}><Trash2 size={15} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function CoursesEtSupplements({ profilId, fireToast, coachIdListes = null }) {
   const [listeCourse, setListeCourse] = useState(null);
   const [supplements, setSupplements] = useState([]);
   const [showChoix, setShowChoix] = useState(false);
   const [showCourses, setShowCourses] = useState(false);
   const [showSupplements, setShowSupplements] = useState(false);
-  const [cochees, setCochees] = useState({});
 
   useEffect(() => {
     if (!profilId) return;
-    supabase.from("listes_courses").select("*").order("updated_at", { ascending: false }).limit(1)
-      .then(({ data }) => setListeCourse(data && data[0] ? data[0] : null));
+    // Seulement les listes ENVOYÉES qui me sont destinées : à moi directement, ou « à tous »
+    // par mon coach (jamais les listes de côté du coach, ni celles d'autres clients).
+    supabase.from("listes_courses").select("*").order("updated_at", { ascending: false }).limit(50)
+      .then(({ data }) => {
+        const pourMoi = (data || []).filter((l) => l.envoyee !== false && (
+          l.client_id === profilId || (!l.client_id && coachIdListes && l.coach_id === coachIdListes && coachIdListes !== profilId)
+        ));
+        setListeCourse(pourMoi[0] || null);
+      });
     supabase.from("listes_supplements").select("*").order("created_at", { ascending: false })
       .then(({ data }) => setSupplements(data || []));
   }, [profilId]);
 
-  const toggleCoche = (item) => {
-    setCochees((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
 
   return (
     <div style={{ position: "relative" }}>
@@ -4587,34 +5018,7 @@ function CoursesEtSupplements({ profilId, fireToast }) {
         </>
       )}
 
-      {showCourses && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCourses(false)}>
-          <Card style={{ width: "100%", maxWidth: 400, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <SectionHead icon={ShoppingCart} title={<>Liste de courses</>} />
-              <button onClick={() => setShowCourses(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-            </div>
-            {!listeCourse || (listeCourse.items || []).length === 0 ? (
-              <div style={{ color: C.textMuted, fontSize: 13, textAlign: "center" }}>Ton coach ne t'a pas encore envoyé de liste de courses</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {listeCourse.items.map((item, i) => (
-                  <div
-                    key={i}
-                    onClick={() => toggleCoche(item)}
-                    style={{ display: "flex", alignItems: "center", gap: 10, background: C.surface, borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}
-                  >
-                    <div style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${C.blue}`, background: cochees[item] ? C.blue : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {cochees[item] && <Check size={12} color="#FFFFFF" />}
-                    </div>
-                    <span style={{ fontSize: 13, color: C.text, textDecoration: cochees[item] ? "line-through" : "none", opacity: cochees[item] ? 0.5 : 1 }}>{item}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-      )}
+      {showCourses && <ListeCoursesClient liste={listeCourse} profilId={profilId} onClose={() => setShowCourses(false)} />}
 
       {showSupplements && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowSupplements(false)}>
@@ -4734,7 +5138,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
           <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 700 }}>Aujourd'hui</div>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Nutrition</div>
         </div>
-        <CoursesEtSupplements profilId={profilId} fireToast={fireToast} />
+        <CoursesEtSupplements profilId={profilId} fireToast={fireToast} coachIdListes={coachIdAliments} />
       </div>
 
       <Card style={{ cursor: "pointer", padding: 18 }} onClick={() => setShowNutriDetail(true)}>
@@ -11187,7 +11591,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <MesAlimentsView coachId={coachProfil.id} fireToast={fireToast} />        ) : coachTab === "alimentation-recettes" ? (
           <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="recettes" />
         ) : coachTab === "alimentation-courses" ? (
-          <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="courses" />
+          <CoursesCoachView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
         ) : coachTab === "alimentation-supplements" ? (
           <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="supplements" />
         ) : coachTab === "outils-drive" ? (
