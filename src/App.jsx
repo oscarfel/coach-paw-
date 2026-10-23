@@ -404,6 +404,73 @@ async function subscribeToPush(profilId, fireToast) {
 // dont le client a rempli des séries puis oublié d'appuyer sur « Terminer » (1h sans
 // activité). Appelé à l'ouverture de l'app (client) et du tableau de bord (coach), en plus
 // du scheduler externe. Silencieux en cas d'échec (ex : en local sans /api).
+// ENREGISTREMENT EN DIRECT DES SÉANCES
+// Pendant la séance, chaque série remplie est envoyée tout de suite comme une vraie séance
+// (tables seances + series), marquée enregistree_auto. Le coach la voit donc même si le
+// client n'appuie jamais sur « Terminer ». Quand le client valide, saveSession supprime ce
+// brouillon (doublon même programme / même jour) et enregistre la version finale.
+// N'utilise que des insertions / suppressions, déjà autorisées pour le client.
+function seriesDepuisLogs(programme, logs) {
+  const rows = [];
+  for (const ex of programme.exercices || []) {
+    const log = logs[ex.id];
+    if (!log || !log.sets?.length) continue;
+    log.sets.forEach((set, idx) => {
+      rows.push({
+        exercice_nom: ex.nom,
+        poids: Number.isFinite(Number(set.poids)) ? Number(set.poids) : 0,
+        reps: Number.isFinite(Number(set.reps)) ? Number(set.reps) : 0,
+        rpe: set.rpe === "" || set.rpe == null || Number.isNaN(Number(set.rpe)) ? null : String(set.rpe),
+        tempo: set.tempo || "",
+        video_url: typeof log.video === "string" && /^https?:/.test(log.video) ? log.video : null,
+        numero_serie: idx + 1,
+      });
+    });
+  }
+  return rows;
+}
+
+// Remplace le brouillon précédent (ancienId) par une nouvelle version. Renvoie le nouvel id.
+async function envoyerBrouillonSeance({ profilId, programme, logs, seconds, dateIso, ancienId }) {
+  const rows = seriesDepuisLogs(programme, logs);
+  if (!profilId || rows.length === 0) return ancienId || null;
+  const base = {
+    profil_id: profilId,
+    nom_programme: programme.nom,
+    programme_id: programme.id || null,
+    duree_secondes: Math.max(0, Math.round(seconds || 0)),
+    date: dateIso || todayIso(),
+    envoyee_au_coach: true,
+  };
+  let { data: seance, error } = await supabase.from("seances").insert({ ...base, enregistree_auto: true }).select("id").single();
+  if (error && /enregistree_auto/.test(error.message || "")) {
+    // colonne pas encore créée en base : on enregistre quand même, sans l'étiquette
+    ({ data: seance, error } = await supabase.from("seances").insert(base).select("id").single());
+  }
+  if (error) throw error;
+  const { error: errSeries } = await supabase.from("series").insert(rows.map((r) => ({ ...r, seance_id: seance.id })));
+  if (errSeries) {
+    await supabase.from("seances").delete().eq("id", seance.id);
+    throw errSeries;
+  }
+  if (ancienId && ancienId !== seance.id) {
+    await supabase.from("series").delete().eq("seance_id", ancienId);
+    await supabase.from("seances").delete().eq("id", ancienId);
+  }
+  return seance.id;
+}
+
+async function supprimerBrouillonSeance(id) {
+  if (!id) return;
+  await supabase.from("series").delete().eq("seance_id", id);
+  await supabase.from("seances").delete().eq("id", id);
+}
+
+const isoLocal = (ms) => {
+  const d = new Date(ms);
+  return d.toISOString().slice(0, 10);
+};
+
 async function rattraperSeancesOubliees() {
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -2748,6 +2815,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   const startTimeKey = `session_start_${sessionKey}`;
   const logsKey = `session_logs_${sessionKey}`;
   const restKey = `session_rest_${sessionKey}`;
+  const liveKey = `session_live_${sessionKey}`; // { id, date } du brouillon envoyé au coach
 
   // Sécurité : si une séance a été abandonnée (app fermée sans appuyer sur "Terminer"),
   // son chrono restait figé dans le localStorage. En relançant le même programme plus
@@ -2759,6 +2827,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     localStorage.removeItem(startTimeKey);
     localStorage.removeItem(logsKey);
     localStorage.removeItem(restKey);
+    localStorage.removeItem(`session_live_${sessionKey}`); // l'ancienne séance reste chez le coach
   }
 
   const [logs, setLogs] = useState(() => {
@@ -2871,6 +2940,58 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     return () => clearTimeout(t);
   }, [logs, profilId]);
 
+  // Envoi en direct au coach (voir envoyerBrouillonSeance) : 1,5 s après chaque série,
+  // et immédiatement quand l'app passe en arrière-plan ou se ferme.
+  const liveChainRef = useRef(Promise.resolve());
+  const liveTimerRef = useRef(null);
+  const stopLiveRef = useRef(false);
+  const logsRef = useRef(logs);
+  logsRef.current = logs;
+  const lireLive = () => { try { return JSON.parse(localStorage.getItem(liveKey) || "null"); } catch { return null; } };
+  const ecrireBrouillon = () => {
+    if (!profilId || stopLiveRef.current) return liveChainRef.current;
+    liveChainRef.current = liveChainRef.current.then(async () => {
+      if (stopLiveRef.current) return;
+      try {
+        const live = lireLive();
+        const start = parseInt(localStorage.getItem(startTimeKey) || String(Date.now()), 10);
+        const dateIso = live?.date || isoLocal(start);
+        const id = await envoyerBrouillonSeance({ profilId, programme, logs: logsRef.current, seconds: secondsRef.current, dateIso, ancienId: live?.id });
+        if (id && !stopLiveRef.current) localStorage.setItem(liveKey, JSON.stringify({ id, date: dateIso }));
+        else if (id && stopLiveRef.current && id !== live?.id) await supprimerBrouillonSeance(id);
+      } catch (err) {
+        console.error("Envoi en direct de la séance :", err?.message || err);
+      }
+    });
+    return liveChainRef.current;
+  };
+  useEffect(() => {
+    if (!profilId || stopLiveRef.current) return;
+    if (seriesDepuisLogs(programme, logs).length === 0) return;
+    clearTimeout(liveTimerRef.current);
+    liveTimerRef.current = setTimeout(ecrireBrouillon, 1500);
+    return () => clearTimeout(liveTimerRef.current);
+  }, [logs, profilId]);
+  useEffect(() => {
+    const flush = () => {
+      if (!liveTimerRef.current) return;
+      clearTimeout(liveTimerRef.current);
+      liveTimerRef.current = null;
+      if (seriesDepuisLogs(programme, logsRef.current).length > 0) ecrireBrouillon();
+    };
+    const onVis = () => { if (document.hidden) flush(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", flush);
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", flush); };
+  }, [profilId]);
+  // Avant l'envoi final : on arrête les écritures en direct et on attend la dernière,
+  // pour que saveSession supprime bien le brouillon au lieu de le doubler.
+  const arreterEnvoiDirect = async () => {
+    stopLiveRef.current = true;
+    clearTimeout(liveTimerRef.current);
+    try { await liveChainRef.current; } catch { /* ignoré */ }
+  };
+
   // Chrono de repos basé sur une horloge réelle (timestamp) : reste juste même si l'écran
   // s'éteint ou que l'app passe en arrière-plan, contrairement à un simple compteur.
   const declencherAlerteFinRepos = () => {
@@ -2971,7 +3092,12 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     });
   };
 
-  const nettoyerStockageSession = () => {
+  const nettoyerStockageSession = ({ supprimerBrouillon = false } = {}) => {
+    if (supprimerBrouillon) {
+      const live = lireLive();
+      if (live?.id) supprimerBrouillonSeance(live.id).catch(() => {});
+    }
+    localStorage.removeItem(liveKey);
     localStorage.removeItem(startTimeKey);
     localStorage.removeItem(logsKey);
     localStorage.removeItem(restKey);
@@ -2992,6 +3118,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     if (dejaEnvoyeRef.current) return;
     dejaEnvoyeRef.current = true;
     (async () => {
+      await arreterEnvoiDirect();
       nettoyerStockageSession();
       if (totalSets === 0) {
         onFinish?.();
@@ -3151,7 +3278,9 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         <button
           onClick={() => {
             if (totalSets > 0 && !confirm("Réinitialiser va effacer toutes les séries déjà validées dans cette séance. Continuer ?")) return;
-            nettoyerStockageSession();
+            stopLiveRef.current = true;
+            clearTimeout(liveTimerRef.current);
+            liveChainRef.current.then(() => nettoyerStockageSession({ supprimerBrouillon: true }));
             onCancel();
           }}
           style={{ background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 999, padding: "8px 14px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
@@ -3222,6 +3351,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
           if (dejaEnvoyeRef.current) return;
           dejaEnvoyeRef.current = true;
           setFinished(true);
+          await arreterEnvoiDirect();
           nettoyerStockageSession();
           setSaveStatus("pending");
           const ok = await onSessionComplete?.({ programme, logs, seconds });
@@ -11902,6 +12032,30 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         setCustomProgrammes(formatted);
       });
   }, [profilId]);
+  // Récupération des séances restées uniquement sur le téléphone (versions précédentes de
+  // l'app, ou réseau coupé pendant la séance) : dès que les programmes sont chargés, toute
+  // séance avec des séries remplies mais jamais envoyée au coach lui est envoyée.
+  useEffect(() => {
+    if (!profilId || profilRow?.role === "coach" || !customProgrammes.length) return;
+    (async () => {
+      for (const p of customProgrammes) {
+        const key = p.id || p.nom;
+        try {
+          if (localStorage.getItem(`session_live_${key}`)) continue; // déjà chez le coach
+          const logs = JSON.parse(localStorage.getItem(`session_logs_${key}`) || "null");
+          if (!logs || seriesDepuisLogs(p, logs).length === 0) continue;
+          const start = parseInt(localStorage.getItem(`session_start_${key}`) || "", 10);
+          const debut = Number.isFinite(start) ? start : Date.now();
+          const dateIso = isoLocal(debut);
+          const id = await envoyerBrouillonSeance({ profilId, programme: p, logs, seconds: Math.min(3 * 3600, (Date.now() - debut) / 1000), dateIso, ancienId: null });
+          if (id) localStorage.setItem(`session_live_${key}`, JSON.stringify({ id, date: dateIso }));
+        } catch (err) {
+          console.error("Récupération séance non envoyée :", err?.message || err);
+        }
+      }
+    })();
+  }, [profilId, customProgrammes]);
+
   // Reprise automatique de la séance en cours : si l'app se ferme (changement d'appli,
   // mise en arrière-plan trop longue...) puis se rouvre, on ne doit pas retomber sur
   // l'accueil en ayant perdu la séance — le chrono et les séries sont déjà sauvegardés
