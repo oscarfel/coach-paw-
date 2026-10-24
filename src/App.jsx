@@ -9,7 +9,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { Html5Qrcode } from "html5-qrcode";
+import { BarcodeDetector as ZXingBarcodeDetector, prepareZXingModule } from "barcode-detector/ponyfill";
 import { supabase } from "./supabaseClient";
 
 /* ------------------------------------------------------------------ */
@@ -3780,116 +3780,349 @@ function EnregistreurVideoModal({ onClose, onRecorded }) {
   );
 }
 
-function ScannerCodeBarres({ onClose, onScan }) {
-  const scannerRef = useRef(null);
-  const [erreur, setErreur] = useState(null);
+// Détecteur de codes-barres : ZXing-C++ compilé en WebAssembly (bien plus fiable que le
+// décodeur JavaScript d'html5-qrcode, surtout sur iPhone où le détecteur natif n'existe pas).
+// Le fichier .wasm est servi par l'app elle-même (public/zxing_reader.wasm).
+prepareZXingModule({
+  overrides: {
+    locateFile: (path, prefix) => (path.endsWith(".wasm") ? "/zxing_reader.wasm" : prefix + path),
+  },
+});
 
+const FORMATS_CODES_BARRES = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf"];
+
+// Clé de contrôle EAN/UPC : élimine les lectures erronées d'un chiffre.
+function cleControleOk(code) {
+  if (!/^\d+$/.test(code) || ![8, 12, 13, 14].includes(code.length)) return true; // autres formats : pas de clé
+  const chiffres = code.split("").map(Number);
+  const cle = chiffres.pop();
+  const somme = chiffres.reverse().reduce((a, d, i) => a + d * (i % 2 === 0 ? 3 : 1), 0);
+  return (10 - (somme % 10)) % 10 === cle;
+}
+
+let detecteurPartage = null;
+async function obtenirDetecteur() {
+  if (detecteurPartage) return detecteurPartage;
+  // Détecteur natif (Android/Chrome) quand il gère les EAN, sinon ZXing WebAssembly.
+  try {
+    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+      const natifs = await window.BarcodeDetector.getSupportedFormats();
+      if (natifs.includes("ean_13")) {
+        detecteurPartage = new window.BarcodeDetector({ formats: FORMATS_CODES_BARRES.filter((f) => natifs.includes(f)) });
+        return detecteurPartage;
+      }
+    }
+  } catch { /* on passe à ZXing */ }
+  detecteurPartage = new ZXingBarcodeDetector({ formats: FORMATS_CODES_BARRES });
+  return detecteurPartage;
+}
+
+// Sur iPhone, les caméras « virtuelles » (triple / double grand-angle) basculent toutes
+// seules sur l'objectif macro quand on s'approche : c'est ce qui évite le flou de près
+// (l'objectif principal des iPhone Pro ne fait pas la mise au point à moins de ~20 cm).
+function classerCamerasArriere(devices) {
+  const arriere = devices.filter((d) => d.kind === "videoinput" && !/front|avant|facetime|user/i.test(d.label));
+  const score = (l) => {
+    l = l.toLowerCase();
+    if (/triple/.test(l)) return 0;
+    if (/dual wide|double grand/.test(l)) return 1;
+    if (/dual|double/.test(l)) return 2;
+    if (/ultra/.test(l)) return 5;
+    if (/tele|télé/.test(l)) return 6;
+    return 3;
+  };
+  return arriere.sort((a, b) => score(a.label) - score(b.label));
+}
+
+function ScannerCodeBarres({ onClose, onScan }) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const trackRef = useRef(null);
+  const finiRef = useRef(false);
+  const confirmRef = useRef({ code: null, n: 0 });
+  const [erreur, setErreur] = useState(null);
+  const [pret, setPret] = useState(false);
+  const [cameras, setCameras] = useState([]);
+  const [cameraIdx, setCameraIdx] = useState(0);
+  const [torcheDispo, setTorcheDispo] = useState(false);
+  const [torche, setTorche] = useState(false);
+  const [zoomInfo, setZoomInfo] = useState(null); // { min, max, valeur }
+  const [aide, setAide] = useState(false);
+  const [saisie, setSaisie] = useState(false);
+  const [codeSaisi, setCodeSaisi] = useState("");
+  const [analysePhoto, setAnalysePhoto] = useState(false);
+  const photoRef = useRef(null);
+
+  const arreterFlux = () => {
+    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    trackRef.current = null;
+  };
+
+  const terminer = (code) => {
+    if (finiRef.current) return;
+    finiRef.current = true;
+    try { if (navigator.vibrate) navigator.vibrate(60); playBeep(); } catch { /* ignoré */ }
+    arreterFlux();
+    onScan(code);
+  };
+
+  // Démarrage / changement de caméra
   useEffect(() => {
     let annule = false;
-    let instanceCourante = null;
-
-    const onSuccess = (decodedText) => {
-      const inst = instanceCourante;
-      if (inst && inst.isScanning) {
-        inst.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
-      }
-    };
-    const onFrameError = () => {}; // erreur de lecture image par image, ignorée : le scan continue
-
-    // Config "confort" (haute résolution, mise au point continue, grande zone, détecteur natif)
-    const configAvancee = [
-      {
-        facingMode: "environment",
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-        advanced: [{ focusMode: "continuous" }],
-      },
-      {
-        fps: 10,
-        qrbox: (vw, vh) => ({ width: Math.min(320, Math.floor(vw * 0.9)), height: Math.min(200, Math.floor(vh * 0.5)) }),
-        aspectRatio: 1.5,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-      },
-    ];
-    // Config d'origine, la plus compatible : sert de repli
-    const configSimple = [
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 260, height: 160 } },
-    ];
-
-    const pause = (ms) => new Promise((r) => setTimeout(r, ms));
-
-    // Une NOUVELLE instance par tentative : réutiliser l'instance après un échec provoque
-    // « Cannot transition to a new state, already under transition ».
-    const essayer = async ([camera, options]) => {
-      const inst = new Html5Qrcode("scanner-zone-cowave");
-      instanceCourante = inst;
-      scannerRef.current = inst;
+    finiRef.current = false;
+    setPret(false);
+    setErreur(null);
+    (async () => {
       try {
-        await inst.start(camera, options, onSuccess, onFrameError);
-      } catch (err) {
-        try { await inst.clear(); } catch (e) { /* ignoré */ }
-        throw err;
-      }
-      if (annule) {
-        // le composant a été fermé pendant le démarrage : on libère la caméra
-        try { await inst.stop(); } catch (e) { /* ignoré */ }
-      }
-    };
+        if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error("Caméra non disponible sur ce navigateur"), { name: "NotSupported" });
+        let liste = cameras;
+        const base = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
+        let contraintes = { ...base, facingMode: { ideal: "environment" } };
+        if (liste.length > 0 && liste[cameraIdx]) contraintes = { ...base, deviceId: { exact: liste[cameraIdx].deviceId } };
+        let stream = await navigator.mediaDevices.getUserMedia({ video: contraintes, audio: false });
+        if (annule) { stream.getTracks().forEach((t) => t.stop()); return; }
 
-    const demarrer = async () => {
-      let derniereErreur = null;
-      for (const config of [configAvancee, configSimple]) {
+        // Première ouverture : les noms des caméras ne sont lisibles qu'après autorisation.
+        // On bascule alors sur la meilleure caméra arrière pour la mise au point de près.
+        if (liste.length === 0) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          liste = classerCamerasArriere(devices);
+          if (!annule) setCameras(liste);
+          const actuelle = stream.getVideoTracks()[0]?.getSettings?.().deviceId;
+          if (liste[0] && liste[0].deviceId && liste[0].deviceId !== actuelle) {
+            stream.getTracks().forEach((t) => t.stop());
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ video: { ...base, deviceId: { exact: liste[0].deviceId } }, audio: false });
+            } catch {
+              stream = await navigator.mediaDevices.getUserMedia({ video: { ...base, facingMode: { ideal: "environment" } }, audio: false });
+            }
+            if (annule) { stream.getTracks().forEach((t) => t.stop()); return; }
+          }
+        }
+
+        streamRef.current = stream;
+        const track = stream.getVideoTracks()[0];
+        trackRef.current = track;
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        const avance = {};
+        if (Array.isArray(caps.focusMode) && caps.focusMode.includes("continuous")) avance.focusMode = "continuous";
+        if (Array.isArray(caps.exposureMode) && caps.exposureMode.includes("continuous")) avance.exposureMode = "continuous";
+        if (Object.keys(avance).length) { try { await track.applyConstraints({ advanced: [avance] }); } catch { /* ignoré */ } }
+        setTorcheDispo(!!caps.torch);
+        setTorche(false);
+        if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+          // Caméra virtuelle iPhone : zoom 1 = ultra grand-angle, 2 = objectif principal.
+          const label = (track.label || "").toLowerCase();
+          const virtuelle = /triple|dual|double/.test(label);
+          const cible = Math.min(caps.zoom.max, Math.max(caps.zoom.min, virtuelle ? 2 : caps.zoom.min));
+          try { await track.applyConstraints({ advanced: [{ zoom: cible }] }); } catch { /* ignoré */ }
+          setZoomInfo({ min: caps.zoom.min, max: Math.min(caps.zoom.max, 6), valeur: cible });
+        } else {
+          setZoomInfo(null);
+        }
+
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+        if (!annule) setPret(true);
+      } catch (err) {
+        console.error("Erreur démarrage caméra:", err);
         if (annule) return;
+        const nom = err?.name || "";
+        setErreur(/NotAllowed|Permission|Security/i.test(nom)
+          ? "Accès à la caméra refusé. Autorise-la dans Réglages > Safari (ou l'app) > Caméra, ou prends une photo du code-barres ci-dessous."
+          : "Impossible de démarrer la caméra. Prends une photo du code-barres ou saisis-le à la main ci-dessous.");
+      }
+    })();
+    return () => { annule = true; arreterFlux(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraIdx]);
+
+  // Boucle de lecture : zone centrale agrandie (lecture plus fiable), et image entière une fois sur trois
+  useEffect(() => {
+    if (!pret) return;
+    let actif = true;
+    let tour = 0;
+    const aideTimer = setTimeout(() => setAide(true), 7000);
+    const boucle = async () => {
+      if (!actif || finiRef.current) return;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (video && canvas && video.readyState >= 2 && video.videoWidth) {
         try {
-          await essayer(config);
-          return;
+          const det = await obtenirDetecteur();
+          const vw = video.videoWidth, vh = video.videoHeight;
+          const pleine = tour % 3 === 2;
+          const sw = pleine ? vw : Math.round(vw * 0.85);
+          const sh = pleine ? vh : Math.round(vh * 0.5);
+          const sx = Math.round((vw - sw) / 2), sy = Math.round((vh - sh) / 2);
+          const echelle = Math.min(1, 1280 / sw);
+          canvas.width = Math.round(sw * echelle);
+          canvas.height = Math.round(sh * echelle);
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+          const resultats = await det.detect(canvas);
+          const bon = (resultats || []).map((r) => String(r.rawValue || "").trim()).find((v) => v && cleControleOk(v));
+          // Confirmation : le même code lu deux fois de suite (évite une fausse lecture)
+          if (bon) {
+            if (confirmRef.current.code === bon) confirmRef.current.n++;
+            else confirmRef.current = { code: bon, n: 1 };
+            if (confirmRef.current.n >= 2) { terminer(bon); return; }
+            setTimeout(boucle, 30);
+            return;
+          }
         } catch (err) {
-          derniereErreur = err;
-          console.error("Erreur démarrage caméra:", err);
-          await pause(300); // laisse la caméra se libérer avant la tentative suivante
+          console.error("Lecture code-barres :", err?.message || err);
+        }
+        tour++;
+      }
+      if (actif) setTimeout(boucle, 90);
+    };
+    boucle();
+    return () => { actif = false; clearTimeout(aideTimer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pret]);
+
+  const basculerTorche = async () => {
+    const track = trackRef.current;
+    if (!track) return;
+    try { await track.applyConstraints({ advanced: [{ torch: !torche }] }); setTorche(!torche); } catch { setTorcheDispo(false); }
+  };
+
+  const changerZoom = async (valeur) => {
+    const track = trackRef.current;
+    if (!track || !zoomInfo) return;
+    try { await track.applyConstraints({ advanced: [{ zoom: valeur }] }); setZoomInfo({ ...zoomInfo, valeur }); } catch { /* ignoré */ }
+  };
+
+  // Mise au point au toucher (Android) — sur iPhone, la mise au point reste automatique
+  const toucherVideo = async () => {
+    const track = trackRef.current;
+    if (!track?.getCapabilities) return;
+    const caps = track.getCapabilities();
+    if (Array.isArray(caps.focusMode) && caps.focusMode.includes("single-shot")) {
+      try {
+        await track.applyConstraints({ advanced: [{ focusMode: "single-shot" }] });
+        setTimeout(() => track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {}), 1200);
+      } catch { /* ignoré */ }
+    }
+  };
+
+  // Secours : photo prise avec l'appareil photo du téléphone (mise au point parfaite, macro)
+  const analyserPhoto = async (fichier) => {
+    if (!fichier) return;
+    setAnalysePhoto(true);
+    try {
+      const det = await obtenirDetecteur();
+      const bitmap = await createImageBitmap(fichier);
+      const canvas = document.createElement("canvas");
+      const essais = [1600, 2400, 1000];
+      for (const taille of essais) {
+        for (const rotation of [0, 90]) {
+          const echelle = Math.min(1, taille / Math.max(bitmap.width, bitmap.height));
+          const w = Math.round(bitmap.width * echelle), h = Math.round(bitmap.height * echelle);
+          canvas.width = rotation ? h : w;
+          canvas.height = rotation ? w : h;
+          const ctx = canvas.getContext("2d");
+          ctx.save();
+          if (rotation) { ctx.translate(h, 0); ctx.rotate(Math.PI / 2); }
+          ctx.drawImage(bitmap, 0, 0, w, h);
+          ctx.restore();
+          const res = await det.detect(canvas);
+          const bon = (res || []).map((r) => String(r.rawValue || "").trim()).find((v) => v && cleControleOk(v));
+          if (bon) { terminer(bon); return; }
         }
       }
-      if (annule) return;
-      const nom = derniereErreur && (derniereErreur.name || "");
-      const detail = derniereErreur ? String(derniereErreur.message || derniereErreur) : "";
-      const refuse = /NotAllowed|Permission|denied/i.test(nom + " " + detail);
-      setErreur(
-        refuse
-          ? "Accès à la caméra refusé. Autorise-la dans Réglages > Safari (ou l'app installée) > Caméra, puis rouvre le scanner."
-          : "Impossible de démarrer la caméra. Ferme puis rouvre le scanner. Détail : " + (nom || detail || "inconnu")
-      );
-    };
+      setErreur("Aucun code-barres lisible sur la photo. Reprends-la bien à plat, nette, avec le code entier visible.");
+    } catch (err) {
+      console.error("Analyse photo code-barres :", err);
+      setErreur("Impossible d'analyser la photo. Saisis le code à la main.");
+    } finally {
+      setAnalysePhoto(false);
+      if (photoRef.current) photoRef.current.value = "";
+    }
+  };
 
-    // Petit délai : évite le double démarrage (double montage du composant) sur le même élément
-    const minuteur = setTimeout(demarrer, 250);
+  const validerSaisie = () => {
+    const code = codeSaisi.replace(/\D/g, "");
+    if (code.length < 8) { setErreur("Le code-barres fait 8 à 14 chiffres."); return; }
+    terminer(code);
+  };
 
-    return () => {
-      annule = true;
-      clearTimeout(minuteur);
-      const inst = instanceCourante;
-      if (inst && inst.isScanning) {
-        inst.stop().catch(() => {});
-      }
-    };
-  }, []);
+  const btnRond = { width: 46, height: 46, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", color: "#FFFFFF", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" };
+  const btnSecours = { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "rgba(59,111,224,0.18)", border: "1px solid rgba(110,150,255,0.6)", color: "#DCE6FF", borderRadius: 14, padding: "12px 10px", fontSize: 13.5, fontWeight: 800 };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, background: "transparent", border: "none", color: "#FFFFFF" }}><X size={26} /></button>
-      <div style={{ fontSize: 14, color: "#FFFFFF", marginBottom: 6, fontWeight: 700, textAlign: "center" }}>
-        Scanne le code-barres de l'emballage
-      </div>
-      {!erreur && (
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 14, textAlign: "center", maxWidth: 280 }}>
-          Tiens le produit à 15-20 cm de la caméra, pas plus près
+    <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 200, display: "flex", flexDirection: "column" }}>
+      <style>{`@keyframes scanLigne { 0% { top: 8%; } 50% { top: 88%; } 100% { top: 8%; } }`}</style>
+      <div style={{ position: "relative", flex: 1, overflow: "hidden" }} onClick={toucherVideo}>
+        <video ref={videoRef} playsInline muted autoPlay style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+
+        {/* Cadre de visée */}
+        {!erreur && (
+          <div style={{ position: "absolute", left: "50%", top: "50%", width: "84%", maxWidth: 380, aspectRatio: "1.7 / 1", transform: "translate(-50%,-50%)", borderRadius: 22, boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)", border: "2px solid rgba(140,190,255,0.95)", pointerEvents: "none" }}>
+            <div style={{ position: "absolute", left: "6%", right: "6%", height: 2, background: "#FF5D6C", boxShadow: "0 0 12px #FF5D6C", animation: "scanLigne 2.2s ease-in-out infinite" }} />
+          </div>
+        )}
+
+        {/* Haut : titre + fermer */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "max(18px, env(safe-area-inset-top)) 16px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0))" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#FFFFFF" }}>Scanner un code-barres</div>
+          <button onClick={(e) => { e.stopPropagation(); arreterFlux(); onClose(); }} style={btnRond}><X size={22} /></button>
         </div>
-      )}
-      {erreur ? (
-        <div style={{ color: "#FF5D6C", fontSize: 13, textAlign: "center", maxWidth: 280 }}>{erreur}</div>
-      ) : (
-        <div id="scanner-zone-cowave" style={{ width: "100%", maxWidth: 340, borderRadius: 16, overflow: "hidden" }} />
-      )}
+
+        {/* Consignes */}
+        {!erreur && (
+          <div style={{ position: "absolute", left: 16, right: 16, top: "calc(50% + min(42vw, 115px))", textAlign: "center", color: "#FFFFFF", fontSize: 13.5, fontWeight: 600, textShadow: "0 1px 6px rgba(0,0,0,0.8)", pointerEvents: "none" }}>
+            {!pret ? "Ouverture de la caméra…" : aide
+              ? "Recule un peu le téléphone, mets le code à plat dans le cadre, ou allume la lampe. Sinon, prends une photo."
+              : "Place le code-barres dans le cadre — la lecture est automatique"}
+          </div>
+        )}
+
+        {erreur && (
+          <div style={{ position: "absolute", left: 20, right: 20, top: "38%", textAlign: "center", color: "#FFB0B8", fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>{erreur}</div>
+        )}
+
+        {/* Commandes caméra */}
+        {pret && !erreur && (
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 14, display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }} onClick={(e) => e.stopPropagation()}>
+            {torcheDispo && (
+              <button onClick={basculerTorche} style={{ ...btnRond, background: torche ? "#F5C542" : btnRond.background, color: torche ? "#1A1200" : "#FFFFFF" }}><Zap size={20} /></button>
+            )}
+            {zoomInfo && [zoomInfo.min, Math.min(zoomInfo.max, 2), Math.min(zoomInfo.max, 3)].filter((v, i, a) => a.indexOf(v) === i).map((z) => (
+              <button key={z} onClick={() => changerZoom(z)} style={{ ...btnRond, width: 42, height: 42, fontSize: 12.5, fontWeight: 800, background: Math.abs(zoomInfo.valeur - z) < 0.05 ? "rgba(255,255,255,0.9)" : btnRond.background, color: Math.abs(zoomInfo.valeur - z) < 0.05 ? "#000" : "#FFF" }}>
+                {String(Math.round(z * 10) / 10).replace(".", ",")}×
+              </button>
+            ))}
+            {cameras.length > 1 && (
+              <button onClick={() => setCameraIdx((i) => (i + 1) % cameras.length)} style={btnRond}><RotateCcw size={19} /></button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Solutions de secours, toujours visibles */}
+      <div style={{ background: "#080B1A", padding: "14px 16px max(16px, env(safe-area-inset-bottom))", borderTop: "1px solid rgba(110,150,255,0.25)" }}>
+        {saisie ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <input autoFocus inputMode="numeric" value={codeSaisi} onChange={(e) => setCodeSaisi(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") validerSaisie(); }} placeholder="Chiffres sous le code-barres" style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={validerSaisie} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 14, padding: "0 16px", fontWeight: 800 }}>OK</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => photoRef.current && photoRef.current.click()} disabled={analysePhoto} style={{ ...btnSecours, opacity: analysePhoto ? 0.6 : 1 }}>
+              <Camera size={17} /> {analysePhoto ? "Analyse…" : "Prendre une photo"}
+            </button>
+            <button onClick={() => setSaisie(true)} style={btnSecours}><Edit3 size={16} /> Saisir le code</button>
+          </div>
+        )}
+        <input ref={photoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => analyserPhoto(e.target.files && e.target.files[0])} />
+      </div>
     </div>
   );
 }
@@ -4040,18 +4273,45 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
     setShowScanner(false);
     setSearching(true);
     try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
-      const data = await res.json();
-      if (data.status !== 1 || !data.product) {
-        fireToast("Produit non reconnu — essaie la recherche manuelle");
+      const code = String(barcode).replace(/\D/g, "") || String(barcode);
+      // 1) Déjà scanné (ou saisi à la main avec ce code) par ce client : instantané, hors ligne côté OFF
+      if (profilId) {
+        const { data: perso } = await supabase.from("aliments_scannes").select("*").eq("profil_id", profilId).eq("code_barre", code).limit(1);
+        const a = perso && perso[0];
+        if (a) {
+          setSelectedFood({ nom: a.nom, source: "Mes aliments", kcal: a.kcal || 0, prot: a.prot || 0, gluc: a.gluc || 0, lip: a.lip || 0, fibres: a.fibres || 0, sucres: a.sucres || 0, sodium: a.sodium || 0, potassium: a.potassium || 0, calcium: a.calcium || 0, fer: a.fer || 0, magnesium: a.magnesium || 0, vitamineD: a.vitamine_d || 0 });
+          setSearchQuery(a.nom);
+          fireToast("Produit trouvé", "green");
+          return;
+        }
+      }
+      // 2) Open Food Facts, en essayant les variantes UPC-A (12 chiffres) / EAN-13 (13 chiffres)
+      const variantes = [code];
+      if (code.length === 12) variantes.push("0" + code);
+      if (code.length === 13 && code.startsWith("0")) variantes.push(code.slice(1));
+      if (code.length === 14 && code.startsWith("0")) variantes.push(code.slice(1));
+      let p = null;
+      for (const v of variantes) {
+        try {
+          const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${v}.json?fields=product_name,product_name_fr,generic_name,brands,nutriments,serving_quantity`);
+          const data = await res.json();
+          if (data.status === 1 && data.product && (data.product.product_name || data.product.product_name_fr || data.product.nutriments)) { p = data.product; break; }
+        } catch { /* variante suivante */ }
+      }
+      if (!p) {
+        // 3) Inconnu : on ouvre la saisie manuelle ; l'aliment sera mémorisé avec ce code
+        setCodeBarreEnAttente(code);
+        setManualMode(true);
+        fireToast("Produit inconnu : saisis ses valeurs une fois, il sera reconnu au prochain scan");
         return;
       }
-      const p = data.product;
+      if (!p.product_name && p.product_name_fr) p.product_name = p.product_name_fr;
+      if (!p.product_name && p.generic_name) p.product_name = p.generic_name;
       const n = p.nutriments || {};
       const found = {
         nom: p.product_name || "Produit scanné",
         source: p.brands || "Open Food Facts",
-        kcal: n["energy-kcal_100g"] || 0,
+        kcal: n["energy-kcal_100g"] != null ? n["energy-kcal_100g"] : Math.round((n["energy_100g"] || 0) / 4.184),
         prot: n["proteins_100g"] || 0,
         gluc: n["carbohydrates_100g"] || 0,
         lip: n["fat_100g"] || 0,
@@ -4074,7 +4334,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
       if (profilId) {
         supabase.from("aliments_scannes").upsert({
           profil_id: profilId,
-          code_barre: barcode,
+          code_barre: code,
           nom: found.nom,
           kcal: found.kcal, prot: found.prot, gluc: found.gluc, lip: found.lip,
           fibres: found.fibres, sucres: found.sucres, sodium: found.sodium,
@@ -4101,6 +4361,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   const [searching, setSearching] = useState(false);
   const [selectedFood, setSelectedFood] = useState(null);
   const [manualMode, setManualMode] = useState(false);
+  const [codeBarreEnAttente, setCodeBarreEnAttente] = useState(null);
   const [manualNom, setManualNom] = useState("");
   const [manualGrams, setManualGrams] = useState("");
   const [manualKcal, setManualKcal] = useState("");
@@ -4271,7 +4532,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
       const ratio = grams > 0 ? 100 / grams : 1; // ramène à une valeur pour 100g
       supabase.from("aliments_scannes").insert({
         profil_id: profilId,
-        code_barre: null,
+        code_barre: codeBarreEnAttente || null,
         nom,
         kcal: Math.round(kcal * ratio),
         prot: +(prot * ratio).toFixed(1),
@@ -4283,6 +4544,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
     }
 
     setManualNom(""); setManualGrams(""); setManualKcal(""); setManualProt(""); setManualGluc(""); setManualLip("");
+    setCodeBarreEnAttente(null);
     setManualMode(false);
     setShowAddForm(false);
   };
