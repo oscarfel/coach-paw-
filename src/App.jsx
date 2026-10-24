@@ -3847,12 +3847,9 @@ function ScannerCodeBarres({ onClose, onScan }) {
   const [cameraIdx, setCameraIdx] = useState(0);
   const [torcheDispo, setTorcheDispo] = useState(false);
   const [torche, setTorche] = useState(false);
-  const [zoomInfo, setZoomInfo] = useState(null); // { min, max, valeur }
   const [aide, setAide] = useState(false);
   const [saisie, setSaisie] = useState(false);
   const [codeSaisi, setCodeSaisi] = useState("");
-  const [analysePhoto, setAnalysePhoto] = useState(false);
-  const photoRef = useRef(null);
 
   const arreterFlux = () => {
     if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
@@ -3918,9 +3915,6 @@ function ScannerCodeBarres({ onClose, onScan }) {
           const virtuelle = /triple|dual|double/.test(label);
           const cible = Math.min(caps.zoom.max, Math.max(caps.zoom.min, virtuelle ? 2 : caps.zoom.min));
           try { await track.applyConstraints({ advanced: [{ zoom: cible }] }); } catch { /* ignoré */ }
-          setZoomInfo({ min: caps.zoom.min, max: Math.min(caps.zoom.max, 6), valeur: cible });
-        } else {
-          setZoomInfo(null);
         }
 
         const video = videoRef.current;
@@ -3933,8 +3927,8 @@ function ScannerCodeBarres({ onClose, onScan }) {
         if (annule) return;
         const nom = err?.name || "";
         setErreur(/NotAllowed|Permission|Security/i.test(nom)
-          ? "Accès à la caméra refusé. Autorise-la dans Réglages > Safari (ou l'app) > Caméra, ou prends une photo du code-barres ci-dessous."
-          : "Impossible de démarrer la caméra. Prends une photo du code-barres ou saisis-le à la main ci-dessous.");
+          ? "Accès à la caméra refusé. Autorise-la dans Réglages > Safari (ou l'app) > Caméra, ou saisis le code à la main."
+          : "Impossible de démarrer la caméra. Saisis le code à la main.");
       }
     })();
     return () => { annule = true; arreterFlux(); };
@@ -3992,12 +3986,6 @@ function ScannerCodeBarres({ onClose, onScan }) {
     try { await track.applyConstraints({ advanced: [{ torch: !torche }] }); setTorche(!torche); } catch { setTorcheDispo(false); }
   };
 
-  const changerZoom = async (valeur) => {
-    const track = trackRef.current;
-    if (!track || !zoomInfo) return;
-    try { await track.applyConstraints({ advanced: [{ zoom: valeur }] }); setZoomInfo({ ...zoomInfo, valeur }); } catch { /* ignoré */ }
-  };
-
   // Mise au point au toucher (Android) — sur iPhone, la mise au point reste automatique
   const toucherVideo = async () => {
     const track = trackRef.current;
@@ -4011,41 +3999,6 @@ function ScannerCodeBarres({ onClose, onScan }) {
     }
   };
 
-  // Secours : photo prise avec l'appareil photo du téléphone (mise au point parfaite, macro)
-  const analyserPhoto = async (fichier) => {
-    if (!fichier) return;
-    setAnalysePhoto(true);
-    try {
-      const det = await obtenirDetecteur();
-      const bitmap = await createImageBitmap(fichier);
-      const canvas = document.createElement("canvas");
-      const essais = [1600, 2400, 1000];
-      for (const taille of essais) {
-        for (const rotation of [0, 90]) {
-          const echelle = Math.min(1, taille / Math.max(bitmap.width, bitmap.height));
-          const w = Math.round(bitmap.width * echelle), h = Math.round(bitmap.height * echelle);
-          canvas.width = rotation ? h : w;
-          canvas.height = rotation ? w : h;
-          const ctx = canvas.getContext("2d");
-          ctx.save();
-          if (rotation) { ctx.translate(h, 0); ctx.rotate(Math.PI / 2); }
-          ctx.drawImage(bitmap, 0, 0, w, h);
-          ctx.restore();
-          const res = await det.detect(canvas);
-          const bon = (res || []).map((r) => String(r.rawValue || "").trim()).find((v) => v && cleControleOk(v));
-          if (bon) { terminer(bon); return; }
-        }
-      }
-      setErreur("Aucun code-barres lisible sur la photo. Reprends-la bien à plat, nette, avec le code entier visible.");
-    } catch (err) {
-      console.error("Analyse photo code-barres :", err);
-      setErreur("Impossible d'analyser la photo. Saisis le code à la main.");
-    } finally {
-      setAnalysePhoto(false);
-      if (photoRef.current) photoRef.current.value = "";
-    }
-  };
-
   const validerSaisie = () => {
     const code = codeSaisi.replace(/\D/g, "");
     if (code.length < 8) { setErreur("Le code-barres fait 8 à 14 chiffres."); return; }
@@ -4053,7 +4006,6 @@ function ScannerCodeBarres({ onClose, onScan }) {
   };
 
   const btnRond = { width: 46, height: 46, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", color: "#FFFFFF", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" };
-  const btnSecours = { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "rgba(59,111,224,0.18)", border: "1px solid rgba(110,150,255,0.6)", color: "#DCE6FF", borderRadius: 14, padding: "12px 10px", fontSize: 13.5, fontWeight: 800 };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 200, display: "flex", flexDirection: "column" }}>
@@ -4079,7 +4031,7 @@ function ScannerCodeBarres({ onClose, onScan }) {
         {!erreur && (
           <div style={{ position: "absolute", left: 16, right: 16, top: "calc(50% + min(42vw, 115px))", textAlign: "center", color: "#FFFFFF", fontSize: 13.5, fontWeight: 600, textShadow: "0 1px 6px rgba(0,0,0,0.8)", pointerEvents: "none" }}>
             {!pret ? "Ouverture de la caméra…" : aide
-              ? "Recule un peu le téléphone, mets le code à plat dans le cadre, ou allume la lampe. Sinon, prends une photo."
+              ? "Recule un peu le téléphone, mets le code à plat dans le cadre ou allume la lampe. Sinon, saisis le code à la main."
               : "Place le code-barres dans le cadre — la lecture est automatique"}
           </div>
         )}
@@ -4088,40 +4040,38 @@ function ScannerCodeBarres({ onClose, onScan }) {
           <div style={{ position: "absolute", left: 20, right: 20, top: "38%", textAlign: "center", color: "#FFB0B8", fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>{erreur}</div>
         )}
 
-        {/* Commandes caméra */}
-        {pret && !erreur && (
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: 14, display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }} onClick={(e) => e.stopPropagation()}>
-            {torcheDispo && (
-              <button onClick={basculerTorche} style={{ ...btnRond, background: torche ? "#F5C542" : btnRond.background, color: torche ? "#1A1200" : "#FFFFFF" }}><Zap size={20} /></button>
-            )}
-            {zoomInfo && [zoomInfo.min, Math.min(zoomInfo.max, 2), Math.min(zoomInfo.max, 3)].filter((v, i, a) => a.indexOf(v) === i).map((z) => (
-              <button key={z} onClick={() => changerZoom(z)} style={{ ...btnRond, width: 42, height: 42, fontSize: 12.5, fontWeight: 800, background: Math.abs(zoomInfo.valeur - z) < 0.05 ? "rgba(255,255,255,0.9)" : btnRond.background, color: Math.abs(zoomInfo.valeur - z) < 0.05 ? "#000" : "#FFF" }}>
-                {String(Math.round(z * 10) / 10).replace(".", ",")}×
-              </button>
-            ))}
-            {cameras.length > 1 && (
-              <button onClick={() => setCameraIdx((i) => (i + 1) % cameras.length)} style={btnRond}><RotateCcw size={19} /></button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Solutions de secours, toujours visibles */}
-      <div style={{ background: "#080B1A", padding: "14px 16px max(16px, env(safe-area-inset-bottom))", borderTop: "1px solid rgba(110,150,255,0.25)" }}>
-        {saisie ? (
-          <div style={{ display: "flex", gap: 8 }}>
-            <input autoFocus inputMode="numeric" value={codeSaisi} onChange={(e) => setCodeSaisi(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") validerSaisie(); }} placeholder="Chiffres sous le code-barres" style={{ ...inputStyle, flex: 1 }} />
-            <button onClick={validerSaisie} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 14, padding: "0 16px", fontWeight: 800 }}>OK</button>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => photoRef.current && photoRef.current.click()} disabled={analysePhoto} style={{ ...btnSecours, opacity: analysePhoto ? 0.6 : 1 }}>
-              <Camera size={17} /> {analysePhoto ? "Analyse…" : "Prendre une photo"}
+        {/* Bas : saisie manuelle + lampe / caméra */}
+        {!saisie && (
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: "max(22px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => { setErreur(null); setSaisie(true); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 22px", borderRadius: 999, background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.32)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", boxShadow: "0 8px 24px rgba(0,0,0,0.35)", color: "#FFFFFF", fontSize: 15, fontWeight: 700, letterSpacing: "0.01em" }}>
+              <Edit3 size={17} /> Saisir le code à la main
             </button>
-            <button onClick={() => setSaisie(true)} style={btnSecours}><Edit3 size={16} /> Saisir le code</button>
+            {pret && !erreur && (torcheDispo || cameras.length > 1) && (
+              <div style={{ display: "flex", gap: 14 }}>
+                {torcheDispo && (
+                  <button onClick={basculerTorche} style={{ ...btnRond, width: 54, height: 54, background: torche ? "#F5C542" : btnRond.background, color: torche ? "#1A1200" : "#FFFFFF", boxShadow: torche ? "0 0 18px rgba(245,197,66,0.7)" : "none" }}><Zap size={22} /></button>
+                )}
+                {cameras.length > 1 && (
+                  <button onClick={() => setCameraIdx((i) => (i + 1) % cameras.length)} style={{ ...btnRond, width: 54, height: 54 }}><RotateCcw size={20} /></button>
+                )}
+              </div>
+            )}
           </div>
         )}
-        <input ref={photoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => analyserPhoto(e.target.files && e.target.files[0])} />
+
+        {/* Saisie manuelle : panneau vitré */}
+        {saisie && (
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", left: 14, right: 14, bottom: "max(18px, env(safe-area-inset-bottom))", padding: 18, borderRadius: 24, background: "rgba(12,18,44,0.82)", border: "1.5px solid rgba(140,190,255,0.75)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: "0 0 26px rgba(76,125,240,0.45), 0 12px 32px rgba(0,0,0,0.5)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#FFFFFF" }}>Saisir le code-barres</div>
+              <button onClick={() => { setSaisie(false); setCodeSaisi(""); }} style={{ background: "transparent", border: "none", color: "#B9C4E0", padding: 4, display: "flex" }}><X size={20} /></button>
+            </div>
+            <div style={{ fontSize: 13, color: "#B9C4E0", marginBottom: 12 }}>Tape les chiffres écrits sous les barres.</div>
+            <input autoFocus inputMode="numeric" value={codeSaisi} onChange={(e) => setCodeSaisi(e.target.value.replace(/\D/g, "").slice(0, 14))} onKeyDown={(e) => { if (e.key === "Enter") validerSaisie(); }} placeholder="3 017620 422003"
+              style={{ ...inputStyle, fontSize: 22, fontWeight: 700, letterSpacing: "0.12em", textAlign: "center", padding: "14px", background: "rgba(255,255,255,0.08)" }} />
+            <button onClick={validerSaisie} style={{ width: "100%", marginTop: 12, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 6px 20px rgba(59,111,224,0.5)", border: "none", color: "#FFF", borderRadius: 14, padding: "14px", fontSize: 15, fontWeight: 800 }}>Rechercher le produit</button>
+          </div>
+        )}
       </div>
     </div>
   );
