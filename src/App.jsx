@@ -430,40 +430,84 @@ function seriesDepuisLogs(programme, logs) {
   return rows;
 }
 
-// Remplace le brouillon précédent (ancienId) par une nouvelle version. Renvoie le nouvel id.
-async function envoyerBrouillonSeance({ profilId, programme, logs, seconds, dateIso, ancienId }) {
+// Synchronise UNE seule séance brouillon par séance réelle : la ligne « seances » est créée
+// une fois, puis seules les nouvelles séries sont ajoutées (jamais de nouvelle séance à
+// chaque série). Une série modifiée après envoi est remplacée seulement si la suppression de
+// l'ancienne a bien eu lieu (vérifiée), sinon on garde l'ancienne : jamais de doublon.
+// live = { id, date, envoyees: [{ sid, cle, sig }] } (mémorisé dans le téléphone)
+const signatureSerie = (r) => [r.exercice_nom, r.numero_serie, r.poids, r.reps, r.rpe, r.tempo, r.video_url || ""].join("|");
+async function synchroniserBrouillonSeance({ profilId, programme, logs, seconds, dateIso, live }) {
   const rows = seriesDepuisLogs(programme, logs);
-  if (!profilId || rows.length === 0) return ancienId || null;
-  const base = {
-    profil_id: profilId,
-    nom_programme: programme.nom,
-    programme_id: programme.id || null,
-    duree_secondes: Math.max(0, Math.round(seconds || 0)),
-    date: dateIso || todayIso(),
-    envoyee_au_coach: true,
-  };
-  let { data: seance, error } = await supabase.from("seances").insert({ ...base, enregistree_auto: true }).select("id").single();
-  if (error && /enregistree_auto/.test(error.message || "")) {
-    // colonne pas encore créée en base : on enregistre quand même, sans l'étiquette
-    ({ data: seance, error } = await supabase.from("seances").insert(base).select("id").single());
+  if (!profilId || rows.length === 0) return live || null;
+  let id = live?.id || null;
+  let envoyees = Array.isArray(live?.envoyees) ? live.envoyees : [];
+  const date = live?.date || dateIso || todayIso();
+
+  if (id) {
+    const { data: existe, error: errExiste } = await supabase.from("seances").select("id").eq("id", id).maybeSingle();
+    if (!errExiste && !existe) { id = null; envoyees = []; } // supprimée entre-temps (validée ailleurs, purgée…)
   }
-  if (error) throw error;
-  const { error: errSeries } = await supabase.from("series").insert(rows.map((r) => ({ ...r, seance_id: seance.id })));
-  if (errSeries) {
-    await supabase.from("seances").delete().eq("id", seance.id);
-    throw errSeries;
+  if (!id) {
+    const base = {
+      profil_id: profilId,
+      nom_programme: programme.nom,
+      programme_id: programme.id || null,
+      duree_secondes: Math.max(0, Math.round(seconds || 0)),
+      date,
+      envoyee_au_coach: true,
+    };
+    let { data: seance, error } = await supabase.from("seances").insert({ ...base, enregistree_auto: true }).select("id").single();
+    if (error && /enregistree_auto/.test(error.message || "")) {
+      ({ data: seance, error } = await supabase.from("seances").insert(base).select("id").single());
+    }
+    if (error) throw error;
+    id = seance.id;
+    envoyees = [];
+  } else {
+    supabase.from("seances").update({ duree_secondes: Math.max(0, Math.round(seconds || 0)) }).eq("id", id).then(() => {});
   }
-  if (ancienId && ancienId !== seance.id) {
-    await supabase.from("series").delete().eq("seance_id", ancienId);
-    await supabase.from("seances").delete().eq("id", ancienId);
+
+  const cleDe = (r) => `${r.exercice_nom}#${r.numero_serie}`;
+  const actuelles = new Map(rows.map((r) => [cleDe(r), r]));
+  const parCle = new Map(envoyees.map((e) => [e.cle, e]));
+  const aRemplacer = envoyees.filter((e) => !actuelles.has(e.cle) || signatureSerie(actuelles.get(e.cle)) !== e.sig);
+  let supprimees = new Set();
+  if (aRemplacer.length) {
+    const { data: del } = await supabase.from("series").delete().in("id", aRemplacer.map((e) => e.sid)).select("id");
+    supprimees = new Set((del || []).map((d) => String(d.id)));
   }
-  return seance.id;
+  const gardees = envoyees.filter((e) => !aRemplacer.includes(e) || !supprimees.has(String(e.sid)));
+  const clesGardees = new Set(gardees.map((e) => e.cle));
+  const nouvelles = rows.filter((r) => !clesGardees.has(cleDe(r)));
+  let ajoutees = [];
+  if (nouvelles.length) {
+    const { data: ins, error: errIns } = await supabase.from("series").insert(nouvelles.map((r) => ({ ...r, seance_id: id }))).select("id");
+    if (errIns) throw errIns;
+    ajoutees = nouvelles.map((r, k) => ({ sid: ins?.[k]?.id, cle: cleDe(r), sig: signatureSerie(r) })).filter((e) => e.sid != null);
+  }
+  void parCle;
+  return { id, date, envoyees: [...gardees, ...ajoutees] };
 }
 
 async function supprimerBrouillonSeance(id) {
   if (!id) return;
   await supabase.from("series").delete().eq("seance_id", id);
   await supabase.from("seances").delete().eq("id", id);
+}
+
+// Affichage robuste : une seule séance par client / jour / programme (la plus complète,
+// la validée en priorité), même si la base contient encore des doublons.
+function dedoublonnerSeances(liste, nbSeries = (x) => (x.series || []).length) {
+  const meilleur = new Map();
+  for (const x of liste || []) {
+    const k = `${x.profil_id}|${String(x.date).slice(0, 10)}|${x.programme_id || x.nom_programme}`;
+    const cur = meilleur.get(k);
+    if (!cur) { meilleur.set(k, x); continue; }
+    const a = nbSeries(x), b = nbSeries(cur);
+    if (a > b || (a === b && cur.enregistree_auto && x.enregistree_auto === false)) meilleur.set(k, x);
+  }
+  const garder = new Set(meilleur.values());
+  return (liste || []).filter((x) => garder.has(x));
 }
 
 const isoLocal = (ms) => {
@@ -2940,7 +2984,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
     return () => clearTimeout(t);
   }, [logs, profilId]);
 
-  // Envoi en direct au coach (voir envoyerBrouillonSeance) : 1,5 s après chaque série,
+  // Envoi en direct au coach (voir synchroniserBrouillonSeance) : 1,5 s après chaque série,
   // et immédiatement quand l'app passe en arrière-plan ou se ferme.
   const liveChainRef = useRef(Promise.resolve());
   const liveTimerRef = useRef(null);
@@ -2956,9 +3000,8 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
         const live = lireLive();
         const start = parseInt(localStorage.getItem(startTimeKey) || String(Date.now()), 10);
         const dateIso = live?.date || isoLocal(start);
-        const id = await envoyerBrouillonSeance({ profilId, programme, logs: logsRef.current, seconds: secondsRef.current, dateIso, ancienId: live?.id });
-        if (id && !stopLiveRef.current) localStorage.setItem(liveKey, JSON.stringify({ id, date: dateIso }));
-        else if (id && stopLiveRef.current && id !== live?.id) await supprimerBrouillonSeance(id);
+        const maj = await synchroniserBrouillonSeance({ profilId, programme, logs: logsRef.current, seconds: secondsRef.current, dateIso, live });
+        if (maj?.id) localStorage.setItem(liveKey, JSON.stringify(maj));
       } catch (err) {
         console.error("Envoi en direct de la séance :", err?.message || err);
       }
@@ -2986,10 +3029,13 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
   }, [profilId]);
   // Avant l'envoi final : on arrête les écritures en direct et on attend la dernière,
   // pour que saveSession supprime bien le brouillon au lieu de le doubler.
+  const brouillonFinalRef = useRef(null);
   const arreterEnvoiDirect = async () => {
     stopLiveRef.current = true;
     clearTimeout(liveTimerRef.current);
     try { await liveChainRef.current; } catch { /* ignoré */ }
+    // La séance finale réutilise ce brouillon (aucune nouvelle ligne créée)
+    brouillonFinalRef.current = lireLive();
   };
 
   // Chrono de repos basé sur une horloge réelle (timestamp) : reste juste même si l'écran
@@ -3127,7 +3173,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
       setAutoEnvoyee(true);
       setFinished(true);
       setSaveStatus("pending");
-      const ok = await onSessionComplete?.({ programme, logs, seconds });
+      const ok = await onSessionComplete?.({ programme, logs, seconds, brouillon: brouillonFinalRef.current });
       setSaveStatus(ok ? "ok" : "error");
     })();
   }, [seconds]);
@@ -3175,7 +3221,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
             <button
               onClick={async () => {
                 setSaveStatus("pending");
-                const ok = await onSessionComplete?.({ programme, logs, seconds });
+                const ok = await onSessionComplete?.({ programme, logs, seconds, brouillon: brouillonFinalRef.current });
                 setSaveStatus(ok ? "ok" : "error");
               }}
               style={{ background: C.red, border: "none", color: "#FFFFFF", borderRadius: 10, padding: "9px", fontWeight: 700, fontSize: 13 }}
@@ -3354,7 +3400,7 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
           await arreterEnvoiDirect();
           nettoyerStockageSession();
           setSaveStatus("pending");
-          const ok = await onSessionComplete?.({ programme, logs, seconds });
+          const ok = await onSessionComplete?.({ programme, logs, seconds, brouillon: brouillonFinalRef.current });
           setSaveStatus(ok ? "ok" : "error");
         }}
         disabled={totalSets === 0}
@@ -10705,7 +10751,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   // plus jamais rien automatiquement ; une séance sans série est simplement masquée à
   // l'affichage ci-dessous (voir seancesAvecSeries), sans toucher à la base.
   const seancesAvecSeries = useMemo(
-    () => seances.filter((s) => (seriesBySeance[s.id] || []).length > 0),
+    () => dedoublonnerSeances(seances.filter((s) => (seriesBySeance[s.id] || []).length > 0), (x) => (seriesBySeance[x.id] || []).length),
     [seances, seriesBySeance]
   );
 
@@ -11768,7 +11814,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           supabase.from("taches").select("*").eq("coach_id", coachProfil.id).eq("statut", "a_faire").order("date_echeance", { ascending: true }).limit(5),
           supabase.from("connexions_log").select("profil_id, connected_at").in("profil_id", ids).order("connected_at", { ascending: false }).limit(500),
         ]);
-        setRecentSeances(seancesRes.data || []);
+        setRecentSeances(dedoublonnerSeances(seancesRes.data || [], () => 0));
         setTachesApercu(tachesRes.data || []);
 
         const derniereConnexion = {};
@@ -12244,23 +12290,29 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         setCustomProgrammes(formatted);
       });
   }, [profilId]);
+  const recuperationFaiteRef = useRef(false);
   // Récupération des séances restées uniquement sur le téléphone (versions précédentes de
   // l'app, ou réseau coupé pendant la séance) : dès que les programmes sont chargés, toute
   // séance avec des séries remplies mais jamais envoyée au coach lui est envoyée.
   useEffect(() => {
     if (!profilId || profilRow?.role === "coach" || !customProgrammes.length) return;
+    if (recuperationFaiteRef.current) return; // une seule fois par ouverture de l'app
+    recuperationFaiteRef.current = true;
     (async () => {
       for (const p of customProgrammes) {
         const key = p.id || p.nom;
         try {
+          // Séance en cours sur cet écran : c'est elle qui s'envoie toute seule, ne pas la doubler
+          const enCours = localStorage.getItem(`active_programme_${profilId}`);
+          if (enCours && enCours === String(key)) continue;
           if (localStorage.getItem(`session_live_${key}`)) continue; // déjà chez le coach
           const logs = JSON.parse(localStorage.getItem(`session_logs_${key}`) || "null");
           if (!logs || seriesDepuisLogs(p, logs).length === 0) continue;
           const start = parseInt(localStorage.getItem(`session_start_${key}`) || "", 10);
           const debut = Number.isFinite(start) ? start : Date.now();
           const dateIso = isoLocal(debut);
-          const id = await envoyerBrouillonSeance({ profilId, programme: p, logs, seconds: Math.min(3 * 3600, (Date.now() - debut) / 1000), dateIso, ancienId: null });
-          if (id) localStorage.setItem(`session_live_${key}`, JSON.stringify({ id, date: dateIso }));
+          const maj = await synchroniserBrouillonSeance({ profilId, programme: p, logs, seconds: Math.min(3 * 3600, (Date.now() - debut) / 1000), dateIso, live: null });
+          if (maj?.id) localStorage.setItem(`session_live_${key}`, JSON.stringify(maj));
         } catch (err) {
           console.error("Récupération séance non envoyée :", err?.message || err);
         }
@@ -12559,7 +12611,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       .eq("profil_id", profilId)
       .order("date", { ascending: false })
       .limit(90)
-      .then(({ data }) => setRecentSeances(data || []));
+      .then(({ data }) => setRecentSeances(dedoublonnerSeances(data || [])));
   }, [profilId]);
   const [photosHistory, setPhotosHistory] = useState([]);
   const [uploadingPhotoKey, setUploadingPhotoKey] = useState(null);
@@ -12857,7 +12909,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         const seances = seancesRes.data || [];
         setStats((s) => ({
           ...s,
-          seancesRealisees: seances.filter((sc) => sc.date >= monthStartIso).length,
+          seancesRealisees: dedoublonnerSeances(seances.filter((sc) => sc.date >= monthStartIso), () => 0).length,
         }));
 
         if (seances.length > 0) {
@@ -13108,9 +13160,29 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     }
   };
 
-  const saveSession = async ({ programme, logs, seconds }) => {
+  const saveSession = async ({ programme, logs, seconds, brouillon = null }) => {
     if (!profilId) return false;
     try {
+      // Séance déjà envoyée en direct pendant l'entraînement : on la complète et on la
+      // marque validée, au lieu d'en créer une seconde.
+      let seanceReutilisee = null;
+      if (brouillon?.id) {
+        try {
+          const maj = await synchroniserBrouillonSeance({ profilId, programme, logs, seconds, dateIso: brouillon.date, live: brouillon });
+          if (maj?.id) {
+            let { data: d1, error: e1 } = await supabase.from("seances").update({ enregistree_auto: false, duree_secondes: Math.round(seconds || 0) }).eq("id", maj.id).select("id");
+            if (e1 && /enregistree_auto/.test(e1.message || "")) {
+              ({ data: d1, error: e1 } = await supabase.from("seances").update({ duree_secondes: Math.round(seconds || 0) }).eq("id", maj.id).select("id"));
+            }
+            // Mise à jour refusée : on retombe sur l'enregistrement classique (le brouillon
+            // sera alors supprimé comme doublon du jour)
+            seanceReutilisee = !e1 && d1 && d1.length > 0 ? maj.id : null;
+          }
+        } catch (errBrouillon) {
+          console.error("Finalisation du brouillon :", errBrouillon?.message || errBrouillon);
+          seanceReutilisee = null;
+        }
+      }
       // Chaque séance terminée crée son propre enregistrement, avec uniquement les
       // exercices réellement remplis cette fois-ci — jamais mélangé avec les séries
       // d'une séance précédente. La "dernière performance" affichée pour les exercices
@@ -13130,27 +13202,31 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       doublonsQuery = programme.id
         ? doublonsQuery.eq("programme_id", programme.id)
         : doublonsQuery.eq("nom_programme", programme.nom);
-      const { data: doublons } = await doublonsQuery;
+      const { data: doublonsBruts } = await doublonsQuery;
+      const doublons = (doublonsBruts || []).filter((d) => d.id !== seanceReutilisee);
       if (doublons && doublons.length > 0) {
         const idsASupprimer = doublons.map((d) => d.id);
         await supabase.from("series").delete().in("seance_id", idsASupprimer);
         await supabase.from("seances").delete().in("id", idsASupprimer);
       }
 
-      const { data: seance, error: seanceErr } = await supabase
-        .from("seances")
-        .insert({
-          profil_id: profilId,
-          nom_programme: programme.nom,
-          programme_id: programme.id || null,
-          duree_secondes: seconds,
-          date: todayIso(),
-          envoyee_au_coach: true,
-        })
-        .select("*")
-        .single();
-      if (seanceErr) throw seanceErr;
-      const seanceId = seance.id;
+      let seanceId = seanceReutilisee;
+      if (!seanceId) {
+        const { data: seance, error: seanceErr } = await supabase
+          .from("seances")
+          .insert({
+            profil_id: profilId,
+            nom_programme: programme.nom,
+            programme_id: programme.id || null,
+            duree_secondes: seconds,
+            date: todayIso(),
+            envoyee_au_coach: true,
+          })
+          .select("*")
+          .single();
+        if (seanceErr) throw seanceErr;
+      seanceId = seance.id;
+
 
       const rows = [];
       for (const ex of programme.exercices) {
@@ -13189,6 +13265,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           throw seriesErr;
         }
       }
+      } // fin création séance (pas de brouillon réutilisé)
 
       // La séance validée par le client remplace celle que le serveur avait enregistrée
       // automatiquement (client qui avait oublié de valider puis revient terminer).
