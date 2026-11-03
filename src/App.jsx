@@ -10507,9 +10507,168 @@ function JourDetailModal({ date, checkin, poids, seance, seriesDeLaSeance, repas
   );
 }
 
+// ---------------------------------------------------------------------------
+// « Nouveautés » d'un client : ce qu'il a fait depuis la dernière fois que le coach a
+// coché « Lu » sur sa fiche (mémorisé sur cet appareil). La fenêtre ne s'ouvre que s'il y
+// a du nouveau.
+const cleLuCoach = (clientId) => `coach_lu_${clientId}`;
+function lireDernierLu(clientId) {
+  try { return localStorage.getItem(cleLuCoach(clientId)); } catch { return null; }
+}
+function marquerLu(clientId) {
+  try { localStorage.setItem(cleLuCoach(clientId), new Date().toISOString()); } catch { /* ignoré */ }
+}
+// Un élément est « nouveau » s'il a été créé après le dernier « Lu ». Sans heure de création
+// connue, seule sa date compte (nouveau s'il est daté d'un jour postérieur).
+function estNouveau(row, depuisIso) {
+  if (!depuisIso) return true;
+  if (row.created_at) return new Date(row.created_at) > new Date(depuisIso);
+  return String(row.date || "").slice(0, 10) > depuisIso.slice(0, 10);
+}
+const momentDe = (row) => (row.created_at ? new Date(row.created_at) : new Date(`${String(row.date).slice(0, 10)}T12:00:00`));
+function libelleJour(d) {
+  const j = new Date(d); j.setHours(0, 0, 0, 0);
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  const diff = Math.round((auj - j) / 86400000);
+  if (diff <= 0) return "Aujourd'hui";
+  if (diff === 1) return "Hier";
+  if (diff === 2) return "Avant-hier";
+  const t = j.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+async function chargerNouveautesClient(clientId) {
+  const depuis = lireDernierLu(clientId) || new Date(Date.now() - 7 * 86400000).toISOString(); // 1re ouverture : 7 derniers jours
+  const jourDepuis = depuis.slice(0, 10);
+  const [seancesR, poidsR, repasR, photosR, mensR, bilansR, checkR] = await Promise.all([
+    supabase.from("seances").select("*").eq("profil_id", clientId).gte("date", jourDepuis).order("date", { ascending: false }).limit(40),
+    supabase.from("poids_historique").select("*").eq("profil_id", clientId).gte("date", jourDepuis),
+    supabase.from("repas").select("*").eq("profil_id", clientId).gte("date", jourDepuis).limit(500),
+    supabase.from("photos_bilan").select("*").eq("profil_id", clientId).gte("date", jourDepuis),
+    supabase.from("mensurations").select("*").eq("profil_id", clientId).gte("date", jourDepuis),
+    supabase.from("bilans_semaine").select("*").eq("profil_id", clientId).gte("date", jourDepuis),
+    supabase.from("checkins_quotidiens").select("*").eq("profil_id", clientId).gte("date", jourDepuis),
+  ]);
+  const evts = [];
+  const nv = (res) => (res.data || []).filter((r) => estNouveau(r, depuis));
+
+  const seances = nv(seancesR);
+  if (seances.length) {
+    const series = await chargerSeriesDeSeances(seances.map((s) => s.id));
+    const nb = {};
+    for (const r of series) nb[r.seance_id] = (nb[r.seance_id] || 0) + 1;
+    for (const s of dedoublonnerSeances(seances.filter((x) => nb[x.id] > 0), (x) => nb[x.id] || 0)) {
+      evts.push({ type: "seance", quand: momentDe(s), titre: `Séance « ${s.nom_programme || "Séance"} »`,
+        detail: `${nb[s.id]} série${nb[s.id] > 1 ? "s" : ""}${s.duree_secondes ? ` · ${Math.round(s.duree_secondes / 60)} min` : ""}${s.enregistree_auto ? " · non validée" : ""}`, alerte: !!s.enregistree_auto });
+    }
+  }
+  for (const p of nv(poidsR)) {
+    if (!(Number(p.poids) >= 25 && Number(p.poids) <= 300)) continue;
+    evts.push({ type: "poids", quand: momentDe(p), titre: "Nouveau poids", detail: `${String(Number(p.poids)).replace(".", ",")} kg` });
+  }
+  const repasParJour = {};
+  for (const r of nv(repasR)) {
+    const j = String(r.date).slice(0, 10);
+    if (!repasParJour[j]) repasParJour[j] = { n: 0, kcal: 0, quand: momentDe(r), types: new Set() };
+    const g = repasParJour[j];
+    g.n++; g.kcal += Number(r.kcal) || 0; if (r.type_repas) g.types.add(r.type_repas);
+    if (momentDe(r) > g.quand) g.quand = momentDe(r);
+  }
+  for (const g of Object.values(repasParJour)) {
+    evts.push({ type: "nutrition", quand: g.quand, titre: "Nutrition remplie", detail: `${g.n} aliment${g.n > 1 ? "s" : ""}${g.types.size ? ` · ${g.types.size} repas` : ""} · ${Math.round(g.kcal)} kcal` });
+  }
+  const photosParJour = {};
+  for (const p of nv(photosR)) {
+    const j = String(p.date).slice(0, 10);
+    if (!photosParJour[j]) photosParJour[j] = { n: 0, quand: momentDe(p) };
+    photosParJour[j].n++;
+  }
+  for (const g of Object.values(photosParJour)) evts.push({ type: "photo", quand: g.quand, titre: g.n > 1 ? "Nouvelles photos" : "Nouvelle photo", detail: `${g.n} photo${g.n > 1 ? "s" : ""} de suivi` });
+  for (const m of nv(mensR)) evts.push({ type: "mensurations", quand: momentDe(m), titre: "Mensurations mises à jour", detail: "Nouvelles mesures enregistrées" });
+  for (const b of nv(bilansR)) evts.push({ type: "bilan", quand: momentDe(b), titre: "Bilan de la semaine envoyé", detail: [b.satisfaction != null ? `Satisfaction ${b.satisfaction}/5` : null, b.motivation != null ? `Motivation ${b.motivation}/5` : null].filter(Boolean).join(" · ") || "À consulter dans Bilans" });
+  for (const c of nv(checkR)) evts.push({ type: "checkin", quand: momentDe(c), titre: "Check-in du jour", detail: [c.fatigue != null ? `Fatigue ${c.fatigue}/5` : null, c.sommeil != null ? `Sommeil ${c.sommeil}/5` : null, c.energie != null ? `Énergie ${c.energie}/5` : null].filter(Boolean).join(" · ") });
+
+  evts.sort((a, b) => b.quand - a.quand);
+  return evts;
+}
+
+const NOUVEAUTE_STYLE = {
+  seance: { icon: Dumbbell, color: "#3AD6A0", tab: "programme" },
+  poids: { icon: TrendingUp, color: "#F5B833", tab: "bilans" },
+  nutrition: { icon: Apple, color: "#F28C38", tab: "nutrition" },
+  photo: { icon: Camera, color: "#8CBEFF", tab: "bilans" },
+  mensurations: { icon: Target, color: "#B794FF", tab: "bilans" },
+  bilan: { icon: ClipboardList, color: "#8CBEFF", tab: "bilans" },
+  checkin: { icon: CheckCircle2, color: "#7FA0FF", tab: "bilans" },
+};
+
+function NouveautesClientModal({ client, evenements, onLu, onFermer, onOuvrirOnglet }) {
+  const groupes = [];
+  for (const e of evenements) {
+    const lib = libelleJour(e.quand);
+    const g = groupes.find((x) => x.lib === lib);
+    if (g) g.items.push(e); else groupes.push({ lib, items: [e] });
+  }
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 190, background: "rgba(3,6,20,0.72)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }} onClick={onFermer}>
+      <style>{`@keyframes nouvIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }`}</style>
+      <Card onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 400, maxHeight: "78vh", display: "flex", flexDirection: "column", padding: 0, textAlign: "left", animation: "nouvIn .3s ease",
+        border: "1.5px solid rgba(140,190,255,0.9)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 0 30px rgba(120,170,255,0.5), 0 18px 44px rgba(0,0,0,0.55)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px" }}>
+          <AvatarInitiales prenom={client.prenom} nom={client.nom} photo={client.photo_url} size={42} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, color: "#8CBEFF", fontWeight: 700 }}>Quoi de neuf ?</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{client.prenom}</div>
+          </div>
+          <button onClick={onLu} style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 13px 8px 9px", borderRadius: 999, background: "rgba(58,214,160,0.14)", border: "1.5px solid rgba(58,214,160,0.75)", boxShadow: "0 0 12px rgba(58,214,160,0.4)", color: C.green, fontWeight: 800, fontSize: 14 }}>
+            <span style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${C.green}`, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={13} strokeWidth={3.5} /></span>
+            Lu
+          </button>
+        </div>
+        <div style={{ fontSize: 13, color: C.textMuted, padding: "0 16px 10px" }}>
+          {evenements.length} nouveauté{evenements.length > 1 ? "s" : ""} depuis ta dernière visite
+        </div>
+        <div style={{ overflowY: "auto", padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+          {groupes.map((g) => (
+            <div key={g.lib}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.03em", marginBottom: 7 }}>{g.lib}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {g.items.map((e, i) => {
+                  const st = NOUVEAUTE_STYLE[e.type] || NOUVEAUTE_STYLE.bilan;
+                  const Icon = st.icon;
+                  return (
+                    <button key={i} onClick={() => onOuvrirOnglet(st.tab)} style={{ ...ROW_STYLE, width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", justifyContent: "flex-start" }}>
+                      <IconBadge icon={Icon} color={st.color} size={34} iconSize={16} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 800, color: C.text }}>{e.titre}</div>
+                        {e.detail && <div style={{ fontSize: 12.5, color: e.alerte ? "#FFB547" : C.textMuted, marginTop: 1 }}>{e.detail}</div>}
+                      </div>
+                      <span style={{ fontSize: 11.5, color: C.textDim, flexShrink: 0 }}>{e.quand.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [showPopupNonValideeCoach, setShowPopupNonValideeCoach] = useState(false);
   const [tab, setTab] = useState("programme");
+  // Fenêtre « Quoi de neuf ? » : seulement s'il y a du nouveau depuis le dernier « Lu »
+  const [nouveautes, setNouveautes] = useState([]);
+  const [showNouveautes, setShowNouveautes] = useState(false);
+  useEffect(() => {
+    let actif = true;
+    chargerNouveautesClient(client.id)
+      .then((evts) => { if (actif && evts.length > 0) { setNouveautes(evts); setShowNouveautes(true); } })
+      .catch((err) => console.error("Nouveautés client :", err));
+    return () => { actif = false; };
+  }, [client.id]);
   const [openBilans, setOpenBilans] = useState({});
   const [loading, setLoading] = useState(true);
   const [seances, setSeances] = useState([]);
@@ -11019,6 +11178,15 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   return (
     <div style={appShellStyle}>
       <FontImports />
+      {showNouveautes && (
+        <NouveautesClientModal
+          client={client}
+          evenements={nouveautes}
+          onLu={() => { marquerLu(client.id); setShowNouveautes(false); }}
+          onFermer={() => setShowNouveautes(false)}
+          onOuvrirOnglet={(t) => { setShowNouveautes(false); setTab(t); }}
+        />
+      )}
       <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", position: "relative", textAlign: "left" }}>
         <button onClick={onBack} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 999, color: C.text, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 16px 8px 10px", marginBottom: 18 }}>
           <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} /> Retour
