@@ -10537,7 +10537,74 @@ function libelleJour(d) {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-async function chargerNouveautesClient(clientId) {
+// Objectifs nutritionnels d'un client pour une date donnée (même logique que côté client :
+// réglage du jour « nutrition_par_jour » prioritaire, sinon kcal par jour / % ou poids de corps).
+function objectifsNutritionClientPourDate(client, dateIso) {
+  const jour = JOURS_SEMAINE[(new Date(`${String(dateIso).slice(0, 10)}T12:00:00`).getDay() + 6) % 7];
+  let nutritionParJour = {}, kcalParJour = {};
+  try { nutritionParJour = client?.nutrition_par_jour ? JSON.parse(client.nutrition_par_jour) : {}; } catch { /* ignoré */ }
+  try { kcalParJour = client?.objectifs_kcal_par_jour ? JSON.parse(client.objectifs_kcal_par_jour) : {}; } catch { /* ignoré */ }
+  const poids = client?.poids_actuel || 0;
+  const cfg = nutritionParJour?.[jour];
+  if (cfg) {
+    const m = calculerMacros(cfg.kcal, cfg, poids);
+    return { kcal: parseInt(cfg.kcal) || 0, ...m };
+  }
+  const kcal = kcalParJour[jour] ?? client?.objectif_calories ?? 2400;
+  const pctProt = client?.pct_prot || 30, pctGluc = client?.pct_gluc || 45, pctLip = client?.pct_lip || 25;
+  const protParKg = client?.prot_par_kg ?? null, lipParKg = client?.lip_par_kg ?? null;
+  const parPoids = protParKg != null || lipParKg != null;
+  const prot = parPoids ? Math.round((protParKg || 0) * poids) : Math.round((kcal * pctProt / 100) / 4);
+  const lip = parPoids ? Math.round((lipParKg || 0) * poids) : Math.round((kcal * pctLip / 100) / 9);
+  const gluc = parPoids ? Math.max(0, Math.round((kcal - prot * 4 - lip * 4) / 4)) : Math.round((kcal * pctGluc / 100) / 4);
+  return { kcal, prot, gluc, lip };
+}
+
+// Compare une séance à la précédente du même programme, série par série (séries de travail
+// uniquement) : % de séries en progrès + liste des régressions détaillées.
+async function analyserProgressionSeance(clientId, seance, seriesSeance, echauffementParNom) {
+  let q = supabase.from("seances").select("id, date, programme_id, nom_programme").eq("profil_id", clientId).lt("date", String(seance.date).slice(0, 10)).order("date", { ascending: false }).limit(6);
+  q = seance.programme_id ? q.eq("programme_id", seance.programme_id) : q.eq("nom_programme", seance.nom_programme);
+  const { data: precedentes } = await q;
+  if (!precedentes || precedentes.length === 0) return { premiere: true };
+  const seriesPrec = await chargerSeriesDeSeances(precedentes.map((p) => p.id));
+  const parSeance = {};
+  for (const r of seriesPrec) (parSeance[r.seance_id] = parSeance[r.seance_id] || []).push(r);
+  const precedente = precedentes.find((p) => (parSeance[p.id] || []).length > 0);
+  if (!precedente) return { premiere: true };
+
+  const travail = (rows) => {
+    const parEx = {};
+    for (const r of rows) (parEx[r.exercice_nom] = parEx[r.exercice_nom] || []).push(r);
+    for (const nom of Object.keys(parEx)) {
+      parEx[nom].sort((a, b) => (a.numero_serie || 0) - (b.numero_serie || 0));
+      parEx[nom] = parEx[nom].slice(echauffementParNom[nom] || 0);
+    }
+    return parEx;
+  };
+  const actuel = travail(seriesSeance);
+  const avant = travail(parSeance[precedente.id]);
+  let progres = 0, stagne = 0, regresse = 0;
+  const regressions = [];
+  const fmt = (r) => `${String(Number(r.poids)).replace(".", ",")} kg × ${Number(r.reps)}`;
+  for (const [nom, sets] of Object.entries(actuel)) {
+    const ref = avant[nom];
+    if (!ref || ref.length === 0) continue;
+    const details = [];
+    sets.forEach((r, i) => {
+      const a = ref[Math.min(i, ref.length - 1)];
+      const p = Number(r.poids), mp = Number(a.poids), n = Number(r.reps), mn = Number(a.reps);
+      if (p > mp || (p === mp && n > mn)) progres++;
+      else if (p === mp && n === mn) stagne++;
+      else { regresse++; details.push(`S${i + 1} : ${fmt(a)} → ${fmt(r)}`); }
+    });
+    if (details.length) regressions.push({ nom, details });
+  }
+  const total = progres + stagne + regresse;
+  return { premiere: total === 0, dateAvant: precedente.date, progres, stagne, regresse, total, pct: total ? Math.round((progres / total) * 100) : 0, regressions };
+}
+
+async function chargerNouveautesClient(clientId, client = null) {
   const depuis = lireDernierLu(clientId) || new Date(Date.now() - 7 * 86400000).toISOString(); // 1re ouverture : 7 derniers jours
   const jourDepuis = depuis.slice(0, 10);
   const [seancesR, poidsR, repasR, photosR, mensR, bilansR, checkR] = await Promise.all([
@@ -10557,9 +10624,16 @@ async function chargerNouveautesClient(clientId) {
     const series = await chargerSeriesDeSeances(seances.map((s) => s.id));
     const nb = {};
     for (const r of series) nb[r.seance_id] = (nb[r.seance_id] || 0) + 1;
+    const { data: progs } = await supabase.from("programmes").select("id, nom, programme_exercices(nom, series_echauffement)").eq("profil_id", clientId);
+    const echauffementPour = (seance) => {
+      const p = (progs || []).find((x) => x.id === seance.programme_id) || (progs || []).find((x) => x.nom === seance.nom_programme);
+      return Object.fromEntries((p?.programme_exercices || []).map((e) => [e.nom, e.series_echauffement || 0]));
+    };
     for (const s of dedoublonnerSeances(seances.filter((x) => nb[x.id] > 0), (x) => nb[x.id] || 0)) {
+      let analyse = null;
+      try { analyse = await analyserProgressionSeance(clientId, s, series.filter((r) => r.seance_id === s.id), echauffementPour(s)); } catch (e) { console.error("Analyse séance :", e); }
       evts.push({ type: "seance", quand: momentDe(s), titre: `Séance « ${s.nom_programme || "Séance"} »`,
-        detail: `${nb[s.id]} série${nb[s.id] > 1 ? "s" : ""}${s.duree_secondes ? ` · ${Math.round(s.duree_secondes / 60)} min` : ""}${s.enregistree_auto ? " · non validée" : ""}`, alerte: !!s.enregistree_auto });
+        detail: `${nb[s.id]} série${nb[s.id] > 1 ? "s" : ""}${s.duree_secondes ? ` · ${Math.round(s.duree_secondes / 60)} min` : ""}${s.enregistree_auto ? " · non validée" : ""}`, alerte: !!s.enregistree_auto, analyse });
     }
   }
   for (const p of nv(poidsR)) {
@@ -10569,13 +10643,18 @@ async function chargerNouveautesClient(clientId) {
   const repasParJour = {};
   for (const r of nv(repasR)) {
     const j = String(r.date).slice(0, 10);
-    if (!repasParJour[j]) repasParJour[j] = { n: 0, kcal: 0, quand: momentDe(r), types: new Set() };
+    if (!repasParJour[j]) repasParJour[j] = { n: 0, kcal: 0, prot: 0, gluc: 0, lip: 0, quand: momentDe(r), types: new Set(), date: j };
     const g = repasParJour[j];
-    g.n++; g.kcal += Number(r.kcal) || 0; if (r.type_repas) g.types.add(r.type_repas);
+    g.n++; g.kcal += Number(r.kcal) || 0; g.prot += Number(r.prot) || 0; g.gluc += Number(r.gluc) || 0; g.lip += Number(r.lip) || 0;
+    if (r.type_repas) g.types.add(r.type_repas);
     if (momentDe(r) > g.quand) g.quand = momentDe(r);
   }
   for (const g of Object.values(repasParJour)) {
-    evts.push({ type: "nutrition", quand: g.quand, titre: "Nutrition remplie", detail: `${g.n} aliment${g.n > 1 ? "s" : ""}${g.types.size ? ` · ${g.types.size} repas` : ""} · ${Math.round(g.kcal)} kcal` });
+    // Totaux de TOUTE la journée (pas seulement les aliments ajoutés depuis le dernier « Lu »)
+    const jour = (repasR.data || []).filter((r) => String(r.date).slice(0, 10) === g.date);
+    const tot = jour.reduce((a, r) => ({ kcal: a.kcal + (Number(r.kcal) || 0), prot: a.prot + (Number(r.prot) || 0), gluc: a.gluc + (Number(r.gluc) || 0), lip: a.lip + (Number(r.lip) || 0) }), { kcal: 0, prot: 0, gluc: 0, lip: 0 });
+    evts.push({ type: "nutrition", quand: g.quand, titre: "Nutrition remplie", detail: `${g.n} aliment${g.n > 1 ? "s" : ""}${g.types.size ? ` · ${g.types.size} repas` : ""} · ${Math.round(g.kcal)} kcal`,
+      nutrition: { total: tot, objectif: client ? objectifsNutritionClientPourDate(client, g.date) : null } });
   }
   const photosParJour = {};
   for (const p of nv(photosR)) {
@@ -10602,7 +10681,74 @@ const NOUVEAUTE_STYLE = {
   checkin: { icon: CheckCircle2, color: "#7FA0FF", tab: "bilans" },
 };
 
+function DetailSeanceNouveaute({ analyse }) {
+  if (analyse.premiere) {
+    return <div style={{ padding: "0 12px 12px", fontSize: 13, color: C.textMuted }}>Première séance de ce programme : pas encore de comparaison possible.</div>;
+  }
+  const col = analyse.pct >= 60 ? C.green : analyse.pct >= 30 ? "#F5B833" : C.red;
+  const larg = (n) => `${(n / analyse.total) * 100}%`;
+  return (
+    <div style={{ padding: "2px 12px 12px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 10 }}>
+        <span style={{ fontSize: 26, fontWeight: 800, color: col, lineHeight: 1 }}>{analyse.pct}%</span>
+        <span style={{ fontSize: 13, color: C.textMuted }}>des séries en progrès vs le {formatDateDisplay(String(analyse.dateAvant).slice(0, 10))}</span>
+      </div>
+      <div style={{ display: "flex", height: 8, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.06)", marginTop: 8 }}>
+        <div style={{ width: larg(analyse.progres), background: C.green }} />
+        <div style={{ width: larg(analyse.stagne), background: "#F5B833" }} />
+        <div style={{ width: larg(analyse.regresse), background: C.red }} />
+      </div>
+      <div style={{ display: "flex", gap: 12, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
+        <span style={{ color: C.green }}>{analyse.progres} progrès</span>
+        <span style={{ color: "#F5B833" }}>{analyse.stagne} pareil</span>
+        <span style={{ color: C.red }}>{analyse.regresse} en baisse</span>
+      </div>
+      {analyse.regressions.length > 0 ? (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.red }}>Exercices en baisse</div>
+          {analyse.regressions.map((r) => (
+            <div key={r.nom} style={{ background: "rgba(255,93,108,0.08)", border: "1px solid rgba(255,93,108,0.35)", borderRadius: 12, padding: "8px 10px" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text }}>{r.nom}</div>
+              {r.details.map((d, k) => <div key={k} style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>{d}</div>)}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ marginTop: 10, fontSize: 13, color: C.green, fontWeight: 700 }}>Aucun exercice en baisse 💪</div>
+      )}
+    </div>
+  );
+}
+
+function DetailNutritionNouveaute({ n }) {
+  const { total, objectif } = n;
+  const ligne = (label, val, obj, couleur, unite) => {
+    const pct = obj ? Math.min(100, (val / obj) * 100) : 0;
+    const depasse = obj && val > obj * 1.05;
+    return (
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+          <span style={{ color: couleur, fontWeight: 800 }}>{label}</span>
+          <span style={{ color: depasse ? C.red : C.text, fontWeight: 800 }}>{Math.round(val)}{obj ? <span style={{ color: C.textMuted, fontWeight: 600 }}> / {Math.round(obj)} {unite}</span> : ` ${unite}`}</span>
+        </div>
+        <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
+          <div style={{ width: `${pct}%`, height: "100%", background: depasse ? C.red : couleur, boxShadow: `0 0 8px ${couleur}66` }} />
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div style={{ padding: "10px 12px 12px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: 9 }}>
+      {ligne("Calories", total.kcal, objectif?.kcal, "#FFFFFF", "kcal")}
+      {ligne("Protéines", total.prot, objectif?.prot, "#7FA0FF", "g")}
+      {ligne("Glucides", total.gluc, objectif?.gluc, "#F5C542", "g")}
+      {ligne("Lipides", total.lip, objectif?.lip, "#F28C38", "g")}
+    </div>
+  );
+}
+
 function NouveautesClientModal({ client, evenements, onLu, onFermer, onOuvrirOnglet }) {
+  const [ouverts, setOuverts] = useState({});
   const groupes = [];
   for (const e of evenements) {
     const lib = libelleJour(e.quand);
@@ -10636,15 +10782,29 @@ function NouveautesClientModal({ client, evenements, onLu, onFermer, onOuvrirOng
                 {g.items.map((e, i) => {
                   const st = NOUVEAUTE_STYLE[e.type] || NOUVEAUTE_STYLE.bilan;
                   const Icon = st.icon;
+                  const cle = `${g.lib}-${i}`;
+                  const depliable = (e.type === "seance" && e.analyse) || (e.type === "nutrition" && e.nutrition);
+                  const ouvert = !!ouverts[cle];
                   return (
-                    <button key={i} onClick={() => onOuvrirOnglet(st.tab)} style={{ ...ROW_STYLE, width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", justifyContent: "flex-start" }}>
-                      <IconBadge icon={Icon} color={st.color} size={34} iconSize={16} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14.5, fontWeight: 800, color: C.text }}>{e.titre}</div>
-                        {e.detail && <div style={{ fontSize: 12.5, color: e.alerte ? "#FFB547" : C.textMuted, marginTop: 1 }}>{e.detail}</div>}
+                    <div key={i} style={{ ...ROW_STYLE, flexDirection: "column", alignItems: "stretch", padding: 0, gap: 0, border: ouvert ? `1px solid ${st.color}66` : ROW_STYLE.border }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 8px 10px 12px" }}>
+                        <button onClick={() => onOuvrirOnglet(st.tab)} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>
+                          <IconBadge icon={Icon} color={st.color} size={34} iconSize={16} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14.5, fontWeight: 800, color: C.text }}>{e.titre}</div>
+                            {e.detail && <div style={{ fontSize: 12.5, color: e.alerte ? "#FFB547" : C.textMuted, marginTop: 1 }}>{e.detail}</div>}
+                          </div>
+                        </button>
+                        <span style={{ fontSize: 11.5, color: C.textDim, flexShrink: 0 }}>{e.quand.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                        {depliable && (
+                          <button onClick={() => setOuverts((o) => ({ ...o, [cle]: !o[cle] }))} style={{ width: 30, height: 30, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: ouvert ? `${st.color}22` : "rgba(255,255,255,0.06)", border: `1px solid ${ouvert ? st.color + "88" : "rgba(255,255,255,0.12)"}`, color: ouvert ? st.color : C.textMuted }}>
+                            <ChevronDown size={16} style={{ transform: ouvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                          </button>
+                        )}
                       </div>
-                      <span style={{ fontSize: 11.5, color: C.textDim, flexShrink: 0 }}>{e.quand.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                    </button>
+                      {ouvert && e.type === "seance" && <DetailSeanceNouveaute analyse={e.analyse} />}
+                      {ouvert && e.type === "nutrition" && <DetailNutritionNouveaute n={e.nutrition} />}
+                    </div>
                   );
                 })}
               </div>
@@ -10664,7 +10824,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [showNouveautes, setShowNouveautes] = useState(false);
   useEffect(() => {
     let actif = true;
-    chargerNouveautesClient(client.id)
+    chargerNouveautesClient(client.id, client)
       .then((evts) => { if (actif && evts.length > 0) { setNouveautes(evts); setShowNouveautes(true); } })
       .catch((err) => console.error("Nouveautés client :", err));
     return () => { actif = false; };
