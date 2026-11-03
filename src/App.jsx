@@ -10671,6 +10671,55 @@ async function chargerNouveautesClient(clientId, client = null) {
   return evts;
 }
 
+// Compteur « +N » de la liste des clients : même règles que la fenêtre « Quoi de neuf ? »
+// (nouveau = après le dernier « Lu »), en requêtes groupées pour tous les clients à la fois.
+async function compterNouveautesClients(ids) {
+  if (!ids || ids.length === 0) return {};
+  const depuisPar = {};
+  let plusAncien = null;
+  for (const id of ids) {
+    const d = lireDernierLu(id) || new Date(Date.now() - 7 * 86400000).toISOString();
+    depuisPar[id] = d;
+    if (!plusAncien || d < plusAncien) plusAncien = d;
+  }
+  const jour = plusAncien.slice(0, 10);
+  const q = (table, cols) => supabase.from(table).select(cols).in("profil_id", ids).gte("date", jour).limit(5000);
+  const [seR, poR, reR, phR, meR, biR, chR] = await Promise.all([
+    q("seances", "*"),
+    q("poids_historique", "*"),
+    q("repas", "profil_id, date, created_at"),
+    q("photos_bilan", "*"),
+    q("mensurations", "*"),
+    q("bilans_semaine", "*"),
+    q("checkins_quotidiens", "*"),
+  ]);
+  const res = {};
+  const ajouter = (row, type, cleRegroupement = null) => {
+    const id = row.profil_id;
+    if (!depuisPar[id] || !estNouveau(row, depuisPar[id])) return;
+    const r = (res[id] = res[id] || { n: 0, dernier: null, types: {}, vus: new Set() });
+    if (cleRegroupement) {
+      const k = `${type}|${cleRegroupement}`;
+      if (r.vus.has(k)) { const m = momentDe(row); if (m > r.dernier) r.dernier = m; return; }
+      r.vus.add(k);
+    }
+    r.n++;
+    r.types[type] = (r.types[type] || 0) + 1;
+    const m = momentDe(row);
+    if (!r.dernier || m > r.dernier) r.dernier = m;
+  };
+  for (const x of seR.data || []) ajouter(x, "seance", `${String(x.date).slice(0, 10)}|${x.programme_id || x.nom_programme}`);
+  for (const x of poR.data || []) if (Number(x.poids) >= 25 && Number(x.poids) <= 300) ajouter(x, "poids");
+  for (const x of reR.data || []) ajouter(x, "nutrition", String(x.date).slice(0, 10));
+  for (const x of phR.data || []) ajouter(x, "photo", String(x.date).slice(0, 10));
+  for (const x of meR.data || []) ajouter(x, "mensurations");
+  for (const x of biR.data || []) ajouter(x, "bilan");
+  for (const x of chR.data || []) ajouter(x, "checkin");
+  return res;
+}
+
+const LIBELLES_NOUVEAUTE = { seance: "séance", poids: "poids", nutrition: "nutrition", photo: "photos", mensurations: "mensurations", bilan: "bilan", checkin: "check-in" };
+
 const NOUVEAUTE_STYLE = {
   seance: { icon: Dumbbell, color: "#3AD6A0", tab: "programme" },
   poids: { icon: TrendingUp, color: "#F5B833", tab: "bilans" },
@@ -12278,6 +12327,17 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
     return Array.from(set);
   }, [clients]);
 
+  // Nouveautés par client (+N) : recalculées au chargement et à chaque retour de fiche
+  const [nouveautesParClient, setNouveautesParClient] = useState({});
+  useEffect(() => {
+    if (selectedClient || clients.length === 0) return;
+    let actif = true;
+    compterNouveautesClients(clients.map((c) => c.id))
+      .then((r) => { if (actif) setNouveautesParClient(r); })
+      .catch((e) => console.error("Compteur nouveautés :", e));
+    return () => { actif = false; };
+  }, [clients, selectedClient]);
+
   const clientsFiltres = useMemo(() => {
     return clients
       .filter((c) => {
@@ -12287,8 +12347,15 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         const matchGroupe = selectedGroupe === "Tous" || (selectedGroupe === "Sans dossier" ? !c.groupe : c.groupe === selectedGroupe);
         return matchSearch && matchGroupe;
       })
-      .sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, "fr"));
-  }, [clients, searchQuery, selectedGroupe]);
+      .sort((a, b) => {
+        // Les clients avec du nouveau d'abord (le plus récent en premier), puis par ordre alphabétique
+        const na = nouveautesParClient[a.id], nb = nouveautesParClient[b.id];
+        if (na?.n && nb?.n) return nb.dernier - na.dernier;
+        if (na?.n) return -1;
+        if (nb?.n) return 1;
+        return `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, "fr");
+      });
+  }, [clients, searchQuery, selectedGroupe, nouveautesParClient]);
 
   if (selectedClient) {
     return (
@@ -12501,7 +12568,15 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                   <Card key={c.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div onClick={() => setSelectedClient(c)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                                                <AvatarInitiales prenom={c.prenom} nom={c.nom} photo={c.photo_url} size={52} />
+                        <div style={{ position: "relative", flexShrink: 0 }}>
+                          <AvatarInitiales prenom={c.prenom} nom={c.nom} photo={c.photo_url} size={52} ring={nouveautesParClient[c.id]?.n ? "#F5B833" : undefined} />
+                          {nouveautesParClient[c.id]?.n > 0 && (
+                            <span style={{ position: "absolute", top: -6, right: -8, minWidth: 26, height: 22, padding: "0 6px", borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center",
+                              background: "linear-gradient(135deg,#FFD25A,#F59A20)", color: "#2A1600", fontSize: 12.5, fontWeight: 900, border: "2px solid #0B1029", boxShadow: "0 0 12px rgba(255,170,50,0.75)" }}>
+                              +{nouveautesParClient[c.id].n}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>{c.prenom} {c.nom}</div>
@@ -12512,6 +12587,18 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
                             )}
                           </div>
                           <div style={{ fontSize: 13.5, color: C.textMuted, marginTop: 2, textAlign: "left" }}>{c.objectif_principal}</div>
+                          {nouveautesParClient[c.id]?.n > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                              {Object.entries(nouveautesParClient[c.id].types).map(([t, n]) => {
+                                const col = (NOUVEAUTE_STYLE[t] || NOUVEAUTE_STYLE.bilan).color;
+                                return (
+                                  <span key={t} style={{ fontSize: 11.5, fontWeight: 800, color: col, background: `${col}1A`, border: `1px solid ${col}66`, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>
+                                    +{n} {LIBELLES_NOUVEAUTE[t] || t}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                           <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 12, rowGap: 4, marginTop: 6 }}>
                             {(() => {
                               const derniereDate = dernierSeanceParClient[c.id];
