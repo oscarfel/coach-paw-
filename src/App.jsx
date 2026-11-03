@@ -495,6 +495,25 @@ async function supprimerBrouillonSeance(id) {
   await supabase.from("seances").delete().eq("id", id);
 }
 
+// Charge les séries de nombreuses séances sans être tronqué : Supabase ne renvoie que
+// 1000 lignes par requête (et dans l'ordre d'insertion, donc les plus ANCIENNES d'abord) —
+// c'est ce qui faisait afficher « dernière fois » une séance d'il y a plusieurs semaines.
+// On découpe les ids par paquets et on pagine chaque paquet.
+async function chargerSeriesDeSeances(ids) {
+  const resultat = [];
+  const uniques = [...new Set((ids || []).filter((x) => x != null))];
+  for (let i = 0; i < uniques.length; i += 40) {
+    const paquet = uniques.slice(i, i + 40);
+    for (let debut = 0; ; debut += 1000) {
+      const { data, error } = await supabase.from("series").select("*").in("seance_id", paquet).order("id", { ascending: true }).range(debut, debut + 999);
+      if (error) { console.error("Chargement des séries :", error.message); break; }
+      resultat.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+  }
+  return resultat;
+}
+
 // Affichage robuste : une seule séance par client / jour / programme (la plus complète,
 // la validée en priorité), même si la base contient encore des doublons.
 function dedoublonnerSeances(liste, nbSeries = (x) => (x.series || []).length) {
@@ -6571,7 +6590,7 @@ function Profil({ user, setUser, fireToast, onSave, documentsRecus, notification
         <Card>
           <SectionHead icon={Bell} title={<>Notifications</>} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {notificationsRecues.map((n) => (
+            {notificationsRecues.slice(0, 3).map((n) => (
               <div
                 key={n.id}
                 onClick={() => !n.lu && onMarquerNotifLue(n.id)}
@@ -10692,7 +10711,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
       setLoading(true);
       try {
         const [seancesRes, poidsRes, checkinsRes, repasRes, programmesRes, dailyRes, photosRes, mensurationsRes, pushRes] = await Promise.all([
-          supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(10),
+          supabase.from("seances").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(60),
           supabase.from("poids_historique").select("*").eq("profil_id", client.id).order("date", { ascending: true }),
           supabase.from("bilans_semaine").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(1),
           supabase.from("repas").select("*").eq("profil_id", client.id).order("date", { ascending: false }).limit(30),
@@ -10706,7 +10725,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
 
         const seancesData = seancesRes.data || [];
         setSeances(seancesData);
-        setWeightHistory((poidsRes.data || []).map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) })));
+        setWeightHistory((poidsRes.data || []).filter((r) => Number(r.poids) >= 25 && Number(r.poids) <= 300).map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) })));
         setPoidsRawDates((poidsRes.data || []).map((r) => r.date));
         setPoidsRawList(poidsRes.data || []);
         setCheckins(checkinsRes.data || []);
@@ -10724,7 +10743,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
 
         if (seancesData.length > 0) {
           const ids = seancesData.map((s) => s.id);
-          const { data: seriesData } = await supabase.from("series").select("*").in("seance_id", ids);
+          const seriesData = await chargerSeriesDeSeances(ids);
           if (!active) return;
           const grouped = {};
           for (const row of seriesData || []) {
@@ -10771,12 +10790,12 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
         .select("*")
         .eq("profil_id", client.id)
         .order("date", { ascending: false })
-        .limit(10);
+        .limit(60);
       if (!active || !seancesFraiches) return;
       setSeances(seancesFraiches);
       if (seancesFraiches.length > 0) {
         const ids = seancesFraiches.map((s) => s.id);
-        const { data: seriesFraiches } = await supabase.from("series").select("*").in("seance_id", ids);
+        const seriesFraiches = await chargerSeriesDeSeances(ids);
         if (!active) return;
         const grouped = {};
         for (const row of seriesFraiches || []) {
@@ -10822,7 +10841,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             </div>
             <button onClick={() => { setEditingProgramme(selectedProgramme); setShowSeanceForm(true); }} style={{ background: C.blue, border: "none", color: "#FFFFFF", borderRadius: 14, padding: "10px 16px", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>Modifier</button>
           </div>
-          <SectionHead icon={TrendingUp} title="Historique des performances" count={historiqueFiltré.length} />
+          <SectionHead icon={TrendingUp} title="Dernière séance" />
           <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
             {[[C.green, "Progrès"], [C.amber, "Stagnation"], [C.red, "Régression"], [C.blue, "Première fois"]].map(([col, lab]) => (
               <span key={lab} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: C.text, background: "rgba(255,255,255,0.06)", border: `1px solid ${col}55`, borderRadius: 999, padding: "5px 11px" }}>
@@ -10834,7 +10853,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
             <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Le client n'a pas encore réalisé cette séance</div></Card>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {historiqueFiltré.map((s, sIdx) => {
+              {historiqueFiltré.slice(0, 1).map((s, sIdx) => {
                 // Regroupe les séries par exercice (dans l'ordre d'apparition), et détermine
                 // les groupes superset à partir de la définition du programme.
                 const seriesDeLaSeance = seriesBySeance[s.id] || [];
@@ -12856,7 +12875,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
 
         if (poidsRes.data) {
           setWeightHistory(
-            poidsRes.data.map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) }))
+            poidsRes.data.filter((r) => Number(r.poids) >= 25 && Number(r.poids) <= 300).map((r) => ({ date: formatDateDisplay(r.date), poids: Number(r.poids) }))
           );
         }
 
@@ -12913,11 +12932,18 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
         }));
 
         if (seances.length > 0) {
-          const seanceIds = seances.map((s) => s.id);
-          const dateBySeance = Object.fromEntries(seances.map((s) => [s.id, s.date]));
-          const { data: seriesData } = await supabase.from("series").select("*").in("seance_id", seanceIds);
-
+          // 150 séances les plus récentes suffisent largement pour « la dernière fois » de
+          // chaque exercice ; les séries sont chargées sans troncature, puis on ne garde
+          // qu'une séance par jour et par programme (la plus complète).
+          const recentes = seances.slice(0, 150);
+          const seriesBrutes = await chargerSeriesDeSeances(recentes.map((s) => s.id));
           if (!active) return;
+          const nbParSeance = {};
+          for (const r of seriesBrutes) nbParSeance[r.seance_id] = (nbParSeance[r.seance_id] || 0) + 1;
+          const seancesGardees = dedoublonnerSeances(recentes.filter((s) => nbParSeance[s.id] > 0), (x) => nbParSeance[x.id] || 0);
+          const idsGardes = new Set(seancesGardees.map((s) => s.id));
+          const seriesData = seriesBrutes.filter((r) => idsGardes.has(r.seance_id));
+          const dateBySeance = Object.fromEntries(seancesGardees.map((s) => [s.id, s.date]));
 
           if (seriesData) {
             const programmeBySeance = Object.fromEntries(seances.map((s) => [s.id, s.nom_programme || ""]));
@@ -12968,6 +12994,10 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   }, [profilRow.id]);
 
   const addWeightEntry = async (w) => {
+    if (!(Number(w) >= 25 && Number(w) <= 300)) {
+      fireToast("Poids invalide : vérifie la valeur (en kg)");
+      return;
+    }
     const id = profilId ?? profilIdRef.current;
     if (!id) {
       console.warn("addWeightEntry bloqué : profilId non défini");
