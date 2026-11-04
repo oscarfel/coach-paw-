@@ -12353,9 +12353,15 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
         if (na?.n && nb?.n) return nb.dernier - na.dernier;
         if (na?.n) return -1;
         if (nb?.n) return 1;
+        // Puis par activité : dernière séance la plus récente d'abord, puis dernière connexion,
+        // les clients jamais actifs en bas.
+        const sa = dernierSeanceParClient[a.id] || "", sb = dernierSeanceParClient[b.id] || "";
+        if (sa !== sb) return sa < sb ? 1 : -1;
+        const ca = derniereConnexionParClient[a.id] || "", cb = derniereConnexionParClient[b.id] || "";
+        if (ca !== cb) return ca < cb ? 1 : -1;
         return `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, "fr");
       });
-  }, [clients, searchQuery, selectedGroupe, nouveautesParClient]);
+  }, [clients, searchQuery, selectedGroupe, nouveautesParClient, dernierSeanceParClient, derniereConnexionParClient]);
 
   if (selectedClient) {
     return (
