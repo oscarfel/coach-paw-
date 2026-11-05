@@ -13356,7 +13356,23 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           // 150 séances les plus récentes suffisent largement pour « la dernière fois » de
           // chaque exercice ; les séries sont chargées sans troncature, puis on ne garde
           // qu'une séance par jour et par programme (la plus complète).
-          const recentes = seances.slice(0, 150);
+          // Une séance en cours (app fermée puis rouverte) est déjà enregistrée en direct chez
+          // le coach : elle ne doit jamais servir de « dernière fois », sinon les séries se
+          // comparent à elles-mêmes (tout en orange). On l'exclut tant qu'elle n'est pas terminée.
+          const brouillonsEnCours = new Set();
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (!k || !k.startsWith("session_live_")) continue;
+              const cleSeance = k.slice("session_live_".length);
+              if (!localStorage.getItem(`session_logs_${cleSeance}`)) continue; // séance terminée
+              const debut = parseInt(localStorage.getItem(`session_start_${cleSeance}`) || "", 10);
+              if (!Number.isFinite(debut) || Date.now() - debut > 6 * 3600 * 1000) continue; // séance abandonnée depuis longtemps
+              const live = JSON.parse(localStorage.getItem(k) || "null");
+              if (live?.id != null) brouillonsEnCours.add(String(live.id));
+            }
+          } catch { /* ignoré */ }
+          const recentes = seances.filter((s) => !brouillonsEnCours.has(String(s.id))).slice(0, 150);
           const seriesBrutes = await chargerSeriesDeSeances(recentes.map((s) => s.id));
           if (!active) return;
           const nbParSeance = {};
