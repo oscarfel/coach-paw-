@@ -3460,16 +3460,23 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 /*  NUTRITION                                                          */
 /* ------------------------------------------------------------------ */
 // Feuille qui monte du bas (même style que les choix de la course)
-function FeuilleBas({ titre, sousTitre, couleur = "#8CBEFF", onClose, children, zIndex = 250 }) {
+function FeuilleBas({ titre, sousTitre, couleur = "#8CBEFF", onClose, children, zIndex = 250, info = null }) {
+  const [voirInfo, setVoirInfo] = useState(false);
   return (
     <div style={{ position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "fondIn .18s ease" }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "82vh", overflowY: "auto", background: C.card, borderTop: `1.5px solid ${couleur}`, borderRadius: "22px 22px 0 0", padding: "16px 16px max(20px, env(safe-area-inset-bottom))", boxShadow: `0 -10px 30px ${couleur}33`, textAlign: "left", animation: "feuilleMonte .28s cubic-bezier(.2,.9,.3,1.08)" }}>
         <div style={{ width: 40, height: 4, borderRadius: 4, background: "rgba(255,255,255,0.2)", margin: "0 auto 12px" }} />
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: sousTitre ? 2 : 12 }}>
           <div style={{ flex: 1, fontSize: 17, fontWeight: 800, color: C.text }}>{titre}</div>
+          {info && (
+            <button type="button" onClick={() => setVoirInfo((v) => !v)} aria-label="Infos" style={{ width: 32, height: 32, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: voirInfo ? couleur : "rgba(255,255,255,0.06)", border: `1.5px solid ${voirInfo ? couleur : "rgba(255,255,255,0.18)"}`, color: voirInfo ? "#06171F" : couleur, padding: 0, fontSize: 15, fontWeight: 900, fontStyle: "italic", fontFamily: "Georgia, serif", transition: "all .15s" }}>i</button>
+          )}
           <button type="button" onClick={onClose} aria-label="Fermer" style={{ width: 32, height: 32, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, padding: 0 }}><X size={16} /></button>
         </div>
         {sousTitre && <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 12 }}>{sousTitre}</div>}
+        {info && voirInfo && (
+          <div style={{ borderRadius: 14, padding: "10px 12px", marginBottom: 12, background: `${couleur}14`, border: `1px solid ${couleur}55`, fontSize: 13, color: C.textMuted, lineHeight: 1.45, animation: "carteIn .2s ease" }}>{info}</div>
+        )}
         {children}
       </div>
     </div>
@@ -3513,25 +3520,37 @@ const RPE_INFOS = {
   8: "Dur · 2 reps en réserve", 8.5: "1 à 2 reps en réserve", 9: "Très dur · 1 rep en réserve", 9.5: "Peut-être 1 rep de plus", 10: "Maximal · plus aucune rep possible",
 };
 const couleurRpe = (v) => { const n = Number(v); return n >= 9 ? "#FF5D6C" : n >= 8 ? "#F5B833" : n >= 7 ? "#8CBEFF" : "#3AD6A0"; };
+// Tuile compacte d'une grille de choix
+function TuileChoix({ actif, couleur, onClick, children }) {
+  return (
+    <button type="button" onClick={onClick} style={{ position: "relative", borderRadius: 14, padding: "10px 4px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, cursor: "pointer",
+      background: actif ? `${couleur}26` : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? couleur : "rgba(255,255,255,0.09)"}`, boxShadow: actif ? `0 0 14px ${couleur}44` : "none", transition: "all .15s" }}>
+      {children}
+      {actif && <span style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: couleur, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={11} color="#06171F" strokeWidth={3.5} /></span>}
+    </button>
+  );
+}
+const ligneInfo = (gauche, droite, col) => (
+  <div key={gauche} style={{ display: "flex", gap: 8 }}><b style={{ color: col || C.text, minWidth: 40, fontFamily: FONT_MONO }}>{gauche}</b><span>{droite}</span></div>
+);
 function RPEPickerModal({ value, onSelect, onClose }) {
   return (
-    <FeuilleBas titre="💪 Intensité (RPE)" sousTitre="À quel point la série doit être dure, de 6 (facile) à 10 (échec)." couleur="#F5B833" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+    <FeuilleBas titre="💪 RPE" couleur="#F5B833" onClose={onClose}
+      info={<>{RPE_VALEURS.filter((v) => Number.isInteger(v)).map((v) => ligneInfo(String(v), RPE_INFOS[v], couleurRpe(v)))}<div style={{ marginTop: 4 }}>Les demi-points sont entre les deux.</div></>}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
         {RPE_VALEURS.map((v) => {
           const col = couleurRpe(v);
           return (
-            <OptionFeuille key={v} actif={String(value) === String(v)} couleur={col} onClick={() => { onSelect(v); onClose(); }}
-              gauche={<span style={{ width: 44, height: 34, borderRadius: 11, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_MONO, fontWeight: 900, fontSize: 15, color: col, background: `${col}1F`, border: `1px solid ${col}88` }}>{String(v).replace(".", ",")}</span>}
-              titre={RPE_INFOS[v].split(" · ")[0]}
-              desc={RPE_INFOS[v].includes(" · ") ? RPE_INFOS[v].split(" · ")[1] : null}
-              bas={<div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.08)", marginTop: 6, overflow: "hidden" }}><div style={{ width: `${((v - 5) / 5) * 100}%`, height: "100%", borderRadius: 4, background: `linear-gradient(90deg, #3AD6A0, ${col})` }} /></div>}
-            />
+            <TuileChoix key={v} actif={String(value) === String(v)} couleur={col} onClick={() => { onSelect(v); onClose(); }}>
+              <span style={{ fontSize: 19, fontWeight: 900, fontFamily: FONT_MONO, color: col }}>{String(v).replace(".", ",")}</span>
+              <span style={{ width: "70%", height: 3, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}><span style={{ display: "block", width: `${((v - 5) / 5) * 100}%`, height: "100%", background: col }} /></span>
+            </TuileChoix>
           );
         })}
-        {value !== "" && value != null && (
-          <button type="button" onClick={() => { onSelect(""); onClose(); }} style={{ marginTop: 4, background: "transparent", border: "none", color: C.red, fontSize: 13, fontWeight: 700, padding: 8 }}>Retirer le RPE</button>
-        )}
       </div>
+      {value !== "" && value != null && (
+        <button type="button" onClick={() => { onSelect(""); onClose(); }} style={{ width: "100%", marginTop: 8, background: "transparent", border: "none", color: C.red, fontSize: 13, fontWeight: 700, padding: 8 }}>Retirer le RPE</button>
+      )}
     </FeuilleBas>
   );
 }
@@ -3558,19 +3577,16 @@ function TempoPickerModal({ value, onSelect, onClose }) {
   const [perso, setPerso] = useState(value && !TEMPO_VALEURS.includes(value) ? value : "");
   const persoOk = /^[0-9X]{4}$/i.test(perso);
   return (
-    <FeuilleBas titre="⏱️ Tempo" sousTitre="4 chiffres : descente · pause en bas · montée · pause en haut (X = explosif)." couleur="#8CBEFF" onClose={onClose}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-        {TEMPO_PHASES.map(([l, col]) => (
-          <span key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: C.textMuted, fontWeight: 700 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: col }} />{l}</span>
-        ))}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+    <FeuilleBas titre="⏱️ Tempo" couleur="#8CBEFF" onClose={onClose}
+      info={<>Les 4 chiffres, dans l'ordre :{TEMPO_PHASES.map(([l, col], i) => ligneInfo(String(i + 1), l === "Descente" ? "Descente (phase excentrique), en secondes" : l === "Montée" ? "Montée (phase concentrique) — X = explosive" : `${l}, en secondes`, col))}<div style={{ marginTop: 4 }}>Ex : 30X0 = 3 s de descente, pas de pause, montée explosive.</div></>}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
         {TEMPO_VALEURS.map((v) => (
-          <OptionFeuille key={v} actif={value === v} couleur="#8CBEFF" onClick={() => { onSelect(v); onClose(); }}
-            gauche={<TempoTuiles tempo={v} />} titre={v} desc={decrireTempo(v)} />
+          <TuileChoix key={v} actif={value === v} couleur="#8CBEFF" onClick={() => { onSelect(v); onClose(); }}>
+            <TempoTuiles tempo={v} taille={24} />
+          </TuileChoix>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         <input value={perso} onChange={(e) => setPerso(e.target.value.toUpperCase().slice(0, 4))} placeholder="Autre (ex : 4010)" style={{ ...inputStyle, flex: 1, fontFamily: FONT_MONO, fontWeight: 800 }} />
         <button type="button" disabled={!persoOk} onClick={() => { onSelect(perso.toUpperCase()); onClose(); }} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 12, padding: "0 16px", fontWeight: 800, opacity: persoOk ? 1 : 0.4 }}>OK</button>
       </div>
@@ -3620,14 +3636,14 @@ const REPOS_INFOS = {
 };
 function RepoPickerModal({ value, onSelect, onClose }) {
   return (
-    <FeuilleBas titre="⏸️ Temps de repos" sousTitre="Entre deux séries du même exercice." couleur="#3AD6A0" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+    <FeuilleBas titre="⏸️ Repos" couleur="#3AD6A0" onClose={onClose}
+      info={<>{REPOS_VALEURS.map((r) => ligneInfo(r.label, REPOS_INFOS[r.val], "#3AD6A0"))}</>}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
         {REPOS_VALEURS.map((r) => (
-          <OptionFeuille key={r.val} actif={value === r.val} couleur="#3AD6A0" onClick={() => { onSelect(r.val); onClose(); }}
-            gauche={<span style={{ width: 50, height: 34, borderRadius: 11, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_MONO, fontWeight: 900, fontSize: 14, color: "#3AD6A0", background: "rgba(58,214,160,0.12)", border: "1px solid rgba(58,214,160,0.5)" }}>{r.label}</span>}
-            titre={REPOS_INFOS[r.val]}
-            bas={<div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.08)", marginTop: 6, overflow: "hidden" }}><div style={{ width: `${(r.val / 300) * 100}%`, height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#3AD6A0,#8CBEFF)" }} /></div>}
-          />
+          <TuileChoix key={r.val} actif={value === r.val} couleur="#3AD6A0" onClick={() => { onSelect(r.val); onClose(); }}>
+            <span style={{ fontSize: 17, fontWeight: 900, fontFamily: FONT_MONO, color: value === r.val ? "#3AD6A0" : C.text }}>{r.label}</span>
+            <span style={{ width: "70%", height: 3, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}><span style={{ display: "block", width: `${(r.val / 300) * 100}%`, height: "100%", background: "linear-gradient(90deg,#3AD6A0,#8CBEFF)" }} /></span>
+          </TuileChoix>
         ))}
       </div>
     </FeuilleBas>
@@ -8011,8 +8027,19 @@ function PlanSemaines({ plan, onOuvrir, semaineCourante = null }) {
 }
 
 // Coach : le plan du mois complet, toujours accessible et modifiable (le client ne voit que la semaine en cours)
-function PlanCourseCoachView({ client, programmesPlan, seances, onBack, onRecharger, onRegenerer, fireToast }) {
+function PlanCourseCoachView({ client, programmesPlan, seances, onBack, onRecharger, onRegenerer, onSupprime, fireToast }) {
   const [edition, setEdition] = useState(null);
+  const [suppression, setSuppression] = useState(false);
+  const supprimerPlan = async () => {
+    if (!confirm(`Supprimer tout le plan course du mois de ${client.prenom || "ce client"} (${programmesPlan.length} séances) ? Les résultats déjà saisis par le client restent dans son historique.`)) return;
+    setSuppression(true);
+    const ids = programmesPlan.map((p) => p.id);
+    const { error } = await supabase.from("programmes").delete().in("id", ids);
+    setSuppression(false);
+    if (error) { console.error(error); fireToast("Erreur lors de la suppression du plan"); return; }
+    fireToast("Plan course supprimé", "green");
+    onSupprime && onSupprime(ids);
+  };
   const debut = programmesPlan[0]?.plan_debut;
   const semCourante = semaineDuPlan(debut);
   const plan = programmesPlan.map((p) => ({ id: p.id, semaine: p.plan_semaine, jour: p.jour_fixe, nom: p.nom, blocs: p.course_blocs || [], fait: (seances || []).some((x) => x.programme_id === p.id) }));
@@ -8045,6 +8072,9 @@ function PlanCourseCoachView({ client, programmesPlan, seances, onBack, onRechar
         <PlanSemaines plan={plan} semaineCourante={semCourante} onOuvrir={(idx) => setEdition(programmesPlan.find((p) => p.id === plan[idx].id))} />
         <button onClick={onRegenerer} style={{ background: "rgba(58,214,160,0.12)", border: "1.5px solid rgba(58,214,160,0.7)", color: "#3AD6A0", borderRadius: 16, padding: "13px", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           <Footprints size={17} /> Créer le mois suivant / refaire le plan
+        </button>
+        <button onClick={supprimerPlan} disabled={suppression} style={{ background: "rgba(255,93,108,0.08)", border: "1.5px solid rgba(255,93,108,0.55)", color: C.red, borderRadius: 16, padding: "12px", fontWeight: 800, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: suppression ? 0.6 : 1 }}>
+          <Trash2 size={16} /> {suppression ? "Suppression…" : "Supprimer le plan"}
         </button>
       </div>
       {edition && (
@@ -12227,6 +12257,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           onBack={() => setShowPlanVue(false)}
           onRecharger={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes((data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) })))); }}
           onRegenerer={() => setShowPlanCourse(true)}
+          onSupprime={(ids) => { setCustomProgrammes((prev) => prev.filter((x) => !ids.includes(x.id))); setShowPlanVue(false); }}
           fireToast={fireToast}
         />
         {showPlanCourse && (
