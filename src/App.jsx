@@ -7311,6 +7311,95 @@ const COURSE_OBJECTIFS = {
   marathon: { label: "Marathon" },
 };
 const COURSE_NIVEAUX = { debutant: "Débutant", intermediaire: "Intermédiaire", confirme: "Confirmé" };
+// Zones d'intensité (repère principal pour le client, avec ou sans cardio)
+const COURSE_ZONES = {
+  z1: { label: "Zone 1", nom: "Récupération", color: "#7FD8FF", fc: "50–60 % FC max",
+    info: "Cette sortie ne doit pas être intensive. Très facile, tu pourrais parler sans aucun effort. Le but est de récupérer." },
+  z2: { label: "Zone 2", nom: "Endurance", color: "#3AD6A0", fc: "60–70 % FC max",
+    info: "Allure facile : tu dois pouvoir tenir une conversation. Ne cherche pas à accélérer, c'est cette zone qui construit ton endurance." },
+  z3: { label: "Zone 3", nom: "Tempo", color: "#F5B833", fc: "70–80 % FC max",
+    info: "Effort modéré et soutenu : tu ne peux parler que par phrases courtes. Reste régulier, sans finir à bout de souffle." },
+  z4: { label: "Zone 4", nom: "Seuil", color: "#F28C38", fc: "80–90 % FC max",
+    info: "Cette séance doit être intensive mais contrôlée : quelques mots seulement, respiration forte. Garde la même allure sur chaque répétition." },
+  z5: { label: "Zone 5", nom: "VMA", color: "#FF5D6C", fc: "90–100 % FC max",
+    info: "Effort très intense et court : impossible de parler. Donne tout sur la répétition, puis récupère bien pendant la récup." },
+};
+const ZONE_PAR_DEFAUT = { echauffement: "z1", retour_calme: "z1", footing: "z2", sortie_longue: "z2", course_marche: "z2", allure_specifique: "z3", seuil: "z4", fractionne: "z5" };
+
+function ZonePastille({ zone, taille = "normal" }) {
+  const [ouvert, setOuvert] = useState(false);
+  const z = COURSE_ZONES[zone];
+  if (!z) return null;
+  return (
+    <>
+      <button type="button" onClick={(e) => { e.stopPropagation(); setOuvert(true); }}
+        style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: taille === "petit" ? 11.5 : 12.5, fontWeight: 800, color: z.color, background: `${z.color}1A`, border: `1px solid ${z.color}88`, borderRadius: 999, padding: taille === "petit" ? "2px 8px" : "3px 10px", boxShadow: `0 0 8px ${z.color}44`, cursor: "pointer" }}>
+        {z.label} · {z.nom} <span style={{ width: 15, height: 15, borderRadius: "50%", border: `1.5px solid ${z.color}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900 }}>i</span>
+      </button>
+      {ouvert && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 260, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { e.stopPropagation(); setOuvert(false); }}>
+          <Card style={{ width: "100%", maxWidth: 340, textAlign: "left", border: `1.5px solid ${z.color}`, boxShadow: `0 0 26px ${z.color}66, 0 14px 36px rgba(0,0,0,0.5)` }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: z.color }}>{z.label} · {z.fc}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 2 }}>{z.nom}</div>
+            <div style={{ fontSize: 14.5, color: C.text, lineHeight: 1.55, marginTop: 10 }}>{z.info}</div>
+            <button onClick={() => setOuvert(false)} style={{ width: "100%", marginTop: 16, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 12, padding: "12px", fontWeight: 800 }}>Compris</button>
+          </Card>
+        </div>
+      )}
+    </>
+  );
+}
+
+// Case de choix : affiche la sélection, et ouvre la liste des choix au toucher.
+function ChoixDeroulant({ label, valeur, options, onChange, multiple = false, max = null, placeholder = "Choisir…", couleur = "#8CBEFF" }) {
+  const [ouvert, setOuvert] = useState(false);
+  const sel = multiple ? (valeur || []) : valeur;
+  const libelle = multiple
+    ? (sel.length ? options.filter((o) => sel.includes(o.value)).map((o) => o.court || o.label).join(" · ") : placeholder)
+    : (options.find((o) => o.value === sel)?.label || placeholder);
+  const choisir = (v) => {
+    if (!multiple) { onChange(v); setOuvert(false); return; }
+    if (sel.includes(v)) onChange(sel.filter((x) => x !== v));
+    else if (!max || sel.length < max) onChange([...sel, v]);
+  };
+  return (
+    <div>
+      {label && <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 6, fontWeight: 700 }}>{label}</div>}
+      <button type="button" onClick={() => setOuvert(true)} style={{ ...inputStyle, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, textAlign: "left", cursor: "pointer", fontWeight: 700, color: (multiple ? sel.length : sel) ? C.text : C.textDim }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{libelle}</span>
+        <ChevronDown size={18} color={couleur} style={{ flexShrink: 0 }} />
+      </button>
+      {ouvert && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 240, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setOuvert(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "75vh", overflowY: "auto", background: C.card, borderTop: `1.5px solid ${couleur}`, borderRadius: "22px 22px 0 0", padding: "16px 16px max(20px, env(safe-area-inset-bottom))", boxShadow: `0 -10px 30px ${couleur}33`, textAlign: "left" }}>
+            <div style={{ width: 40, height: 4, borderRadius: 4, background: "rgba(255,255,255,0.2)", margin: "0 auto 12px" }} />
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 4 }}>{label}</div>
+            {multiple && <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 10 }}>{max ? `Choisis ${max} élément${max > 1 ? "s" : ""} (${sel.length}/${max})` : "Plusieurs choix possibles"}</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: multiple ? 0 : 10 }}>
+              {options.map((o) => {
+                const actif = multiple ? sel.includes(o.value) : sel === o.value;
+                return (
+                  <button key={o.value} type="button" onClick={() => choisir(o.value)} style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "12px 14px", borderRadius: 14, cursor: "pointer",
+                    background: actif ? `${couleur}1F` : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? couleur : "rgba(255,255,255,0.08)"}` }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{o.label}</div>
+                      {o.desc && <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>{o.desc}</div>}
+                    </div>
+                    <span style={{ width: 22, height: 22, borderRadius: multiple ? 7 : "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${actif ? couleur : "rgba(255,255,255,0.25)"}`, background: actif ? couleur : "transparent" }}>
+                      {actif && <Check size={13} color="#06171F" strokeWidth={3.5} />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {multiple && <button type="button" onClick={() => setOuvert(false)} style={{ width: "100%", marginTop: 14, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 15 }}>Valider</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 const nouvelIdBloc = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 function parseAllureSec(txt) {
@@ -7415,8 +7504,11 @@ function ListeBlocsCourse({ blocs }) {
           <div key={b.id || i} style={{ display: "flex", gap: 12, alignItems: "stretch", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "10px 12px" }}>
             <span style={{ width: 4, borderRadius: 4, background: t.color, boxShadow: `0 0 8px ${t.color}`, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: t.color }}>{t.label}</div>
-              <div style={{ fontSize: 15.5, fontWeight: 800, color: C.text, marginTop: 1 }}>{resumeBloc(b)}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: t.color }}>{t.label}</span>
+                {b.zone && <ZonePastille zone={b.zone} taille="petit" />}
+              </div>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: C.text, marginTop: 3 }}>{resumeBloc(b)}</div>
               {b.allure && <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>Allure : <b style={{ color: C.text }}>{b.allure}</b></div>}
               {b.consigne && <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>{b.consigne}</div>}
             </div>
@@ -7428,34 +7520,42 @@ function ListeBlocsCourse({ blocs }) {
 }
 
 /* ---------- Coach : créer / modifier une séance de course ---------- */
-function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fireToast, entete = null }) {
+// modeLocal : modifie une séance de l'aperçu du plan (pas encore en base) et la renvoie via onLocalSave.
+function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fireToast, entete = null, modeLocal = false, onLocalSave = null }) {
   const p = editingProgramme || {};
-  const blocsInit = Array.isArray(p.course_blocs) ? p.course_blocs : Array.isArray(p.courseBlocs) ? p.courseBlocs : [
-    { id: nouvelIdBloc(), type: "echauffement", reps: 1, effort: 10, effortUnite: "min", allure: "Facile", consigne: "" },
-    { id: nouvelIdBloc(), type: "fractionne", reps: 6, effort: 2, effortUnite: "min", recup: 1, recupUnite: "min", recupType: "marche", allure: "", consigne: "" },
-    { id: nouvelIdBloc(), type: "retour_calme", reps: 1, effort: 10, effortUnite: "min", allure: "Facile", consigne: "" },
-  ];
+  const blocsInit = (Array.isArray(p.course_blocs) ? p.course_blocs : Array.isArray(p.courseBlocs) ? p.courseBlocs : [
+    { id: nouvelIdBloc(), type: "echauffement", reps: 1, effort: 10, effortUnite: "min", zone: "z1", allure: "", consigne: "" },
+    { id: nouvelIdBloc(), type: "fractionne", reps: 6, effort: 2, effortUnite: "min", recup: 1, recupUnite: "min", recupType: "marche", zone: "z5", allure: "", consigne: "" },
+    { id: nouvelIdBloc(), type: "retour_calme", reps: 1, effort: 10, effortUnite: "min", zone: "z1", allure: "", consigne: "" },
+  ]).map((b) => ({ zone: ZONE_PAR_DEFAUT[b.type] || "z2", ...b }));
   const [nom, setNom] = useState(p.nom || "");
   const [jourFixe, setJourFixe] = useState(p.jour_fixe || p.jourFixe || "");
   const [consigne, setConsigne] = useState(p.course_consigne || p.courseConsigne || "");
   const [blocs, setBlocs] = useState(blocsInit);
+  const [ouvertId, setOuvertId] = useState(blocsInit.find((b) => COURSE_BLOCS_REPETES.includes(b.type))?.id || blocsInit[0]?.id || null);
   const [saving, setSaving] = useState(false);
 
-  const majBloc = (id, champ, val) => setBlocs((bs) => bs.map((b) => (b.id === id ? { ...b, [champ]: val } : b)));
+  const majBloc = (id, champ, val) => setBlocs((bs) => bs.map((b) => (b.id === id ? { ...b, [champ]: val, ...(champ === "type" ? { zone: ZONE_PAR_DEFAUT[val] || b.zone } : {}) } : b)));
   const deplacer = (i, d) => setBlocs((bs) => { const a = [...bs]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
-  const ajouter = (type) => setBlocs((bs) => [...bs, { id: nouvelIdBloc(), type, reps: COURSE_BLOCS_REPETES.includes(type) ? 4 : 1, effort: type === "fractionne" ? 400 : 10, effortUnite: type === "fractionne" ? "m" : "min", recup: COURSE_BLOCS_REPETES.includes(type) ? 1 : 0, recupUnite: "min", recupType: "trot", allure: "", consigne: "" }]);
+  const ajouter = (type) => {
+    const id = nouvelIdBloc();
+    const repete = COURSE_BLOCS_REPETES.includes(type);
+    setBlocs((bs) => [...bs, { id, type, reps: repete ? 4 : 1, effort: type === "fractionne" ? 400 : 10, effortUnite: type === "fractionne" ? "m" : "min", recup: repete ? 1 : 0, recupUnite: "min", recupType: type === "course_marche" ? "marche" : "trot", zone: ZONE_PAR_DEFAUT[type] || "z2", allure: "", consigne: "" }]);
+    setOuvertId(id);
+  };
 
   const enregistrer = async () => {
     if (!nom.trim()) { fireToast("Donne un nom à la séance"); return; }
     if (blocs.length === 0) { fireToast("Ajoute au moins un bloc"); return; }
-    setSaving(true);
     const ligne = { nom: nom.trim(), muscle: "Course à pied", jour_fixe: jourFixe || null, type_seance: "course", course_blocs: blocs, course_consigne: consigne || null };
+    if (modeLocal) { onLocalSave && onLocalSave(ligne); onClose(); return; }
+    setSaving(true);
     try {
       const { error } = p.id
         ? await supabase.from("programmes").update({ ...ligne, updated_at: new Date().toISOString() }).eq("id", p.id)
         : await supabase.from("programmes").insert({ ...ligne, profil_id: clientId });
       if (error) throw error;
-      fireToast(p.id ? "Séance de course modifiée" : "Séance de course créée", "green");
+      fireToast(p.id ? "Séance modifiée · le client voit la nouvelle version" : "Séance de course créée", "green");
       onCreated && onCreated();
       onClose();
     } catch (err) {
@@ -7466,74 +7566,121 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
     }
   };
 
-  const champ = { ...inputStyle, padding: "10px 12px", fontSize: 14 };
-  const petit = { ...champ, padding: "8px 10px" };
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
-        <SectionHead icon={Footprints} title={p.id ? "Modifier la course" : "Nouvelle séance de course"} color="#3AD6A0" />
-        {entete}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Field label="Nom"><input style={champ} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex : Fractionné court" /></Field>
-          <Field label="Jour">
-            <select style={champ} value={jourFixe} onChange={(e) => setJourFixe(e.target.value)}>
-              <option value="">Sans jour fixe (cycle)</option>
-              {JOURS_SEMAINE.map((j) => <option key={j} value={j}>{j.charAt(0).toUpperCase() + j.slice(1)}</option>)}
-            </select>
-          </Field>
-          <Field label="Consigne générale (optionnel)">
-            <textarea style={{ ...champ, minHeight: 64, resize: "vertical" }} value={consigne} onChange={(e) => setConsigne(e.target.value)} placeholder="ex : reste en aisance respiratoire, hydrate-toi" />
-          </Field>
+  const etiquette = { fontSize: 11.5, color: C.textMuted, fontWeight: 700, marginBottom: 4 };
+  const champ = { ...inputStyle, padding: "10px 12px", fontSize: 15 };
+  const segment = (options, valeur, onChange, col) => (
+    <div style={{ display: "flex", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 3, gap: 3 }}>
+      {options.map(([v, l]) => (
+        <button key={v} type="button" onClick={() => onChange(v)} style={{ flex: 1, padding: "8px 4px", borderRadius: 9, fontSize: 13, fontWeight: 800, border: "none",
+          color: valeur === v ? "#06171F" : C.textMuted, background: valeur === v ? col : "transparent" }}>{l}</button>
+      ))}
+    </div>
+  );
+  const iconBtn = { width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, padding: 0, flexShrink: 0 };
+  const { minutes, km } = estimerCourse(blocs);
 
-          <div>
-            <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 6 }}>Aperçu</div>
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: modeLocal ? 230 : 100, padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1 }}><SectionHead icon={Footprints} title={p.id || modeLocal ? "Modifier la course" : "Nouvelle séance de course"} color="#3AD6A0" /></div>
+          <button onClick={onClose} style={iconBtn}><X size={16} /></button>
+        </div>
+        {entete}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 10 }}>
+            <Field label="Nom"><input style={champ} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex : Fractionné court" /></Field>
+            <ChoixDeroulant label="Jour" valeur={jourFixe} onChange={setJourFixe} couleur="#F5B833"
+              options={[{ value: "", label: "Sans jour", desc: "Séance à faire quand il veut" }, ...JOURS_SEMAINE.map((j) => ({ value: j, label: j.charAt(0).toUpperCase() + j.slice(1) }))]} />
+          </div>
+
+          {/* Aperçu de la séance */}
+          <div style={{ borderRadius: 16, padding: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 8 }}>
+              <span>Aperçu</span><span style={{ color: C.text }}>≈ {minutes} min{km ? ` · ${String(km).replace(".", ",")} km` : ""}</span>
+            </div>
             <SchemaBlocsCourse blocs={blocs} />
           </div>
 
           {blocs.map((b, i) => {
             const t = COURSE_TYPES_BLOC[b.type] || COURSE_TYPES_BLOC.footing;
             const repete = COURSE_BLOCS_REPETES.includes(b.type) || Number(b.reps) > 1;
+            const ouvert = ouvertId === b.id;
             return (
-              <div key={b.id} style={{ borderRadius: 16, padding: 12, background: "rgba(255,255,255,0.04)", border: `1px solid ${t.color}66`, display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <select style={{ ...petit, flex: 1, color: t.color, fontWeight: 800 }} value={b.type} onChange={(e) => majBloc(b.id, "type", e.target.value)}>
-                    {Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                  </select>
-                  <button onClick={() => deplacer(i, -1)} style={{ ...petit, width: 36, padding: 0, height: 36 }} aria-label="Monter">↑</button>
-                  <button onClick={() => deplacer(i, 1)} style={{ ...petit, width: 36, padding: 0, height: 36 }} aria-label="Descendre">↓</button>
-                  <button onClick={() => setBlocs((bs) => bs.filter((x) => x.id !== b.id))} style={{ ...petit, width: 36, padding: 0, height: 36, color: C.red }} aria-label="Supprimer"><Trash2 size={15} /></button>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: repete ? "70px 1fr 90px" : "1fr 90px", gap: 6 }}>
-                  {repete && <input type="number" inputMode="numeric" style={petit} value={b.reps} onChange={(e) => majBloc(b.id, "reps", e.target.value)} placeholder="×" aria-label="Répétitions" />}
-                  <input type="number" inputMode="decimal" style={petit} value={b.effort} onChange={(e) => majBloc(b.id, "effort", e.target.value)} placeholder={b.type === "course_marche" ? "Course" : "Effort"} aria-label="Effort" />
-                  <select style={petit} value={b.effortUnite} onChange={(e) => majBloc(b.id, "effortUnite", e.target.value)}>
-                    <option value="min">min</option><option value="s">s</option><option value="km">km</option><option value="m">m</option>
-                  </select>
-                </div>
-                {repete && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 1fr", gap: 6 }}>
-                    <input type="number" inputMode="decimal" style={petit} value={b.recup ?? ""} onChange={(e) => majBloc(b.id, "recup", e.target.value)} placeholder="Récup" aria-label="Récupération" />
-                    <select style={petit} value={b.recupUnite || "min"} onChange={(e) => majBloc(b.id, "recupUnite", e.target.value)}><option value="min">min</option><option value="s">s</option></select>
-                    <select style={petit} value={b.recupType || "trot"} onChange={(e) => majBloc(b.id, "recupType", e.target.value)}>
-                      <option value="trot">trot</option><option value="marche">marche</option><option value="repos">arrêt</option>
-                    </select>
+              <div key={b.id} style={{ borderRadius: 18, background: "rgba(255,255,255,0.04)", border: `1.5px solid ${ouvert ? t.color : t.color + "55"}`, boxShadow: ouvert ? `0 0 16px ${t.color}33` : "none", overflow: "hidden" }}>
+                <button type="button" onClick={() => setOuvertId(ouvert ? null : b.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 900, color: "#06171F", background: t.color }}>{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: t.color }}>{t.label}{b.zone && COURSE_ZONES[b.zone] ? ` · ${COURSE_ZONES[b.zone].label}` : ""}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{resumeBloc(b)}</div>
+                  </div>
+                  <ChevronDown size={18} color={C.textMuted} style={{ transform: ouvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                </button>
+                {ouvert && (
+                  <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ flex: 1 }}>
+                        <ChoixDeroulant valeur={b.type} onChange={(v) => majBloc(b.id, "type", v)} couleur={t.color}
+                          options={Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => ({ value: k, label: v.label }))} />
+                      </div>
+                      <button type="button" onClick={() => deplacer(i, -1)} style={{ ...iconBtn, height: 46, width: 40 }} aria-label="Monter">↑</button>
+                      <button type="button" onClick={() => deplacer(i, 1)} style={{ ...iconBtn, height: 46, width: 40 }} aria-label="Descendre">↓</button>
+                      <button type="button" onClick={() => setBlocs((bs) => bs.filter((x) => x.id !== b.id))} style={{ ...iconBtn, height: 46, width: 40, color: C.red }} aria-label="Supprimer"><Trash2 size={15} /></button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: repete ? "80px 1fr" : "1fr", gap: 8 }}>
+                      {repete && <div><div style={etiquette}>Répétitions</div><input type="number" inputMode="numeric" style={{ ...champ, textAlign: "center", fontWeight: 800 }} value={b.reps} onChange={(e) => majBloc(b.id, "reps", e.target.value)} /></div>}
+                      <div><div style={etiquette}>{b.type === "course_marche" ? "Course" : "Durée ou distance"}</div><input type="number" inputMode="decimal" style={{ ...champ, fontWeight: 800 }} value={b.effort} onChange={(e) => majBloc(b.id, "effort", e.target.value)} /></div>
+                    </div>
+                    {segment([["min", "min"], ["s", "sec"], ["km", "km"], ["m", "m"]], b.effortUnite, (v) => majBloc(b.id, "effortUnite", v), t.color)}
+                    {repete && (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <div><div style={etiquette}>Récupération</div><input type="number" inputMode="decimal" style={{ ...champ, fontWeight: 800 }} value={b.recup ?? ""} onChange={(e) => majBloc(b.id, "recup", e.target.value)} /></div>
+                          <div><div style={etiquette}>Unité</div>{segment([["min", "min"], ["s", "sec"]], b.recupUnite || "min", (v) => majBloc(b.id, "recupUnite", v), "#8CBEFF")}</div>
+                        </div>
+                        <div><div style={etiquette}>Pendant la récup</div>{segment([["trot", "Trottiner"], ["marche", "Marcher"], ["repos", "Arrêt"]], b.recupType || "trot", (v) => majBloc(b.id, "recupType", v), "#8CBEFF")}</div>
+                      </>
+                    )}
+                    <div>
+                      <div style={etiquette}>Zone d'intensité</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 5 }}>
+                        {Object.entries(COURSE_ZONES).map(([k, z]) => {
+                          const actif = b.zone === k;
+                          return (
+                            <button key={k} type="button" onClick={() => majBloc(b.id, "zone", actif ? null : k)} style={{ padding: "8px 2px", borderRadius: 11, textAlign: "center", border: `1.5px solid ${actif ? z.color : z.color + "44"}`, background: actif ? `${z.color}26` : "transparent", boxShadow: actif ? `0 0 10px ${z.color}66` : "none" }}>
+                              <div style={{ fontSize: 13.5, fontWeight: 900, color: z.color }}>Z{k.slice(1)}</div>
+                              <div style={{ fontSize: 10, color: C.textMuted, fontWeight: 700 }}>{z.nom}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {b.zone && COURSE_ZONES[b.zone] && <div style={{ fontSize: 12, color: C.textDim, marginTop: 5 }}>{COURSE_ZONES[b.zone].info}</div>}
+                    </div>
+                    <div><div style={etiquette}>Allure cible (optionnel)</div><input style={champ} value={b.allure || ""} onChange={(e) => majBloc(b.id, "allure", e.target.value)} placeholder="ex : 5:10/km" /></div>
+                    <div><div style={etiquette}>Consigne (optionnel)</div><input style={champ} value={b.consigne || ""} onChange={(e) => majBloc(b.id, "consigne", e.target.value)} placeholder="ex : relâche les épaules" /></div>
                   </div>
                 )}
-                <input style={petit} value={b.allure || ""} onChange={(e) => majBloc(b.id, "allure", e.target.value)} placeholder="Allure cible (ex : 5:10/km, facile, Z2…)" />
-                <input style={petit} value={b.consigne || ""} onChange={(e) => majBloc(b.id, "consigne", e.target.value)} placeholder="Consigne (optionnel)" />
-                <div style={{ fontSize: 12.5, color: C.textMuted }}>{resumeBloc(b)}</div>
               </div>
             );
           })}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => (
-              <button key={k} onClick={() => ajouter(k)} style={{ fontSize: 12.5, fontWeight: 700, color: v.color, background: `${v.color}14`, border: `1px solid ${v.color}66`, borderRadius: 999, padding: "6px 10px" }}>+ {v.label}</button>
-            ))}
+          <div>
+            <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 6 }}>Ajouter un bloc</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              {Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => (
+                <button key={k} type="button" onClick={() => ajouter(k)} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 800, color: C.text, background: "rgba(255,255,255,0.04)", border: `1px solid ${v.color}66`, borderRadius: 12, padding: "9px 10px", textAlign: "left" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: v.color, boxShadow: `0 0 6px ${v.color}`, flexShrink: 0 }} /> {v.label}
+                </button>
+              ))}
+            </div>
           </div>
 
+          <Field label="Consigne générale (optionnel)">
+            <textarea style={{ ...champ, minHeight: 60, resize: "vertical" }} value={consigne} onChange={(e) => setConsigne(e.target.value)} placeholder="ex : hydrate-toi bien, terrain plat" />
+          </Field>
+
           <button onClick={enregistrer} disabled={saving} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Enregistrement..." : p.id ? "Enregistrer les modifications" : "Créer la séance"}
+            {saving ? "Enregistrement..." : modeLocal ? "Valider la modification" : p.id ? "Enregistrer les modifications" : "Créer la séance"}
           </button>
         </div>
       </Card>
@@ -7555,7 +7702,7 @@ function genererPlanCourse({ objectif, niveau, seancesParSemaine, jours, allureF
     vite: a(-80) || "Vite (RPE 8-9)",
     objectif: a({ "5k": -75, "10k": -65, semi: -45, marathon: -30 }[objectif] || -60) || "Allure objectif (RPE 6-7)",
   };
-  const bloc = (o) => ({ id: nouvelIdBloc(), reps: 1, effortUnite: "min", recup: 0, recupUnite: "min", recupType: "trot", allure: "", consigne: "", ...o });
+  const bloc = (o) => ({ id: nouvelIdBloc(), reps: 1, effortUnite: "min", recup: 0, recupUnite: "min", recupType: "trot", allure: "", consigne: "", ...o, zone: o.zone || ZONE_PAR_DEFAUT[o.type] || "z2" });
   const echauf = (min) => bloc({ type: "echauffement", effort: min, allure: ALL.facile });
   const calme = (min) => bloc({ type: "retour_calme", effort: min, allure: ALL.facile });
 
@@ -7622,13 +7769,21 @@ function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
   const [debut, setDebut] = useState(() => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return lundiIso(d); });
   const [remplacer, setRemplacer] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [plan, setPlan] = useState(() => genererPlanCourse({ objectif: "5k", niveau: "debutant", seancesParSemaine: 3, jours: ["lundi", "mercredi", "dimanche"], allureFacileSec: null, mois: 1 }));
+  const [modifie, setModifie] = useState(false);
+  const [editionIdx, setEditionIdx] = useState(null);
 
   const allureSec = parseAllureSec(allure);
-  const apercu = useMemo(() => genererPlanCourse({ objectif, niveau, seancesParSemaine: nb, jours, allureFacileSec: allureSec, mois }), [objectif, niveau, nb, jours, allureSec, mois]);
-  const toggleJour = (j) => setJours((js) => (js.includes(j) ? js.filter((x) => x !== j) : [...js, j].sort((a, b) => JOURS_SEMAINE.indexOf(a) - JOURS_SEMAINE.indexOf(b))));
+  const joursTries = [...jours].sort((a, b) => JOURS_SEMAINE.indexOf(a) - JOURS_SEMAINE.indexOf(b));
+  // Le plan est régénéré quand les réglages changent (les retouches manuelles sont alors perdues)
+  useEffect(() => {
+    setPlan(genererPlanCourse({ objectif, niveau, seancesParSemaine: nb, jours: joursTries, allureFacileSec: allureSec, mois }));
+    setModifie(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objectif, niveau, nb, jours.join(","), allureSec, mois]);
 
   const creer = async () => {
-    if (jours.length < nb) { fireToast(`Choisis ${nb} jours`); return; }
+    if (jours.length < nb) { fireToast(`Choisis ${nb} jours de course`); return; }
     setSaving(true);
     try {
       if (remplacer) {
@@ -7636,9 +7791,9 @@ function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
         if (eDel) throw eDel;
       }
       const planId = `plan_${Date.now().toString(36)}`;
-      const lignes = apercu.map((s) => ({
+      const lignes = plan.map((s) => ({
         profil_id: client.id, nom: s.nom, muscle: "Course à pied", jour_fixe: s.jour, type_seance: "course",
-        course_blocs: s.blocs, course_consigne: null, plan_id: planId, plan_semaine: s.semaine, plan_debut: debut,
+        course_blocs: s.blocs, course_consigne: s.consigne || null, plan_id: planId, plan_semaine: s.semaine, plan_debut: debut,
         plan_objectif: `${COURSE_OBJECTIFS[objectif].label} · mois ${mois}`,
       }));
       const { error } = await supabase.from("programmes").insert(lignes);
@@ -7654,36 +7809,40 @@ function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
     }
   };
 
-  const chipBtn = (actif, col = "#8CBEFF") => ({ fontSize: 13, fontWeight: 800, borderRadius: 999, padding: "7px 12px", color: actif ? "#06171F" : col, background: actif ? col : `${col}14`, border: `1px solid ${col}${actif ? "" : "66"}` });
+  const enEdition = editionIdx != null ? plan[editionIdx] : null;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 440, maxHeight: "88vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
-        <SectionHead icon={Footprints} title="Plan course du mois" color="#3AD6A0" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <Field label="Objectif">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {Object.entries(COURSE_OBJECTIFS).map(([k, v]) => <button key={k} onClick={() => setObjectif(k)} style={chipBtn(objectif === k, "#3AD6A0")}>{v.label}</button>)}
-            </div>
-          </Field>
-          <Field label="Niveau">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {Object.entries(COURSE_NIVEAUX).map(([k, v]) => <button key={k} onClick={() => setNiveau(k)} style={chipBtn(niveau === k)}>{v}</button>)}
-            </div>
-          </Field>
-          <Field label="Séances de course par semaine">
-            <div style={{ display: "flex", gap: 6 }}>
-              {[2, 3, 4].map((n) => <button key={n} onClick={() => setNb(n)} style={chipBtn(nb === n)}>{n}</button>)}
-            </div>
-          </Field>
-          <Field label={`Jours de course (${jours.length}/${nb})`}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {JOURS_SEMAINE.map((j) => <button key={j} onClick={() => toggleJour(j)} style={chipBtn(jours.includes(j), "#F5B833")}>{JOURS_SEMAINE_LABEL[j]}</button>)}
-            </div>
-            <div style={{ fontSize: 12, color: C.textDim, marginTop: 6 }}>Évite le fractionné (2e jour) la veille ou le lendemain de la séance jambes.</div>
-          </Field>
+      <Card style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1 }}><SectionHead icon={Footprints} title="Plan course du mois" color="#3AD6A0" /></div>
+          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted }}><X size={16} /></button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <ChoixDeroulant label="Objectif" valeur={objectif} onChange={setObjectif} couleur="#3AD6A0" options={[
+            { value: "debuter", label: "Débuter / courir 30 min", desc: "Alternance course-marche jusqu'à 30 min sans s'arrêter" },
+            { value: "5k", label: "5 km", desc: "Premier 5 km ou améliorer son temps" },
+            { value: "10k", label: "10 km", desc: "Fractionné + seuil pour tenir l'allure" },
+            { value: "semi", label: "Semi-marathon", desc: "21,1 km : seuil et sorties longues" },
+            { value: "marathon", label: "Marathon", desc: "42,2 km : allure marathon et volume" },
+          ]} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <ChoixDeroulant label="Niveau" valeur={niveau} onChange={setNiveau} options={[
+              { value: "debutant", label: "Débutant", desc: "Court peu ou pas, footing ≈ 25 min" },
+              { value: "intermediaire", label: "Intermédiaire", desc: "Court régulièrement, footing ≈ 35 min" },
+              { value: "confirme", label: "Confirmé", desc: "Habitué, footing ≈ 45 min" },
+            ]} />
+            <ChoixDeroulant label="Séances / semaine" valeur={nb} onChange={(v) => { setNb(v); setJours((js) => js.slice(0, v)); }} options={[
+              { value: 2, label: "2 séances", desc: "Footing + séance de qualité" },
+              { value: 3, label: "3 séances", desc: "+ sortie longue le week-end" },
+              { value: 4, label: "4 séances", desc: "+ un second footing" },
+            ]} />
+          </div>
+          <ChoixDeroulant label={`Jours de course (${jours.length}/${nb})`} valeur={jours} onChange={setJours} multiple max={nb} couleur="#F5B833"
+            options={JOURS_SEMAINE.map((j) => ({ value: j, label: j.charAt(0).toUpperCase() + j.slice(1), court: JOURS_SEMAINE_LABEL[j] }))} placeholder="Choisir les jours" />
+          <div style={{ fontSize: 12, color: C.textDim, marginTop: -4 }}>La séance de qualité tombe sur le 2e jour : évite la veille ou le lendemain des jambes.</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Field label="Allure footing (optionnel)"><input style={inputStyle} value={allure} onChange={(e) => setAllure(e.target.value)} placeholder="ex : 6:30" /></Field>
-            <Field label="Mois du plan"><select style={inputStyle} value={mois} onChange={(e) => setMois(parseInt(e.target.value, 10))}>{[1, 2, 3, 4, 5, 6].map((m) => <option key={m} value={m}>Mois {m}</option>)}</select></Field>
+            <ChoixDeroulant label="Mois du plan" valeur={mois} onChange={setMois} options={[1, 2, 3, 4, 5, 6].map((m) => ({ value: m, label: `Mois ${m}`, desc: m === 1 ? "Démarrage" : "La charge continue de monter" }))} />
           </div>
           <Field label="Début (lundi de la semaine 1)"><input type="date" style={inputStyle} value={debut} onChange={(e) => setDebut(lundiIso(new Date(`${e.target.value}T12:00:00`)))} /></Field>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: C.textMuted }}>
@@ -7691,30 +7850,111 @@ function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
           </label>
 
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>Aperçu du plan</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[1, 2, 3, 4].map((w) => (
-                <div key={w} style={{ borderRadius: 14, padding: 10, background: w === 4 ? "rgba(245,184,51,0.07)" : "rgba(255,255,255,0.04)", border: `1px solid ${w === 4 ? "rgba(245,184,51,0.4)" : "rgba(255,255,255,0.08)"}` }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: w === 4 ? "#F5B833" : C.textMuted, marginBottom: 6 }}>Semaine {w}{w === 4 ? " · allégée" : ""}</div>
-                  {apercu.filter((s) => s.semaine === w).map((s, i) => (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "42px 1fr", gap: 8, alignItems: "center", marginTop: i ? 6 : 0 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "#F5B833" }}>{s.jour ? JOURS_SEMAINE_LABEL[s.jour] : "—"}</span>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{s.blocs.filter((b) => !["echauffement", "retour_calme"].includes(b.type)).map(resumeBloc).join(" + ")}</div>
-                        <SchemaBlocsCourse blocs={s.blocs} hauteur={14} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>Aperçu du plan</div>
+              <div style={{ fontSize: 12, color: modifie ? "#F5B833" : C.textDim }}>{modifie ? "Retouché" : "Touche une séance pour la modifier"}</div>
             </div>
+            <PlanSemaines plan={plan} onOuvrir={(idx) => setEditionIdx(idx)} />
           </div>
-          <div style={{ fontSize: 12.5, color: C.textDim }}>Chaque séance reste modifiable ensuite. Le client voit uniquement les séances de la semaine en cours, dans sa semaine type.</div>
           <button onClick={creer} disabled={saving} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
             {saving ? "Création..." : "Créer le plan du mois"}
           </button>
         </div>
       </Card>
+      {enEdition && (
+        <CourseSeanceForm
+          modeLocal
+          editingProgramme={{ nom: enEdition.nom, jour_fixe: enEdition.jour, course_blocs: enEdition.blocs, course_consigne: enEdition.consigne }}
+          onClose={() => setEditionIdx(null)}
+          fireToast={fireToast}
+          onLocalSave={(l) => { setPlan((pl) => pl.map((s, i) => (i === editionIdx ? { ...s, nom: l.nom, jour: l.jour_fixe, blocs: l.course_blocs, consigne: l.course_consigne } : s))); setModifie(true); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Les 4 semaines d'un plan, séance par séance. plan : [{ semaine, jour, nom, blocs, fait? }]
+function PlanSemaines({ plan, onOuvrir, semaineCourante = null }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {[1, 2, 3, 4].map((w) => {
+        const seances = plan.map((s, idx) => ({ ...s, idx })).filter((s) => s.semaine === w).sort((a, b) => JOURS_SEMAINE.indexOf(a.jour) - JOURS_SEMAINE.indexOf(b.jour));
+        const totalMin = seances.reduce((t, s) => t + estimerCourse(s.blocs).minutes, 0);
+        const enCours = semaineCourante === w;
+        return (
+          <div key={w} style={{ borderRadius: 16, padding: 12, background: w === 4 ? "rgba(245,184,51,0.06)" : "rgba(255,255,255,0.03)", border: `1.5px solid ${enCours ? "#3AD6A0" : w === 4 ? "rgba(245,184,51,0.4)" : "rgba(255,255,255,0.08)"}`, boxShadow: enCours ? "0 0 14px rgba(58,214,160,0.3)" : "none" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: enCours ? "#3AD6A0" : w === 4 ? "#F5B833" : C.text }}>Semaine {w}{w === 4 ? " · allégée" : ""}{enCours ? " · en cours" : ""}</div>
+              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 700 }}>≈ {totalMin} min</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {seances.map((s) => {
+                const principal = s.blocs.find((b) => !["echauffement", "retour_calme"].includes(b.type)) || s.blocs[0];
+                return (
+                  <button key={s.idx} type="button" onClick={() => onOuvrir && onOuvrir(s.idx)} style={{ display: "grid", gridTemplateColumns: "40px 1fr auto", gap: 10, alignItems: "center", textAlign: "left", padding: "9px 10px", borderRadius: 12, cursor: "pointer",
+                    background: "rgba(255,255,255,0.04)", border: `1px solid ${s.fait ? "rgba(58,214,160,0.55)" : "rgba(255,255,255,0.07)"}` }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 800, color: "#F5B833" }}>{s.jour ? JOURS_SEMAINE_LABEL[s.jour] : "—"}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 800, color: C.text }}>{String(s.nom).split(" · ")[0]}</span>
+                        {principal?.zone && COURSE_ZONES[principal.zone] && <span style={{ fontSize: 11, fontWeight: 800, color: COURSE_ZONES[principal.zone].color }}>Z{principal.zone.slice(1)}</span>}
+                      </div>
+                      <div style={{ fontSize: 12, color: C.textMuted, margin: "1px 0 5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.blocs.filter((b) => !["echauffement", "retour_calme"].includes(b.type)).map(resumeBloc).join(" + ") || resumeBloc(s.blocs[0] || {})}</div>
+                      <SchemaBlocsCourse blocs={s.blocs} hauteur={12} />
+                    </div>
+                    {s.fait ? <Check size={16} color={C.green} /> : <Edit3 size={15} color={C.textDim} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Coach : le plan du mois complet, toujours accessible et modifiable (le client ne voit que la semaine en cours)
+function PlanCourseCoachView({ client, programmesPlan, seances, onBack, onRecharger, onRegenerer, fireToast }) {
+  const [edition, setEdition] = useState(null);
+  const debut = programmesPlan[0]?.plan_debut;
+  const semCourante = semaineDuPlan(debut);
+  const plan = programmesPlan.map((p) => ({ id: p.id, semaine: p.plan_semaine, jour: p.jour_fixe, nom: p.nom, blocs: p.course_blocs || [], fait: (seances || []).some((x) => x.programme_id === p.id) }));
+  const statut = !debut ? "" : semCourante < 1 ? `Commence le ${formatDateDisplay(String(debut).slice(0, 10))}` : semCourante > 4 ? "Plan terminé · crée le mois suivant" : `Semaine ${semCourante}/4 en cours`;
+  const fait = plan.filter((s) => s.fait).length;
+  return (
+    <div style={appShellStyle}>
+      <FontImports />
+      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+        <button onClick={onBack} style={{ alignSelf: "flex-start", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 999, color: C.text, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px" }}>
+          <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} /> Retour
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <IconBadge icon={Footprints} color="#3AD6A0" size={48} iconSize={23} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: C.textOnBgMuted, fontWeight: 700 }}>Plan du mois · {client.prenom}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, color: C.textOnBg }}>{programmesPlan[0]?.plan_objectif || "Course à pied"}</div>
+          </div>
+        </div>
+        <Card style={{ border: "1.5px solid rgba(58,214,160,0.6)", boxShadow: "0 0 18px rgba(58,214,160,0.25), 0 10px 28px rgba(0,0,0,0.4)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: semCourante > 4 ? "#F5B833" : "#3AD6A0" }}>{statut}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{fait}/{plan.length} faites</div>
+          </div>
+          <div style={{ height: 7, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginTop: 10 }}>
+            <div style={{ width: `${plan.length ? (fait / plan.length) * 100 : 0}%`, height: "100%", background: "#3AD6A0", boxShadow: "0 0 10px rgba(58,214,160,0.6)" }} />
+          </div>
+          <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 10 }}>Touche une séance pour la modifier : le client voit la nouvelle version dès sa prochaine ouverture. Il ne voit que la semaine en cours.</div>
+        </Card>
+        <PlanSemaines plan={plan} semaineCourante={semCourante} onOuvrir={(idx) => setEdition(programmesPlan.find((p) => p.id === plan[idx].id))} />
+        <button onClick={onRegenerer} style={{ background: "rgba(58,214,160,0.12)", border: "1.5px solid rgba(58,214,160,0.7)", color: "#3AD6A0", borderRadius: 16, padding: "13px", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Footprints size={17} /> Créer le mois suivant / refaire le plan
+        </button>
+      </div>
+      {edition && (
+        <CourseSeanceForm clientId={client.id} editingProgramme={edition} onClose={() => setEdition(null)} onCreated={onRecharger} fireToast={fireToast} />
+      )}
     </div>
   );
 }
@@ -7943,24 +8183,51 @@ function CourseProgrammeCoach({ programme, seances, onBack, onEdit }) {
   );
 }
 
-// Choix Muscu / Course à la création ; une séance existante s'ouvre dans le bon éditeur.
+// « Nouvelle séance » : d'abord le type (Musculation, Course à pied… d'autres viendront),
+// puis l'éditeur correspondant. Une séance existante s'ouvre directement dans le bon éditeur.
+const TYPES_SEANCE = [
+  { key: "muscu", label: "Musculation", desc: "Exercices, séries, charges et repos", icon: Dumbbell, color: "#8CBEFF" },
+  { key: "course", label: "Course à pied", desc: "Séance en blocs : footing, fractionné, seuil, zones", icon: Footprints, color: "#3AD6A0" },
+];
 function SeanceForm(props) {
-  const { editingProgramme, estModele } = props;
+  const { editingProgramme, estModele, onClose } = props;
   const estCourse = estSeanceCourse(editingProgramme);
-  const [type, setType] = useState(estCourse ? "course" : "muscu");
+  const [type, setType] = useState(null);
   if (estModele) return <SeanceFormMuscu {...props} />;
   if (editingProgramme?.id) return estCourse ? <CourseSeanceForm {...props} /> : <SeanceFormMuscu {...props} />;
-  const bascule = (
-    <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-      {[["muscu", "Musculation", Dumbbell, "#8CBEFF"], ["course", "Course à pied", Footprints, "#3AD6A0"]].map(([k, lib, Icon, col]) => (
-        <button key={k} type="button" onClick={() => setType(k)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px", borderRadius: 12, fontWeight: 800, fontSize: 13.5,
-          color: type === k ? "#06171F" : col, background: type === k ? col : `${col}14`, border: `1px solid ${col}${type === k ? "" : "66"}` }}>
-          <Icon size={15} /> {lib}
-        </button>
-      ))}
+  const retour = (
+    <button type="button" onClick={() => setType(null)} style={{ alignSelf: "flex-start", background: "transparent", border: "none", color: C.textMuted, fontSize: 13, fontWeight: 700, padding: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Changer de type
+    </button>
+  );
+  if (type === "course") return <CourseSeanceForm {...props} entete={retour} />;
+  if (type === "muscu") return <SeanceFormMuscu {...props} entete={retour} />;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1 }}><SectionHead icon={Plus} title="Nouvelle séance" /></div>
+          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted }}><X size={16} /></button>
+        </div>
+        <div style={{ fontSize: 13.5, color: C.textMuted, margin: "-4px 0 14px" }}>Quel type de séance veux-tu créer ?</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {TYPES_SEANCE.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button key={t.key} type="button" onClick={() => setType(t.key)} style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", padding: "16px 14px", borderRadius: 18, cursor: "pointer", background: `linear-gradient(135deg, ${t.color}14, rgba(255,255,255,0.02))`, border: `1.5px solid ${t.color}88`, boxShadow: `0 0 16px ${t.color}22` }}>
+                <IconBadge icon={Icon} color={t.color} size={48} iconSize={23} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: C.text }}>{t.label}</div>
+                  <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>{t.desc}</div>
+                </div>
+                <ChevronRight size={20} color={t.color} />
+              </button>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
-  return type === "course" ? <CourseSeanceForm {...props} entete={bascule} /> : <SeanceFormMuscu {...props} entete={bascule} />;
 }
 
 function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, modeleSemaineId, modeleJourFixe, onClose, onCreated, fireToast, entete = null }) {
@@ -11563,7 +11830,7 @@ function NouveautesClientModal({ client, evenements, onLu, onFermer, onOuvrirOng
 
 function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   const [showPlanCourse, setShowPlanCourse] = useState(false);
-  const [planOuvert, setPlanOuvert] = useState(false);
+  const [showPlanVue, setShowPlanVue] = useState(false);
   const [showPopupNonValideeCoach, setShowPopupNonValideeCoach] = useState(false);
   const [tab, setTab] = useState("programme");
   // Fenêtre « Quoi de neuf ? » : seulement s'il y a du nouveau depuis le dernier « Lu »
@@ -11887,6 +12154,25 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
     { key: "routines", label: "Routine", icon: RotateCcw },
     { key: "profil", label: "Profil", icon: User },
   ];
+
+  if (showPlanVue && !selectedProgramme) {
+    return (
+      <>
+        <PlanCourseCoachView
+          client={client}
+          programmesPlan={customProgrammes.filter((p) => p.plan_semaine && p.plan_debut && estSeanceCourse(p))}
+          seances={seancesAvecSeries}
+          onBack={() => setShowPlanVue(false)}
+          onRecharger={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes((data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) })))); }}
+          onRegenerer={() => setShowPlanCourse(true)}
+          fireToast={fireToast}
+        />
+        {showPlanCourse && (
+          <PlanCourseGenerateur client={client} fireToast={fireToast} onClose={() => setShowPlanCourse(false)} onCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes((data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) })))); }} />
+        )}
+      </>
+    );
+  }
 
   if (selectedProgramme && estSeanceCourse(selectedProgramme)) {
     return (
@@ -12298,42 +12584,17 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   {programmesPlan.length > 0 && (() => {
                     const debut = programmesPlan[0].plan_debut;
                     const semCourante = semaineDuPlan(debut);
-                    const objectifPlan = programmesPlan[0].plan_objectif;
-                    const statut = semCourante < 1 ? "Commence le " + formatDateDisplay(String(debut).slice(0, 10)) : semCourante > 4 ? "Plan terminé · génère le mois suivant" : `Semaine ${semCourante}/4 en cours`;
+                    const statut = semCourante < 1 ? "Commence le " + formatDateDisplay(String(debut).slice(0, 10)) : semCourante > 4 ? "Plan terminé · crée le mois suivant" : `Semaine ${semCourante}/4 en cours`;
+                    const faites = programmesPlan.filter((p) => seancesAvecSeries.some((x) => x.programme_id === p.id)).length;
                     return (
-                      <Card style={{ border: "1.5px solid rgba(58,214,160,0.6)", boxShadow: "0 0 18px rgba(58,214,160,0.25), 0 10px 28px rgba(0,0,0,0.4)" }}>
-                        <button onClick={() => setPlanOuvert((o) => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: 0, textAlign: "left" }}>
-                          <IconBadge icon={Footprints} color="#3AD6A0" size={38} iconSize={18} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>Plan course{objectifPlan ? ` · ${objectifPlan}` : ""}</div>
-                            <div style={{ fontSize: 12.5, color: semCourante > 4 ? "#F5B833" : "#3AD6A0", fontWeight: 700 }}>{statut}</div>
-                          </div>
-                          <ChevronDown size={18} color={C.textMuted} style={{ transform: planOuvert ? "rotate(180deg)" : "none" }} />
-                        </button>
-                        {planOuvert && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-                            {[1, 2, 3, 4].map((w) => (
-                              <div key={w}>
-                                <div style={{ fontSize: 12.5, fontWeight: 800, color: w === semCourante ? "#3AD6A0" : C.textMuted, marginBottom: 6 }}>Semaine {w}{w === 4 ? " · allégée" : ""}{w === semCourante ? " · en cours" : ""}</div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                  {programmesPlan.filter((p) => p.plan_semaine === w).sort((a, b) => JOURS_SEMAINE.indexOf(a.jour_fixe) - JOURS_SEMAINE.indexOf(b.jour_fixe)).map((p) => {
-                                    const fait = seancesAvecSeries.some((x) => x.programme_id === p.id);
-                                    return (
-                                      <button key={p.id} onClick={() => setSelectedProgramme(p)} style={{ ...ROW_STYLE, width: "100%", textAlign: "left", cursor: "pointer", border: fait ? "1px solid rgba(58,214,160,0.55)" : ROW_STYLE.border }}>
-                                        <span style={{ fontSize: 12, fontWeight: 800, color: "#F5B833", width: 34, flexShrink: 0 }}>{p.jour_fixe ? JOURS_SEMAINE_LABEL[p.jour_fixe] : "—"}</span>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text }}>{p.nom}</div>
-                                          <SchemaBlocsCourse blocs={p.course_blocs || []} hauteur={12} />
-                                        </div>
-                                        {fait ? <Check size={16} color={C.green} /> : <ChevronRight size={16} color={C.textDim} />}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                      <Card onClick={() => setShowPlanVue(true)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12, border: "1.5px solid rgba(58,214,160,0.6)", boxShadow: "0 0 18px rgba(58,214,160,0.25), 0 10px 28px rgba(0,0,0,0.4)" }}>
+                        <IconBadge icon={Footprints} color="#3AD6A0" size={44} iconSize={21} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>Plan course du mois</div>
+                          <div style={{ fontSize: 12.5, color: C.textMuted }}>{programmesPlan[0].plan_objectif || "Course à pied"} · {faites}/{programmesPlan.length} faites</div>
+                          <div style={{ fontSize: 12.5, color: semCourante > 4 ? "#F5B833" : "#3AD6A0", fontWeight: 700, marginTop: 2 }}>{statut}</div>
+                        </div>
+                        <ChevronRight size={20} color="#3AD6A0" />
                       </Card>
                     );
                   })()}
