@@ -4,7 +4,7 @@ import {
   Eye, EyeOff, Camera, Plus, X, Check, Footprints, Target, Flame, ChevronRight,
   ChevronDown, Send, Clock, ClipboardList, Trash2, CheckCircle2, LogOut, RotateCcw, Menu, Droplet, Award,
   Search, LayoutDashboard, Folder, AlertCircle, Calendar, Wrench, Video as VideoIcon, Bell, Zap, FileText, Download,
-  ShoppingCart, Pill, ScanLine, MoreVertical, Edit3, Lock,
+  ShoppingCart, Pill, ScanLine, MoreVertical, Edit3, Lock, GripVertical,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -7303,6 +7303,16 @@ const COURSE_TYPES_BLOC = {
   retour_calme: { label: "Retour au calme", color: "#3AD6A0", niveau: 1 },
 };
 const COURSE_BLOCS_REPETES = ["course_marche", "fractionne", "seuil", "allure_specifique"];
+const COURSE_DESC_BLOC = {
+  echauffement: "Mise en route très facile avant l'effort",
+  footing: "Course continue à allure facile",
+  sortie_longue: "Sortie longue et régulière pour l'endurance",
+  course_marche: "Alternance course / marche, idéal pour débuter",
+  allure_specifique: "Répétitions à l'allure de l'objectif (10 km, semi…)",
+  seuil: "Répétitions longues, intenses mais contrôlées",
+  fractionne: "Répétitions courtes et rapides avec récupération",
+  retour_calme: "Retour au calme très facile pour finir",
+};
 const COURSE_OBJECTIFS = {
   debuter: { label: "Débuter / courir 30 min" },
   "5k": { label: "5 km" },
@@ -7523,20 +7533,49 @@ function ListeBlocsCourse({ blocs }) {
 // modeLocal : modifie une séance de l'aperçu du plan (pas encore en base) et la renvoie via onLocalSave.
 function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fireToast, entete = null, modeLocal = false, onLocalSave = null }) {
   const p = editingProgramme || {};
-  const blocsInit = (Array.isArray(p.course_blocs) ? p.course_blocs : Array.isArray(p.courseBlocs) ? p.courseBlocs : [
-    { id: nouvelIdBloc(), type: "echauffement", reps: 1, effort: 10, effortUnite: "min", zone: "z1", allure: "", consigne: "" },
-    { id: nouvelIdBloc(), type: "fractionne", reps: 6, effort: 2, effortUnite: "min", recup: 1, recupUnite: "min", recupType: "marche", zone: "z5", allure: "", consigne: "" },
-    { id: nouvelIdBloc(), type: "retour_calme", reps: 1, effort: 10, effortUnite: "min", zone: "z1", allure: "", consigne: "" },
-  ]).map((b) => ({ zone: ZONE_PAR_DEFAUT[b.type] || "z2", ...b }));
+  // Nouvelle séance : vide, c'est au coach de composer (le plan du mois, lui, arrive pré-rempli)
+  const blocsInit = (Array.isArray(p.course_blocs) ? p.course_blocs : Array.isArray(p.courseBlocs) ? p.courseBlocs : [])
+    .map((b) => ({ zone: ZONE_PAR_DEFAUT[b.type] || "z2", ...b }));
   const [nom, setNom] = useState(p.nom || "");
   const [jourFixe, setJourFixe] = useState(p.jour_fixe || p.jourFixe || "");
   const [consigne, setConsigne] = useState(p.course_consigne || p.courseConsigne || "");
   const [blocs, setBlocs] = useState(blocsInit);
-  const [ouvertId, setOuvertId] = useState(blocsInit.find((b) => COURSE_BLOCS_REPETES.includes(b.type))?.id || blocsInit[0]?.id || null);
+  const [ouvertId, setOuvertId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [choixBloc, setChoixBloc] = useState(false);
+
+  // Glisser-déposer des blocs (doigt ou souris) par la poignée
+  const itemRefs = useRef({});
+  const [drag, setDrag] = useState(null); // { id, dernierY, dy }
+  const ECART = 10;
+  const debutDrag = (e, id) => {
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
+    setOuvertId(null);
+    if (navigator.vibrate) navigator.vibrate(10);
+    setDrag({ id, dernierY: e.clientY, dy: 0 });
+  };
+  const bougerDrag = (e) => {
+    if (!drag) return;
+    let dy = drag.dy + (e.clientY - drag.dernierY);
+    const idx = blocs.findIndex((b) => b.id === drag.id);
+    const suivant = blocs[idx + 1], precedent = blocs[idx - 1];
+    const hSuiv = suivant && itemRefs.current[suivant.id] ? itemRefs.current[suivant.id].offsetHeight + ECART : 0;
+    const hPrec = precedent && itemRefs.current[precedent.id] ? itemRefs.current[precedent.id].offsetHeight + ECART : 0;
+    if (suivant && dy > hSuiv / 2) {
+      setBlocs((bs) => { const a = [...bs]; [a[idx], a[idx + 1]] = [a[idx + 1], a[idx]]; return a; });
+      dy -= hSuiv;
+      if (navigator.vibrate) navigator.vibrate(5);
+    } else if (precedent && dy < -hPrec / 2) {
+      setBlocs((bs) => { const a = [...bs]; [a[idx], a[idx - 1]] = [a[idx - 1], a[idx]]; return a; });
+      dy += hPrec;
+      if (navigator.vibrate) navigator.vibrate(5);
+    }
+    setDrag({ ...drag, dernierY: e.clientY, dy });
+  };
+  const finDrag = () => setDrag(null);
 
   const majBloc = (id, champ, val) => setBlocs((bs) => bs.map((b) => (b.id === id ? { ...b, [champ]: val, ...(champ === "type" ? { zone: ZONE_PAR_DEFAUT[val] || b.zone } : {}) } : b)));
-  const deplacer = (i, d) => setBlocs((bs) => { const a = [...bs]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
   const ajouter = (type) => {
     const id = nouvelIdBloc();
     const repete = COURSE_BLOCS_REPETES.includes(type);
@@ -7602,30 +7641,43 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
             <SchemaBlocsCourse blocs={blocs} />
           </div>
 
+          {blocs.length === 0 && (
+            <div style={{ borderRadius: 16, padding: "20px 14px", textAlign: "center", border: "1.5px dashed rgba(140,190,255,0.35)", color: C.textMuted, fontSize: 13.5 }}>
+              Aucun bloc pour l'instant.<br />Ajoute l'échauffement, puis le corps de la séance.
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: ECART }}>
           {blocs.map((b, i) => {
             const t = COURSE_TYPES_BLOC[b.type] || COURSE_TYPES_BLOC.footing;
             const repete = COURSE_BLOCS_REPETES.includes(b.type) || Number(b.reps) > 1;
             const ouvert = ouvertId === b.id;
+            const glisse = drag?.id === b.id;
             return (
-              <div key={b.id} style={{ borderRadius: 18, background: "rgba(255,255,255,0.04)", border: `1.5px solid ${ouvert ? t.color : t.color + "55"}`, boxShadow: ouvert ? `0 0 16px ${t.color}33` : "none", overflow: "hidden" }}>
-                <button type="button" onClick={() => setOuvertId(ouvert ? null : b.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}>
-                  <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 900, color: "#06171F", background: t.color }}>{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: t.color }}>{t.label}{b.zone && COURSE_ZONES[b.zone] ? ` · ${COURSE_ZONES[b.zone].label}` : ""}</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{resumeBloc(b)}</div>
+              <div key={b.id} ref={(el) => { itemRefs.current[b.id] = el; }} style={{ borderRadius: 18, background: glisse ? C.card2 || "#1D2650" : "rgba(255,255,255,0.04)", border: `1.5px solid ${ouvert || glisse ? t.color : t.color + "55"}`,
+                boxShadow: glisse ? `0 16px 34px rgba(0,0,0,0.55), 0 0 20px ${t.color}55` : ouvert ? `0 0 16px ${t.color}33` : "none", overflow: "hidden",
+                transform: glisse ? `translateY(${drag.dy}px) scale(1.03)` : "none", transition: glisse ? "none" : "transform .18s ease, box-shadow .18s", position: "relative", zIndex: glisse ? 5 : 1, touchAction: drag ? "none" : "auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 10px 6px" }}>
+                  <div onPointerDown={(e) => debutDrag(e, b.id)} onPointerMove={bougerDrag} onPointerUp={finDrag} onPointerCancel={finDrag}
+                    style={{ display: "flex", alignItems: "center", gap: 2, padding: "6px 2px 6px 4px", cursor: glisse ? "grabbing" : "grab", touchAction: "none", flexShrink: 0 }} aria-label="Glisser pour déplacer">
+                    <GripVertical size={18} color={glisse ? t.color : C.textDim} />
+                    <span style={{ width: 26, height: 26, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 900, color: "#06171F", background: t.color }}>{i + 1}</span>
                   </div>
-                  <ChevronDown size={18} color={C.textMuted} style={{ transform: ouvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
-                </button>
+                  <button type="button" onClick={() => !drag && setOuvertId(ouvert ? null : b.id)} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", textAlign: "left", cursor: "pointer", padding: 0 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: t.color }}>{t.label}{b.zone && COURSE_ZONES[b.zone] ? ` · ${COURSE_ZONES[b.zone].label}` : ""}</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{resumeBloc(b)}</div>
+                    </div>
+                    <ChevronDown size={18} color={C.textMuted} style={{ transform: ouvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  </button>
+                </div>
                 {ouvert && (
                   <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <div style={{ flex: 1 }}>
-                        <ChoixDeroulant valeur={b.type} onChange={(v) => majBloc(b.id, "type", v)} couleur={t.color}
-                          options={Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => ({ value: k, label: v.label }))} />
+                        <ChoixDeroulant valeur={b.type} onChange={(v) => majBloc(b.id, "type", v)} couleur={t.color} label=""
+                          options={Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => ({ value: k, label: v.label, desc: COURSE_DESC_BLOC[k] }))} />
                       </div>
-                      <button type="button" onClick={() => deplacer(i, -1)} style={{ ...iconBtn, height: 46, width: 40 }} aria-label="Monter">↑</button>
-                      <button type="button" onClick={() => deplacer(i, 1)} style={{ ...iconBtn, height: 46, width: 40 }} aria-label="Descendre">↓</button>
-                      <button type="button" onClick={() => setBlocs((bs) => bs.filter((x) => x.id !== b.id))} style={{ ...iconBtn, height: 46, width: 40, color: C.red }} aria-label="Supprimer"><Trash2 size={15} /></button>
+                      <button type="button" onClick={() => setBlocs((bs) => bs.filter((x) => x.id !== b.id))} style={{ ...iconBtn, height: 46, width: 46, color: C.red, border: "1px solid rgba(255,93,108,0.45)" }} aria-label="Supprimer le bloc"><Trash2 size={16} /></button>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: repete ? "80px 1fr" : "1fr", gap: 8 }}>
                       {repete && <div><div style={etiquette}>Répétitions</div><input type="number" inputMode="numeric" style={{ ...champ, textAlign: "center", fontWeight: 800 }} value={b.reps} onChange={(e) => majBloc(b.id, "reps", e.target.value)} /></div>}
@@ -7663,17 +7715,33 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
               </div>
             );
           })}
-
-          <div>
-            <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 6 }}>Ajouter un bloc</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              {Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => (
-                <button key={k} type="button" onClick={() => ajouter(k)} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 800, color: C.text, background: "rgba(255,255,255,0.04)", border: `1px solid ${v.color}66`, borderRadius: 12, padding: "9px 10px", textAlign: "left" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: v.color, boxShadow: `0 0 6px ${v.color}`, flexShrink: 0 }} /> {v.label}
-                </button>
-              ))}
-            </div>
           </div>
+
+          <button type="button" onClick={() => setChoixBloc(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: 16, fontWeight: 800, fontSize: 15, color: "#3AD6A0", background: "rgba(58,214,160,0.1)", border: "1.5px dashed rgba(58,214,160,0.7)" }}>
+            <Plus size={18} /> Ajouter un bloc
+          </button>
+          {choixBloc && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 240, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setChoixBloc(false)}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "78vh", overflowY: "auto", background: C.card, borderTop: "1.5px solid #3AD6A0", borderRadius: "22px 22px 0 0", padding: "16px 16px max(20px, env(safe-area-inset-bottom))", boxShadow: "0 -10px 30px rgba(58,214,160,0.2)", textAlign: "left" }}>
+                <div style={{ width: 40, height: 4, borderRadius: 4, background: "rgba(255,255,255,0.2)", margin: "0 auto 12px" }} />
+                <div style={{ fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 10 }}>Ajouter un bloc</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  {Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => (
+                    <button key={k} type="button" onClick={() => { ajouter(k); setChoixBloc(false); }} style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "12px 14px", borderRadius: 14, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: `1.5px solid ${v.color}55` }}>
+                      <span style={{ width: 34, height: 34, borderRadius: 11, flexShrink: 0, background: `${v.color}22`, border: `1px solid ${v.color}88`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: v.color, boxShadow: `0 0 8px ${v.color}` }} />
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{v.label}</div>
+                        <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 1 }}>{COURSE_DESC_BLOC[k]}</div>
+                      </div>
+                      <span style={{ fontSize: 11.5, fontWeight: 800, color: COURSE_ZONES[ZONE_PAR_DEFAUT[k]]?.color }}>{COURSE_ZONES[ZONE_PAR_DEFAUT[k]]?.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <Field label="Consigne générale (optionnel)">
             <textarea style={{ ...champ, minHeight: 60, resize: "vertical" }} value={consigne} onChange={(e) => setConsigne(e.target.value)} placeholder="ex : hydrate-toi bien, terrain plat" />
