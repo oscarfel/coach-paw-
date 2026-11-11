@@ -1034,7 +1034,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       const dateSeanceIso = String(s.date).slice(0, 10); // compare des chaînes "AAAA-MM-JJ", évite tout souci de fuseau horaire
       if (dateSeanceIso < lundiIso) continue;
       const p = programmesJourFixe.find((prog) => prog.id === s.programme_id) || programmesJourFixe.find((prog) => prog.nom === s.nom_programme);
-      if (p) valides.add(p.jourFixe);
+      if (p) { valides.add(p.jourFixe); valides.add(`id:${p.id}`); }
     }
     return valides;
   }, [recentSeances, programmesJourFixe]);
@@ -1054,7 +1054,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
       if (String(s.date).slice(0, 10) < lundiIso) continue;
       const p = programmesJourFixe.find((prog) => prog.id === s.programme_id) || programmesJourFixe.find((prog) => prog.nom === s.nom_programme);
       if (!p) continue;
-      (s.enregistree_auto ? auto : normaux).add(p.jourFixe);
+      (s.enregistree_auto ? auto : normaux).add(`id:${p.id}`);
     }
     for (const j of normaux) auto.delete(j);
     return auto;
@@ -1587,13 +1587,16 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                 <SectionLabel icon={Calendar} onBg>Semaine type</SectionLabel>
                 {showPopupNonValidee && <PopupSeanceNonValidee onClose={() => setShowPopupNonValidee(false)} />}
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {JOURS_ORDRE.map((jour) => {
-                    const p = programmesJourFixe.find((prog) => prog.jourFixe === jour);
+                  {JOURS_ORDRE.flatMap((jour) => {
+                    // Plusieurs séances possibles le même jour (ex : muscu + course)
+                    const progsDuJour = programmesJourFixe.filter((prog) => prog.jourFixe === jour);
+                    return (progsDuJour.length ? progsDuJour : [null]).map((p, kIdx) => {
                     const estAujourdhui = jour === jourAujourdhui;
-                    const estValide = joursValidesCetteSemaine.has(jour);
+                    const estValide = p ? joursValidesCetteSemaine.has(`id:${p.id}`) : false;
+                    const course = p && p.typeSeance === "course";
                     return (
                       <Card
-                        key={jour}
+                        key={`${jour}-${p ? p.id : kIdx}`}
                         style={{
                           display: "flex", alignItems: "center", gap: 14, padding: 16,
                           border: estValide ? `2px solid ${C.green}` : (estAujourdhui ? "2px solid #F5C542" : undefined),
@@ -1604,17 +1607,20 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                         <div style={{ width: 48, height: 48, borderRadius: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
                           background: estValide ? "rgba(58,214,160,0.2)" : (estAujourdhui ? "rgba(245,197,66,0.2)" : "rgba(255,255,255,0.06)"),
                           border: `1px solid ${estValide ? "rgba(58,214,160,0.5)" : (estAujourdhui ? "rgba(245,197,66,0.5)" : "rgba(255,255,255,0.08)")}` }}>
-                          {estValide ? <Check size={24} color={C.green} strokeWidth={3} /> : p ? <Dumbbell size={22} color={estAujourdhui ? "#F5C542" : "#9DB8FF"} /> : <span style={{ fontSize: 20 }}>😴</span>}
+                          {estValide ? <Check size={24} color={C.green} strokeWidth={3} /> : p ? (course ? <Footprints size={22} color={estAujourdhui ? "#F5C542" : "#3AD6A0"} /> : <Dumbbell size={22} color={estAujourdhui ? "#F5C542" : "#9DB8FF"} />) : <span style={{ fontSize: 20 }}>😴</span>}
                         </div>
                         <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                           <div style={{ fontSize: 12.5, fontWeight: 700, color: estValide ? C.green : (estAujourdhui ? "#F5C542" : C.textMuted), textTransform: "capitalize", letterSpacing: 0 }}>
                             {jour}{estAujourdhui && " · Aujourd'hui"}{estValide && " · Validé"}
-                            {estValide && joursNonValidesCetteSemaine.has(jour) && <EtiquetteNonValidee onClick={() => setShowPopupNonValidee(true)} />}
+                            {estValide && p && joursNonValidesCetteSemaine.has(`id:${p.id}`) && <EtiquetteNonValidee onClick={() => setShowPopupNonValidee(true)} />}
                           </div>
                           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: p ? C.text : C.textDim, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p ? p.nom : "Repos"}
                           </div>
-                          {p && (
+                          {p && course && (
+                            <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}><PastillesCourse blocs={p.courseBlocs} /></div>
+                          )}
+                          {p && !course && (
                             <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
                               <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{p.exercices.length} exercices</span>
                               <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries</span>
@@ -1624,7 +1630,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                         {p && (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6, flexShrink: 0 }}>
                             <button onClick={() => onStart(p)} style={{ background: C.blue, border: "none", color: "#FFFFFF", borderRadius: 999, padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 800, fontSize: 14, boxShadow: "0 4px 14px rgba(76,125,240,0.5)" }}>
-                              <Play size={13} fill="#FFFFFF" /> Démarrer
+                              <Play size={13} fill="#FFFFFF" /> {course ? "Voir" : "Démarrer"}
                             </button>
                             {isCoach && (
                               <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
@@ -1633,6 +1639,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                         )}
                       </Card>
                     );
+                    });
                   })}
                 </div>
               </div>
@@ -1676,7 +1683,7 @@ function EntrainementHome({ user, stats, onStart, fireToast, customProgrammes, i
                       <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: C.text }}>{p.nom}</div>
                       <div style={{ fontSize: 12, color: C.textMuted }}>{p.muscle}</div>
                       <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                        {p.exercices.length} exercices · {p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries · {p.duree}
+                        {p.typeSeance === "course" ? `Course · ≈ ${estimerCourse(p.courseBlocs).minutes} min` : `${p.exercices.length} exercices · ${p.exercices.reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries`}
                       </div>
                     </div>
                   </div>
@@ -7279,7 +7286,684 @@ function AddClientForm({ coachProfilId, onClose, onCreated, fireToast, groupesDi
   );
 }
 
-function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSemaineId, modeleJourFixe, onClose, onCreated, fireToast }) {
+/* ------------------------------------------------------------------ */
+/*  COURSE À PIED                                                      */
+/*  Séances de course construites en blocs par le coach, faites par le  */
+/*  client avec sa montre, résultat saisi à la fin. Plans mensuels de  */
+/*  4 semaines générés automatiquement (programmes.plan_semaine 1-4).  */
+/* ------------------------------------------------------------------ */
+const COURSE_TYPES_BLOC = {
+  echauffement: { label: "Échauffement", color: "#3AD6A0", niveau: 1 },
+  footing: { label: "Footing", color: "#3AD6A0", niveau: 1 },
+  sortie_longue: { label: "Sortie longue", color: "#3AD6A0", niveau: 1 },
+  course_marche: { label: "Course / marche", color: "#8CBEFF", niveau: 2 },
+  allure_specifique: { label: "Allure objectif", color: "#F28C38", niveau: 3 },
+  seuil: { label: "Seuil", color: "#F5B833", niveau: 3 },
+  fractionne: { label: "Fractionné", color: "#FF5D6C", niveau: 4 },
+  retour_calme: { label: "Retour au calme", color: "#3AD6A0", niveau: 1 },
+};
+const COURSE_BLOCS_REPETES = ["course_marche", "fractionne", "seuil", "allure_specifique"];
+const COURSE_OBJECTIFS = {
+  debuter: { label: "Débuter / courir 30 min" },
+  "5k": { label: "5 km" },
+  "10k": { label: "10 km" },
+  semi: { label: "Semi-marathon" },
+  marathon: { label: "Marathon" },
+};
+const COURSE_NIVEAUX = { debutant: "Débutant", intermediaire: "Intermédiaire", confirme: "Confirmé" };
+
+const nouvelIdBloc = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+function parseAllureSec(txt) {
+  const m = String(txt || "").trim().match(/^(\d{1,2})[:'’h](\d{1,2})/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+const fmtAllureSec = (sec) => (sec == null || !Number.isFinite(sec) ? "" : `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}/km`);
+function fmtDureeSec(sec) {
+  if (!Number.isFinite(sec) || sec <= 0) return "–";
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.round(sec % 60);
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+}
+function fmtEffort(v, u) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const t = String(Math.round(n * 100) / 100).replace(".", ",");
+  return u === "s" ? `${t} s` : u === "km" ? `${t} km` : u === "m" ? `${t} m` : `${t} min`;
+}
+function resumeBloc(b) {
+  const t = COURSE_TYPES_BLOC[b.type] || { label: b.type };
+  const effort = fmtEffort(b.effort, b.effortUnite);
+  const reps = Number(b.reps) > 1 ? `${b.reps} × ` : "";
+  const recup = Number(b.recup) > 0 ? ` · récup ${fmtEffort(b.recup, b.recupUnite || "min")}${b.recupType === "marche" ? " marche" : b.recupType === "trot" ? " trot" : ""}` : "";
+  return `${reps}${effort || t.label}${recup}`;
+}
+// Durée estimée (min) et distance (km) d'une séance, pour les résumés et le graphique de blocs.
+function estimerCourse(blocs, allureRefSec = 360) {
+  let minutes = 0, km = 0, kmConnu = true;
+  for (const b of blocs || []) {
+    const reps = Math.max(1, Number(b.reps) || 1);
+    const e = Number(b.effort) || 0;
+    const effortMin = b.effortUnite === "s" ? e / 60 : b.effortUnite === "km" ? (e * allureRefSec) / 60 : b.effortUnite === "m" ? (e / 1000) * allureRefSec / 60 : e;
+    const r = Number(b.recup) || 0;
+    const recupMin = (b.recupUnite === "s" ? r / 60 : r) * (reps > 1 ? reps - 1 : 0);
+    minutes += effortMin * reps + recupMin;
+    if (b.effortUnite === "km") km += e * reps;
+    else if (b.effortUnite === "m") km += (e / 1000) * reps;
+    else kmConnu = false;
+  }
+  return { minutes: Math.round(minutes), km: kmConnu && km > 0 ? Math.round(km * 10) / 10 : null };
+}
+function semaineDuPlan(planDebut) {
+  if (!planDebut) return null;
+  const d = new Date(`${String(planDebut).slice(0, 10)}T00:00:00`);
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  return Math.floor((auj - d) / (7 * 86400000)) + 1;
+}
+// Un programme de plan n'est visible que pendant SA semaine du plan.
+function programmeVisibleCetteSemaine(planSemaine, planDebut) {
+  if (!planSemaine || !planDebut) return true;
+  return semaineDuPlan(planDebut) === Number(planSemaine);
+}
+const estSeanceCourse = (p) => (p?.type_seance || p?.typeSeance) === "course";
+const lundiIso = (date = new Date()) => {
+  const d = new Date(date); d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+};
+
+// Schéma visuel des blocs (barres colorées par intensité, largeur ≈ durée)
+function SchemaBlocsCourse({ blocs, hauteur = 34 }) {
+  const morceaux = [];
+  for (const b of blocs || []) {
+    const t = COURSE_TYPES_BLOC[b.type] || COURSE_TYPES_BLOC.footing;
+    const reps = Math.max(1, Math.min(20, Number(b.reps) || 1));
+    const { minutes: dEffort } = estimerCourse([{ ...b, reps: 1, recup: 0 }]);
+    const dRecup = Number(b.recup) ? (b.recupUnite === "s" ? Number(b.recup) / 60 : Number(b.recup)) : 0;
+    for (let i = 0; i < reps; i++) {
+      morceaux.push({ w: Math.max(0.6, dEffort || 1), h: 0.35 + t.niveau * 0.16, c: t.color });
+      if (dRecup && i < reps - 1) morceaux.push({ w: Math.max(0.4, dRecup), h: 0.28, c: "#3AD6A0" });
+    }
+  }
+  const total = morceaux.reduce((a, m) => a + m.w, 0) || 1;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: hauteur, width: "100%" }} aria-hidden>
+      {morceaux.map((m, i) => (
+        <span key={i} style={{ flex: `${m.w / total} 0 0`, minWidth: 3, height: `${Math.min(1, m.h) * 100}%`, background: m.c, borderRadius: "4px 4px 2px 2px", boxShadow: `0 0 6px ${m.c}55` }} />
+      ))}
+    </div>
+  );
+}
+
+function PastillesCourse({ blocs }) {
+  const { minutes, km } = estimerCourse(blocs);
+  const chip = { fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" };
+  return (
+    <>
+      <span style={{ ...chip, color: "#3AD6A0", background: "rgba(58,214,160,0.12)" }}>Course</span>
+      {minutes > 0 && <span style={chip}>≈ {minutes} min</span>}
+      {km && <span style={chip}>{String(km).replace(".", ",")} km</span>}
+    </>
+  );
+}
+
+function ListeBlocsCourse({ blocs }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {(blocs || []).map((b, i) => {
+        const t = COURSE_TYPES_BLOC[b.type] || COURSE_TYPES_BLOC.footing;
+        return (
+          <div key={b.id || i} style={{ display: "flex", gap: 12, alignItems: "stretch", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "10px 12px" }}>
+            <span style={{ width: 4, borderRadius: 4, background: t.color, boxShadow: `0 0 8px ${t.color}`, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: t.color }}>{t.label}</div>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: C.text, marginTop: 1 }}>{resumeBloc(b)}</div>
+              {b.allure && <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>Allure : <b style={{ color: C.text }}>{b.allure}</b></div>}
+              {b.consigne && <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>{b.consigne}</div>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Coach : créer / modifier une séance de course ---------- */
+function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fireToast, entete = null }) {
+  const p = editingProgramme || {};
+  const blocsInit = Array.isArray(p.course_blocs) ? p.course_blocs : Array.isArray(p.courseBlocs) ? p.courseBlocs : [
+    { id: nouvelIdBloc(), type: "echauffement", reps: 1, effort: 10, effortUnite: "min", allure: "Facile", consigne: "" },
+    { id: nouvelIdBloc(), type: "fractionne", reps: 6, effort: 2, effortUnite: "min", recup: 1, recupUnite: "min", recupType: "marche", allure: "", consigne: "" },
+    { id: nouvelIdBloc(), type: "retour_calme", reps: 1, effort: 10, effortUnite: "min", allure: "Facile", consigne: "" },
+  ];
+  const [nom, setNom] = useState(p.nom || "");
+  const [jourFixe, setJourFixe] = useState(p.jour_fixe || p.jourFixe || "");
+  const [consigne, setConsigne] = useState(p.course_consigne || p.courseConsigne || "");
+  const [blocs, setBlocs] = useState(blocsInit);
+  const [saving, setSaving] = useState(false);
+
+  const majBloc = (id, champ, val) => setBlocs((bs) => bs.map((b) => (b.id === id ? { ...b, [champ]: val } : b)));
+  const deplacer = (i, d) => setBlocs((bs) => { const a = [...bs]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
+  const ajouter = (type) => setBlocs((bs) => [...bs, { id: nouvelIdBloc(), type, reps: COURSE_BLOCS_REPETES.includes(type) ? 4 : 1, effort: type === "fractionne" ? 400 : 10, effortUnite: type === "fractionne" ? "m" : "min", recup: COURSE_BLOCS_REPETES.includes(type) ? 1 : 0, recupUnite: "min", recupType: "trot", allure: "", consigne: "" }]);
+
+  const enregistrer = async () => {
+    if (!nom.trim()) { fireToast("Donne un nom à la séance"); return; }
+    if (blocs.length === 0) { fireToast("Ajoute au moins un bloc"); return; }
+    setSaving(true);
+    const ligne = { nom: nom.trim(), muscle: "Course à pied", jour_fixe: jourFixe || null, type_seance: "course", course_blocs: blocs, course_consigne: consigne || null };
+    try {
+      const { error } = p.id
+        ? await supabase.from("programmes").update({ ...ligne, updated_at: new Date().toISOString() }).eq("id", p.id)
+        : await supabase.from("programmes").insert({ ...ligne, profil_id: clientId });
+      if (error) throw error;
+      fireToast(p.id ? "Séance de course modifiée" : "Séance de course créée", "green");
+      onCreated && onCreated();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      fireToast(/type_seance|course_|column/i.test(err?.message || "") ? "Lance d'abord le script SQL « course » dans Supabase" : "Erreur enregistrement de la séance");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const champ = { ...inputStyle, padding: "10px 12px", fontSize: 14 };
+  const petit = { ...champ, padding: "8px 10px" };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <SectionHead icon={Footprints} title={p.id ? "Modifier la course" : "Nouvelle séance de course"} color="#3AD6A0" />
+        {entete}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Field label="Nom"><input style={champ} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex : Fractionné court" /></Field>
+          <Field label="Jour">
+            <select style={champ} value={jourFixe} onChange={(e) => setJourFixe(e.target.value)}>
+              <option value="">Sans jour fixe (cycle)</option>
+              {JOURS_SEMAINE.map((j) => <option key={j} value={j}>{j.charAt(0).toUpperCase() + j.slice(1)}</option>)}
+            </select>
+          </Field>
+          <Field label="Consigne générale (optionnel)">
+            <textarea style={{ ...champ, minHeight: 64, resize: "vertical" }} value={consigne} onChange={(e) => setConsigne(e.target.value)} placeholder="ex : reste en aisance respiratoire, hydrate-toi" />
+          </Field>
+
+          <div>
+            <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 6 }}>Aperçu</div>
+            <SchemaBlocsCourse blocs={blocs} />
+          </div>
+
+          {blocs.map((b, i) => {
+            const t = COURSE_TYPES_BLOC[b.type] || COURSE_TYPES_BLOC.footing;
+            const repete = COURSE_BLOCS_REPETES.includes(b.type) || Number(b.reps) > 1;
+            return (
+              <div key={b.id} style={{ borderRadius: 16, padding: 12, background: "rgba(255,255,255,0.04)", border: `1px solid ${t.color}66`, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select style={{ ...petit, flex: 1, color: t.color, fontWeight: 800 }} value={b.type} onChange={(e) => majBloc(b.id, "type", e.target.value)}>
+                    {Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                  <button onClick={() => deplacer(i, -1)} style={{ ...petit, width: 36, padding: 0, height: 36 }} aria-label="Monter">↑</button>
+                  <button onClick={() => deplacer(i, 1)} style={{ ...petit, width: 36, padding: 0, height: 36 }} aria-label="Descendre">↓</button>
+                  <button onClick={() => setBlocs((bs) => bs.filter((x) => x.id !== b.id))} style={{ ...petit, width: 36, padding: 0, height: 36, color: C.red }} aria-label="Supprimer"><Trash2 size={15} /></button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: repete ? "70px 1fr 90px" : "1fr 90px", gap: 6 }}>
+                  {repete && <input type="number" inputMode="numeric" style={petit} value={b.reps} onChange={(e) => majBloc(b.id, "reps", e.target.value)} placeholder="×" aria-label="Répétitions" />}
+                  <input type="number" inputMode="decimal" style={petit} value={b.effort} onChange={(e) => majBloc(b.id, "effort", e.target.value)} placeholder={b.type === "course_marche" ? "Course" : "Effort"} aria-label="Effort" />
+                  <select style={petit} value={b.effortUnite} onChange={(e) => majBloc(b.id, "effortUnite", e.target.value)}>
+                    <option value="min">min</option><option value="s">s</option><option value="km">km</option><option value="m">m</option>
+                  </select>
+                </div>
+                {repete && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 1fr", gap: 6 }}>
+                    <input type="number" inputMode="decimal" style={petit} value={b.recup ?? ""} onChange={(e) => majBloc(b.id, "recup", e.target.value)} placeholder="Récup" aria-label="Récupération" />
+                    <select style={petit} value={b.recupUnite || "min"} onChange={(e) => majBloc(b.id, "recupUnite", e.target.value)}><option value="min">min</option><option value="s">s</option></select>
+                    <select style={petit} value={b.recupType || "trot"} onChange={(e) => majBloc(b.id, "recupType", e.target.value)}>
+                      <option value="trot">trot</option><option value="marche">marche</option><option value="repos">arrêt</option>
+                    </select>
+                  </div>
+                )}
+                <input style={petit} value={b.allure || ""} onChange={(e) => majBloc(b.id, "allure", e.target.value)} placeholder="Allure cible (ex : 5:10/km, facile, Z2…)" />
+                <input style={petit} value={b.consigne || ""} onChange={(e) => majBloc(b.id, "consigne", e.target.value)} placeholder="Consigne (optionnel)" />
+                <div style={{ fontSize: 12.5, color: C.textMuted }}>{resumeBloc(b)}</div>
+              </div>
+            );
+          })}
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {Object.entries(COURSE_TYPES_BLOC).map(([k, v]) => (
+              <button key={k} onClick={() => ajouter(k)} style={{ fontSize: 12.5, fontWeight: 700, color: v.color, background: `${v.color}14`, border: `1px solid ${v.color}66`, borderRadius: 999, padding: "6px 10px" }}>+ {v.label}</button>
+            ))}
+          </div>
+
+          <button onClick={enregistrer} disabled={saving} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
+            {saving ? "Enregistrement..." : p.id ? "Enregistrer les modifications" : "Créer la séance"}
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------- Coach : générateur de plan du mois ---------- */
+function genererPlanCourse({ objectif, niveau, seancesParSemaine, jours, allureFacileSec, mois }) {
+  const facteurMois = Math.min(1.8, 1 + 0.15 * (Math.max(1, mois) - 1));
+  const charges = [1, 1.12, 1.25, 0.8]; // semaine 4 allégée
+  const baseFooting = { debutant: 25, intermediaire: 35, confirme: 45 }[niveau] || 30;
+  const facteurLongue = { debuter: 1.2, "5k": 1.35, "10k": 1.5, semi: 1.8, marathon: 2.3 }[objectif] || 1.4;
+  const rd = (x, pas = 5) => Math.max(pas, Math.round(x / pas) * pas);
+  const a = (delta) => (allureFacileSec ? fmtAllureSec(allureFacileSec + delta) : null);
+  const ALL = {
+    facile: a(0) || "Facile (tu peux parler)",
+    seuil: a(-55) || "Seuil (RPE 7, confortablement dur)",
+    vite: a(-80) || "Vite (RPE 8-9)",
+    objectif: a({ "5k": -75, "10k": -65, semi: -45, marathon: -30 }[objectif] || -60) || "Allure objectif (RPE 6-7)",
+  };
+  const bloc = (o) => ({ id: nouvelIdBloc(), reps: 1, effortUnite: "min", recup: 0, recupUnite: "min", recupType: "trot", allure: "", consigne: "", ...o });
+  const echauf = (min) => bloc({ type: "echauffement", effort: min, allure: ALL.facile });
+  const calme = (min) => bloc({ type: "retour_calme", effort: min, allure: ALL.facile });
+
+  // Séance qualité de la semaine w (1-4) selon l'objectif
+  const qualite = (w) => {
+    const c = charges[w - 1] * facteurMois;
+    const e = niveau === "debutant" ? 10 : 15;
+    if (objectif === "debuter" || (niveau === "debutant" && mois === 1 && objectif !== "debuter" && w <= 2)) {
+      return null; // pas de séance dure au tout début
+    }
+    const T = {
+      "5k": [[8, 1, 1], [6, 2, 1.5], [5, 3, 2], [6, 1, 1]],
+      "10k": [[5, 3, 1.5], [4, 5, 2], [3, 8, 2], [6, 2, 1]],
+      semi: [[3, 8, 2], [2, 12, 3], [2, 15, 3], [1, 15, 0]],
+      marathon: [[3, 10, 2], [2, 20, 3], [1, 35, 0], [1, 20, 0]],
+    }[objectif];
+    const [reps, eff, rec] = T[w - 1];
+    const repsAj = Math.max(1, Math.round(reps * Math.min(1.4, facteurMois)));
+    const type = objectif === "5k" ? "fractionne" : objectif === "10k" ? (w === 3 ? "seuil" : "fractionne") : objectif === "semi" ? "seuil" : "allure_specifique";
+    const allure = type === "fractionne" ? ALL.vite : type === "seuil" ? ALL.seuil : ALL.objectif;
+    void c;
+    return {
+      nom: type === "fractionne" ? "Fractionné" : type === "seuil" ? "Seuil" : "Allure objectif",
+      blocs: [echauf(e), bloc({ type, reps: repsAj, effort: eff, recup: rec, recupType: "trot", allure }), calme(10)],
+    };
+  };
+  const footing = (w, k = 1) => {
+    const c = charges[w - 1] * facteurMois;
+    if (objectif === "debuter") {
+      // Alternance course / marche qui progresse vers 30 min continues
+      const etapes = [[6, 2, 1], [5, 3, 1], [4, 5, 1], [3, 8, 1], [2, 12, 1], [1, 20, 0], [1, 25, 0], [1, 30, 0]];
+      const idx = Math.min(etapes.length - 1, (mois - 1) * 3 + (w === 4 ? 1 : w - 1)); // semaine 4 : on redescend d'une marche
+      const [reps, cours, marche] = etapes[idx];
+      return { nom: "Course / marche", blocs: [bloc({ type: "course_marche", reps, effort: cours, recup: marche, recupType: "marche", allure: ALL.facile, consigne: "Tu dois pouvoir parler en courant" })] };
+    }
+    return { nom: k > 1 ? "Footing 2" : "Footing", blocs: [bloc({ type: "footing", effort: rd(baseFooting * c), allure: ALL.facile })] };
+  };
+  const longue = (w) => {
+    const c = charges[w - 1] * facteurMois;
+    if (objectif === "debuter") return footing(w);
+    return { nom: "Sortie longue", blocs: [bloc({ type: "sortie_longue", effort: rd(baseFooting * facteurLongue * c), allure: ALL.facile, consigne: "Régulier du début à la fin" })] };
+  };
+
+  const plan = [];
+  for (let w = 1; w <= 4; w++) {
+    const q = qualite(w);
+    const modeles = seancesParSemaine <= 2 ? [footing(w), q || footing(w, 2)]
+      : seancesParSemaine === 3 ? [footing(w), q || footing(w, 2), longue(w)]
+      : [footing(w), q || footing(w, 2), footing(w, 2), longue(w)];
+    modeles.forEach((m, i) => {
+      plan.push({ semaine: w, jour: jours[i] || null, nom: `${m.nom} · S${w}${w === 4 ? " (allégée)" : ""}`, blocs: m.blocs.map((b) => ({ ...b, id: nouvelIdBloc() })) });
+    });
+  }
+  return plan;
+}
+
+function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
+  const [objectif, setObjectif] = useState("5k");
+  const [niveau, setNiveau] = useState("debutant");
+  const [nb, setNb] = useState(3);
+  const [jours, setJours] = useState(["lundi", "mercredi", "dimanche"]);
+  const [allure, setAllure] = useState("");
+  const [mois, setMois] = useState(1);
+  const [debut, setDebut] = useState(() => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return lundiIso(d); });
+  const [remplacer, setRemplacer] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const allureSec = parseAllureSec(allure);
+  const apercu = useMemo(() => genererPlanCourse({ objectif, niveau, seancesParSemaine: nb, jours, allureFacileSec: allureSec, mois }), [objectif, niveau, nb, jours, allureSec, mois]);
+  const toggleJour = (j) => setJours((js) => (js.includes(j) ? js.filter((x) => x !== j) : [...js, j].sort((a, b) => JOURS_SEMAINE.indexOf(a) - JOURS_SEMAINE.indexOf(b))));
+
+  const creer = async () => {
+    if (jours.length < nb) { fireToast(`Choisis ${nb} jours`); return; }
+    setSaving(true);
+    try {
+      if (remplacer) {
+        const { error: eDel } = await supabase.from("programmes").delete().eq("profil_id", client.id).eq("type_seance", "course").not("plan_semaine", "is", null);
+        if (eDel) throw eDel;
+      }
+      const planId = `plan_${Date.now().toString(36)}`;
+      const lignes = apercu.map((s) => ({
+        profil_id: client.id, nom: s.nom, muscle: "Course à pied", jour_fixe: s.jour, type_seance: "course",
+        course_blocs: s.blocs, course_consigne: null, plan_id: planId, plan_semaine: s.semaine, plan_debut: debut,
+        plan_objectif: `${COURSE_OBJECTIFS[objectif].label} · mois ${mois}`,
+      }));
+      const { error } = await supabase.from("programmes").insert(lignes);
+      if (error) throw error;
+      fireToast("Plan du mois créé", "green");
+      onCreated && onCreated();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      fireToast(/type_seance|plan_|course_|column/i.test(err?.message || "") ? "Lance d'abord le script SQL « course » dans Supabase" : "Erreur création du plan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const chipBtn = (actif, col = "#8CBEFF") => ({ fontSize: 13, fontWeight: 800, borderRadius: 999, padding: "7px 12px", color: actif ? "#06171F" : col, background: actif ? col : `${col}14`, border: `1px solid ${col}${actif ? "" : "66"}` });
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 440, maxHeight: "88vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <SectionHead icon={Footprints} title="Plan course du mois" color="#3AD6A0" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Field label="Objectif">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {Object.entries(COURSE_OBJECTIFS).map(([k, v]) => <button key={k} onClick={() => setObjectif(k)} style={chipBtn(objectif === k, "#3AD6A0")}>{v.label}</button>)}
+            </div>
+          </Field>
+          <Field label="Niveau">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {Object.entries(COURSE_NIVEAUX).map(([k, v]) => <button key={k} onClick={() => setNiveau(k)} style={chipBtn(niveau === k)}>{v}</button>)}
+            </div>
+          </Field>
+          <Field label="Séances de course par semaine">
+            <div style={{ display: "flex", gap: 6 }}>
+              {[2, 3, 4].map((n) => <button key={n} onClick={() => setNb(n)} style={chipBtn(nb === n)}>{n}</button>)}
+            </div>
+          </Field>
+          <Field label={`Jours de course (${jours.length}/${nb})`}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {JOURS_SEMAINE.map((j) => <button key={j} onClick={() => toggleJour(j)} style={chipBtn(jours.includes(j), "#F5B833")}>{JOURS_SEMAINE_LABEL[j]}</button>)}
+            </div>
+            <div style={{ fontSize: 12, color: C.textDim, marginTop: 6 }}>Évite le fractionné (2e jour) la veille ou le lendemain de la séance jambes.</div>
+          </Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Allure footing (optionnel)"><input style={inputStyle} value={allure} onChange={(e) => setAllure(e.target.value)} placeholder="ex : 6:30" /></Field>
+            <Field label="Mois du plan"><select style={inputStyle} value={mois} onChange={(e) => setMois(parseInt(e.target.value, 10))}>{[1, 2, 3, 4, 5, 6].map((m) => <option key={m} value={m}>Mois {m}</option>)}</select></Field>
+          </div>
+          <Field label="Début (lundi de la semaine 1)"><input type="date" style={inputStyle} value={debut} onChange={(e) => setDebut(lundiIso(new Date(`${e.target.value}T12:00:00`)))} /></Field>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: C.textMuted }}>
+            <input type="checkbox" checked={remplacer} onChange={(e) => setRemplacer(e.target.checked)} /> Remplacer le plan de course actuel
+          </label>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>Aperçu du plan</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[1, 2, 3, 4].map((w) => (
+                <div key={w} style={{ borderRadius: 14, padding: 10, background: w === 4 ? "rgba(245,184,51,0.07)" : "rgba(255,255,255,0.04)", border: `1px solid ${w === 4 ? "rgba(245,184,51,0.4)" : "rgba(255,255,255,0.08)"}` }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: w === 4 ? "#F5B833" : C.textMuted, marginBottom: 6 }}>Semaine {w}{w === 4 ? " · allégée" : ""}</div>
+                  {apercu.filter((s) => s.semaine === w).map((s, i) => (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "42px 1fr", gap: 8, alignItems: "center", marginTop: i ? 6 : 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#F5B833" }}>{s.jour ? JOURS_SEMAINE_LABEL[s.jour] : "—"}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{s.blocs.filter((b) => !["echauffement", "retour_calme"].includes(b.type)).map(resumeBloc).join(" + ")}</div>
+                        <SchemaBlocsCourse blocs={s.blocs} hauteur={14} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ fontSize: 12.5, color: C.textDim }}>Chaque séance reste modifiable ensuite. Le client voit uniquement les séances de la semaine en cours, dans sa semaine type.</div>
+          <button onClick={creer} disabled={saving} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
+            {saving ? "Création..." : "Créer le plan du mois"}
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------- Client : voir la séance et saisir le résultat ---------- */
+function CourseSessionView({ programme, onClose, onSubmit, fireToast }) {
+  const blocs = programme.courseBlocs || [];
+  const cle = `course_brouillon_${programme.id || programme.nom}`;
+  const lire = () => { try { return JSON.parse(localStorage.getItem(cle) || "null") || {}; } catch { return {}; } };
+  const init = lire();
+  const [distance, setDistance] = useState(init.distance || "");
+  const [h, setH] = useState(init.h || "");
+  const [m, setM] = useState(init.m || "");
+  const [s, setS] = useState(init.s || "");
+  const [fcMoy, setFcMoy] = useState(init.fcMoy || "");
+  const [fcMax, setFcMax] = useState(init.fcMax || "");
+  const [rpe, setRpe] = useState(init.rpe || null);
+  const [commentaire, setCommentaire] = useState(init.commentaire || "");
+  const [reps, setReps] = useState(init.reps || {});
+  const [envoi, setEnvoi] = useState(false);
+  const [fini, setFini] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem(cle, JSON.stringify({ distance, h, m, s, fcMoy, fcMax, rpe, commentaire, reps })); } catch { /* ignoré */ }
+  }, [distance, h, m, s, fcMoy, fcMax, rpe, commentaire, reps]);
+
+  const dureeSec = (parseInt(h, 10) || 0) * 3600 + (parseInt(m, 10) || 0) * 60 + (parseInt(s, 10) || 0);
+  const km = parseFloat(String(distance).replace(",", "."));
+  const allureSec = km > 0 && dureeSec > 0 ? dureeSec / km : null;
+  const blocsRepetes = blocs.filter((b) => COURSE_BLOCS_REPETES.includes(b.type) && b.type !== "course_marche" && Number(b.reps) >= 1);
+
+  const valider = async () => {
+    if (!(km > 0) || dureeSec <= 0) { fireToast("Renseigne la distance et le temps"); return; }
+    if (!rpe) { fireToast("Indique ton ressenti (1 à 10)"); return; }
+    setEnvoi(true);
+    const detailReps = [];
+    for (const b of blocsRepetes) {
+      for (let i = 0; i < (Number(b.reps) || 1); i++) {
+        const v = reps[`${b.id}_${i}`];
+        if (v) detailReps.push({ bloc: resumeBloc(b), type: b.type, rep: i + 1, valeur: v });
+      }
+    }
+    const ok = await onSubmit({ distanceKm: km, dureeSec, fcMoyenne: parseInt(fcMoy, 10) || null, fcMax: parseInt(fcMax, 10) || null, rpe, commentaire: commentaire.trim() || null, reps: detailReps });
+    setEnvoi(false);
+    if (ok) { try { localStorage.removeItem(cle); } catch { /* ignoré */ } setFini(true); }
+  };
+
+  const champ = { ...inputStyle, textAlign: "center", fontSize: 18, fontWeight: 800, padding: "12px 6px" };
+  const { minutes: dureePrevue, km: kmPrevu } = estimerCourse(blocs);
+
+  if (fini) {
+    return (
+      <div style={{ ...appShellStyle, justifyContent: "center" }}>
+        <div style={{ width: "100%", maxWidth: 440, padding: 24, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <IconBadge icon={CheckCircle2} color="#3AD6A0" size={72} iconSize={36} />
+          <div style={{ fontSize: 24, fontWeight: 800, color: C.text }}>Course envoyée à ton coach 💪</div>
+          <div style={{ fontSize: 15, color: C.textMuted }}>{String(km).replace(".", ",")} km en {fmtDureeSec(dureeSec)} · {fmtAllureSec(allureSec)}</div>
+          <button onClick={onClose} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 14, padding: "13px 28px", fontWeight: 800, fontSize: 15 }}>Retour</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 14, textAlign: "left" }}>
+      <button onClick={onClose} style={{ alignSelf: "flex-start", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 999, color: C.text, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px" }}>
+        <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} /> Retour
+      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <IconBadge icon={Footprints} color="#3AD6A0" size={48} iconSize={23} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1, color: C.textOnBg }}>{programme.nom}</div>
+          <div style={{ fontSize: 13.5, color: C.textOnBgMuted, marginTop: 2 }}>{[dureePrevue ? `≈ ${dureePrevue} min` : null, kmPrevu ? `${String(kmPrevu).replace(".", ",")} km` : null].filter(Boolean).join(" · ") || "Course à pied"}</div>
+        </div>
+      </div>
+
+      <Card>
+        <SectionHead icon={ClipboardList} title="Ta séance" color="#3AD6A0" />
+        <SchemaBlocsCourse blocs={blocs} />
+        <div style={{ marginTop: 12 }}><ListeBlocsCourse blocs={blocs} /></div>
+        {programme.courseConsigne && <div style={{ marginTop: 12, fontSize: 14, color: C.text, background: "rgba(140,190,255,0.08)", border: "1px solid rgba(140,190,255,0.35)", borderRadius: 12, padding: "10px 12px" }}>💬 {programme.courseConsigne}</div>}
+        <div style={{ fontSize: 12.5, color: C.textDim, marginTop: 10 }}>Fais ta séance avec ta montre, puis remplis ton résultat ci-dessous.</div>
+      </Card>
+
+      <Card style={{ border: "1.5px solid rgba(140,190,255,0.85)", boxShadow: "0 0 22px rgba(120,170,255,0.4), 0 10px 28px rgba(0,0,0,0.45)" }}>
+        <SectionHead icon={CheckCircle2} title="Ton résultat" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Field label="Distance (km)"><input type="number" inputMode="decimal" style={champ} value={distance} onChange={(e) => setDistance(e.target.value)} placeholder="5,2" /></Field>
+          <Field label="Temps total">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <input type="number" inputMode="numeric" style={champ} value={h} onChange={(e) => setH(e.target.value)} placeholder="h" aria-label="Heures" />
+              <input type="number" inputMode="numeric" style={champ} value={m} onChange={(e) => setM(e.target.value)} placeholder="min" aria-label="Minutes" />
+              <input type="number" inputMode="numeric" style={champ} value={s} onChange={(e) => setS(e.target.value)} placeholder="s" aria-label="Secondes" />
+            </div>
+          </Field>
+          {allureSec && <div style={{ fontSize: 14, color: C.textMuted }}>Allure moyenne : <b style={{ color: "#3AD6A0", fontSize: 17 }}>{fmtAllureSec(allureSec)}</b></div>}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <Field label="FC moyenne (optionnel)"><input type="number" inputMode="numeric" style={champ} value={fcMoy} onChange={(e) => setFcMoy(e.target.value)} placeholder="bpm" /></Field>
+            <Field label="FC max (optionnel)"><input type="number" inputMode="numeric" style={champ} value={fcMax} onChange={(e) => setFcMax(e.target.value)} placeholder="bpm" /></Field>
+          </div>
+
+          {blocsRepetes.map((b) => (
+            <Field key={b.id} label={`Détail · ${resumeBloc(b)}`}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 6 }}>
+                {Array.from({ length: Math.min(30, Number(b.reps) || 1) }).map((_, i) => (
+                  <input key={i} style={{ ...inputStyle, padding: "9px 8px", fontSize: 14, textAlign: "center" }} value={reps[`${b.id}_${i}`] || ""} onChange={(e) => setReps((r) => ({ ...r, [`${b.id}_${i}`]: e.target.value }))} placeholder={`#${i + 1} ${b.effortUnite === "m" || b.effortUnite === "km" ? "temps" : "allure"}`} />
+                ))}
+              </div>
+            </Field>
+          ))}
+
+          <Field label="Ressenti de la séance">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
+              {Array.from({ length: 10 }).map((_, i) => {
+                const v = i + 1;
+                const col = v <= 4 ? "#3AD6A0" : v <= 7 ? "#F5B833" : "#FF5D6C";
+                const sel = rpe === v;
+                return <button key={v} onClick={() => setRpe(v)} style={{ aspectRatio: "1 / 1", borderRadius: 10, fontWeight: 800, fontSize: 14, color: sel ? "#06171F" : col, background: sel ? col : `${col}14`, border: `1px solid ${col}${sel ? "" : "66"}`, boxShadow: sel ? `0 0 12px ${col}88` : "none", padding: 0 }}>{v}</button>;
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: C.textDim, marginTop: 4 }}><span>Très facile</span><span>Maximal</span></div>
+          </Field>
+          <Field label="Commentaire (optionnel)">
+            <textarea style={{ ...inputStyle, minHeight: 64, resize: "vertical" }} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} placeholder="Sensations, douleurs, météo…" />
+          </Field>
+          <button onClick={valider} disabled={envoi} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 6px 22px rgba(59,111,224,0.5)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "15px", fontWeight: 800, fontSize: 15.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: envoi ? 0.6 : 1 }}>
+            <Send size={17} /> {envoi ? "Envoi..." : "Terminer et envoyer au coach"}
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------- Coach : résultat d'une course ---------- */
+function ResultatCourseCoach({ seance, precedente, programme }) {
+  const km = Number(seance.distance_km) || 0;
+  const allure = km > 0 && seance.duree_secondes ? seance.duree_secondes / km : null;
+  const allurePrec = precedente && Number(precedente.distance_km) > 0 && precedente.duree_secondes ? precedente.duree_secondes / Number(precedente.distance_km) : null;
+  const ecart = allure && allurePrec ? Math.round(allure - allurePrec) : null;
+  const { minutes: prevuMin, km: prevuKm } = estimerCourse(programme?.course_blocs || programme?.courseBlocs || []);
+  const rpe = Number(seance.rpe_seance) || null;
+  const colRpe = !rpe ? C.textMuted : rpe <= 4 ? C.green : rpe <= 7 ? "#F5B833" : C.red;
+  const tuile = (label, val, col = C.text) => (
+    <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: "10px 8px", textAlign: "center" }}>
+      <div style={{ fontSize: 19, fontWeight: 800, color: col }}>{val}</div>
+      <div style={{ fontSize: 11.5, color: C.textMuted }}>{label}</div>
+    </div>
+  );
+  return (
+    <Card style={{ padding: 16, textAlign: "left" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
+        <div style={{ fontSize: 19, fontWeight: 800, color: C.text }}>{formatDateDisplay(String(seance.date).slice(0, 10))}</div>
+        {rpe && <span style={{ fontSize: 13, fontWeight: 800, color: colRpe, background: `${colRpe}1A`, border: `1px solid ${colRpe}66`, borderRadius: 999, padding: "4px 11px" }}>Ressenti {rpe}/10</span>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        {tuile("km", km ? String(km).replace(".", ",") : "–")}
+        {tuile("temps", fmtDureeSec(seance.duree_secondes))}
+        {tuile("allure", allure ? fmtAllureSec(allure).replace("/km", "") : "–", "#3AD6A0")}
+      </div>
+      {(prevuMin || prevuKm) && (
+        <div style={{ fontSize: 13, color: C.textMuted, marginTop: 10 }}>
+          Prévu : {[prevuKm ? `${String(prevuKm).replace(".", ",")} km` : null, prevuMin ? `≈ ${prevuMin} min` : null].filter(Boolean).join(" · ")}
+          {" · "}Réalisé : {[km ? `${String(km).replace(".", ",")} km` : null, seance.duree_secondes ? `${Math.round(seance.duree_secondes / 60)} min` : null].filter(Boolean).join(" · ")}
+        </div>
+      )}
+      {ecart != null && (
+        <div style={{ fontSize: 13, fontWeight: 700, marginTop: 6, color: ecart < 0 ? C.green : ecart > 0 ? C.red : "#F5B833" }}>
+          {ecart < 0 ? `▲ ${Math.abs(ecart)} s/km plus rapide` : ecart > 0 ? `▼ ${ecart} s/km plus lent` : "= même allure"} que la séance du {formatDateDisplay(String(precedente.date).slice(0, 10))}
+        </div>
+      )}
+      {(seance.fc_moyenne || seance.fc_max) && (
+        <div style={{ fontSize: 13.5, color: C.text, marginTop: 8 }}>❤️ FC moy. <b>{seance.fc_moyenne || "–"}</b> · max <b>{seance.fc_max || "–"}</b> bpm</div>
+      )}
+      {Array.isArray(seance.course_reps) && seance.course_reps.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.textMuted, marginBottom: 6 }}>Détail des répétitions</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {seance.course_reps.map((r, i) => (
+              <span key={i} style={{ fontSize: 12.5, fontWeight: 700, color: C.text, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "4px 9px" }}>#{r.rep} {r.valeur}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      {seance.commentaire && <div style={{ marginTop: 10, fontSize: 13.5, color: C.text, background: "rgba(140,190,255,0.08)", border: "1px solid rgba(140,190,255,0.3)", borderRadius: 12, padding: "9px 11px" }}>💬 {seance.commentaire}</div>}
+      {seance.enregistree_auto && <div style={{ marginTop: 8, fontSize: 12.5, color: "#FFB547" }}>Non validée par le client</div>}
+    </Card>
+  );
+}
+
+function CourseProgrammeCoach({ programme, seances, onBack, onEdit }) {
+  const realisations = (seances || []).filter((s) => estSeanceCourse(s) && (s.programme_id === programme.id || s.nom_programme === programme.nom));
+  // Comparaison avec la course précédente du client (tous programmes de course confondus)
+  const toutesCourses = (seances || []).filter((s) => estSeanceCourse(s) && Number(s.distance_km) > 0);
+  const derniere = realisations[0];
+  // Comparaison avec la précédente séance du même genre (ex : « Fractionné · S1 » pour « Fractionné · S2 »)
+  const base = (n) => String(n || "").split(" · ")[0].trim().toLowerCase();
+  const precedente = derniere ? toutesCourses.find((s) => s.id !== derniere.id && String(s.date) <= String(derniere.date) && base(s.nom_programme) === base(derniere.nom_programme)) : null;
+  return (
+    <div style={appShellStyle}>
+      <FontImports />
+      <div style={{ width: "100%", maxWidth: 440, padding: "24px 16px 40px", textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+        <button onClick={onBack} style={{ alignSelf: "flex-start", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(110,150,255,0.4)", borderRadius: 999, color: C.text, fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px" }}>
+          <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} /> Retour
+        </button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <IconBadge icon={Footprints} color="#3AD6A0" size={48} iconSize={23} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.1, color: C.textOnBg }}>{programme.nom}</div>
+              <div style={{ fontSize: 13.5, color: C.textOnBgMuted, marginTop: 2 }}>{programme.plan_objectif || "Course à pied"}{programme.plan_semaine ? ` · semaine ${programme.plan_semaine}/4` : ""}</div>
+            </div>
+          </div>
+          <button onClick={onEdit} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "10px 14px", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>Modifier</button>
+        </div>
+        <Card>
+          <SectionHead icon={ClipboardList} title="Séance prévue" color="#3AD6A0" />
+          <SchemaBlocsCourse blocs={programme.course_blocs || []} />
+          <div style={{ marginTop: 12 }}><ListeBlocsCourse blocs={programme.course_blocs || []} /></div>
+          {programme.course_consigne && <div style={{ marginTop: 10, fontSize: 13.5, color: C.textMuted }}>💬 {programme.course_consigne}</div>}
+        </Card>
+        <SectionHead icon={TrendingUp} title="Dernière réalisation" />
+        {derniere ? <ResultatCourseCoach seance={derniere} precedente={precedente} programme={programme} /> : <Card><div style={{ color: C.textMuted, fontSize: 13 }}>Le client n'a pas encore fait cette séance</div></Card>}
+      </div>
+    </div>
+  );
+}
+
+// Choix Muscu / Course à la création ; une séance existante s'ouvre dans le bon éditeur.
+function SeanceForm(props) {
+  const { editingProgramme, estModele } = props;
+  const estCourse = estSeanceCourse(editingProgramme);
+  const [type, setType] = useState(estCourse ? "course" : "muscu");
+  if (estModele) return <SeanceFormMuscu {...props} />;
+  if (editingProgramme?.id) return estCourse ? <CourseSeanceForm {...props} /> : <SeanceFormMuscu {...props} />;
+  const bascule = (
+    <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+      {[["muscu", "Musculation", Dumbbell, "#8CBEFF"], ["course", "Course à pied", Footprints, "#3AD6A0"]].map(([k, lib, Icon, col]) => (
+        <button key={k} type="button" onClick={() => setType(k)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px", borderRadius: 12, fontWeight: 800, fontSize: 13.5,
+          color: type === k ? "#06171F" : col, background: type === k ? col : `${col}14`, border: `1px solid ${col}${type === k ? "" : "66"}` }}>
+          <Icon size={15} /> {lib}
+        </button>
+      ))}
+    </div>
+  );
+  return type === "course" ? <CourseSeanceForm {...props} entete={bascule} /> : <SeanceFormMuscu {...props} entete={bascule} />;
+}
+
+function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, modeleSemaineId, modeleJourFixe, onClose, onCreated, fireToast, entete = null }) {
   const [selectedForSuperset, setSelectedForSuperset] = useState([]);
 
   const toggleSelectForSuperset = (idx) => {
@@ -7625,6 +8309,7 @@ function SeanceForm({ clientId, coachId, editingProgramme, estModele, modeleSema
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20, overflowY: "auto" }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto", overflowX: "hidden" }} onClick={(e) => e.stopPropagation()}>
         <SectionHead icon={Dumbbell} title={<>{estModele ? (editingProgramme?.id ? "Modifier le modèle" : "Nouveau modèle") : (editingProgramme?.id ? "Modifier la séance" : "Nouvelle séance")}</>} />
+        {entete}
         <input type="text" placeholder="Nom (ex: Push)" value={nom} onChange={(e) => setNom(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 8 }} />
         <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
         {!estModele && (
@@ -10624,12 +11309,21 @@ async function chargerNouveautesClient(clientId, client = null) {
     const series = await chargerSeriesDeSeances(seances.map((s) => s.id));
     const nb = {};
     for (const r of series) nb[r.seance_id] = (nb[r.seance_id] || 0) + 1;
-    const { data: progs } = await supabase.from("programmes").select("id, nom, programme_exercices(nom, series_echauffement)").eq("profil_id", clientId);
+    const { data: progs } = await supabase.from("programmes").select("*, programme_exercices(nom, series_echauffement)").eq("profil_id", clientId);
     const echauffementPour = (seance) => {
       const p = (progs || []).find((x) => x.id === seance.programme_id) || (progs || []).find((x) => x.nom === seance.nom_programme);
       return Object.fromEntries((p?.programme_exercices || []).map((e) => [e.nom, e.series_echauffement || 0]));
     };
-    for (const s of dedoublonnerSeances(seances.filter((x) => nb[x.id] > 0), (x) => nb[x.id] || 0)) {
+    for (const s of dedoublonnerSeances(seances.filter((x) => nb[x.id] > 0 || estSeanceCourse(x)), (x) => (nb[x.id] || 0) + (estSeanceCourse(x) ? 1 : 0))) {
+      if (estSeanceCourse(s)) {
+        const km = Number(s.distance_km) || 0;
+        const allure = km > 0 && s.duree_secondes ? s.duree_secondes / km : null;
+        const prog = (progs || []).find((x) => x.id === s.programme_id) || (progs || []).find((x) => x.nom === s.nom_programme);
+        evts.push({ type: "course", quand: momentDe(s), titre: `Course « ${s.nom_programme || "Course"} »`,
+          detail: [km ? `${String(km).replace(".", ",")} km` : null, s.duree_secondes ? fmtDureeSec(s.duree_secondes) : null, allure ? fmtAllureSec(allure) : null, s.rpe_seance ? `ressenti ${s.rpe_seance}/10` : null].filter(Boolean).join(" · "),
+          course: { seance: s, programme: prog || null } });
+        continue;
+      }
       let analyse = null;
       try { analyse = await analyserProgressionSeance(clientId, s, series.filter((r) => r.seance_id === s.id), echauffementPour(s)); } catch (e) { console.error("Analyse séance :", e); }
       evts.push({ type: "seance", quand: momentDe(s), titre: `Séance « ${s.nom_programme || "Séance"} »`,
@@ -10708,7 +11402,7 @@ async function compterNouveautesClients(ids) {
     const m = momentDe(row);
     if (!r.dernier || m > r.dernier) r.dernier = m;
   };
-  for (const x of seR.data || []) ajouter(x, "seance", `${String(x.date).slice(0, 10)}|${x.programme_id || x.nom_programme}`);
+  for (const x of seR.data || []) ajouter(x, estSeanceCourse(x) ? "course" : "seance", `${String(x.date).slice(0, 10)}|${x.programme_id || x.nom_programme}`);
   for (const x of poR.data || []) if (Number(x.poids) >= 25 && Number(x.poids) <= 300) ajouter(x, "poids");
   for (const x of reR.data || []) ajouter(x, "nutrition", String(x.date).slice(0, 10));
   for (const x of phR.data || []) ajouter(x, "photo", String(x.date).slice(0, 10));
@@ -10718,10 +11412,11 @@ async function compterNouveautesClients(ids) {
   return res;
 }
 
-const LIBELLES_NOUVEAUTE = { seance: "séance", poids: "poids", nutrition: "nutrition", photo: "photos", mensurations: "mensurations", bilan: "bilan", checkin: "check-in" };
+const LIBELLES_NOUVEAUTE = { course: "course", seance: "séance", poids: "poids", nutrition: "nutrition", photo: "photos", mensurations: "mensurations", bilan: "bilan", checkin: "check-in" };
 
 const NOUVEAUTE_STYLE = {
   seance: { icon: Dumbbell, color: "#3AD6A0", tab: "programme" },
+  course: { icon: Footprints, color: "#3AD6A0", tab: "programme" },
   poids: { icon: TrendingUp, color: "#F5B833", tab: "bilans" },
   nutrition: { icon: Apple, color: "#F28C38", tab: "nutrition" },
   photo: { icon: Camera, color: "#8CBEFF", tab: "bilans" },
@@ -10832,7 +11527,7 @@ function NouveautesClientModal({ client, evenements, onLu, onFermer, onOuvrirOng
                   const st = NOUVEAUTE_STYLE[e.type] || NOUVEAUTE_STYLE.bilan;
                   const Icon = st.icon;
                   const cle = `${g.lib}-${i}`;
-                  const depliable = (e.type === "seance" && e.analyse) || (e.type === "nutrition" && e.nutrition);
+                  const depliable = (e.type === "seance" && e.analyse) || (e.type === "nutrition" && e.nutrition) || (e.type === "course" && e.course);
                   const ouvert = !!ouverts[cle];
                   return (
                     <div key={i} style={{ ...ROW_STYLE, flexDirection: "column", alignItems: "stretch", padding: 0, gap: 0, border: ouvert ? `1px solid ${st.color}66` : ROW_STYLE.border }}>
@@ -10853,6 +11548,7 @@ function NouveautesClientModal({ client, evenements, onLu, onFermer, onOuvrirOng
                       </div>
                       {ouvert && e.type === "seance" && <DetailSeanceNouveaute analyse={e.analyse} />}
                       {ouvert && e.type === "nutrition" && <DetailNutritionNouveaute n={e.nutrition} />}
+                      {ouvert && e.type === "course" && <div style={{ padding: "0 8px 8px" }}><ResultatCourseCoach seance={e.course.seance} precedente={null} programme={e.course.programme} /></div>}
                     </div>
                   );
                 })}
@@ -10866,6 +11562,8 @@ function NouveautesClientModal({ client, evenements, onLu, onFermer, onOuvrirOng
 }
 
 function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
+  const [showPlanCourse, setShowPlanCourse] = useState(false);
+  const [planOuvert, setPlanOuvert] = useState(false);
   const [showPopupNonValideeCoach, setShowPopupNonValideeCoach] = useState(false);
   const [tab, setTab] = useState("programme");
   // Fenêtre « Quoi de neuf ? » : seulement s'il y a du nouveau depuis le dernier « Lu »
@@ -11138,7 +11836,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
   // plus jamais rien automatiquement ; une séance sans série est simplement masquée à
   // l'affichage ci-dessous (voir seancesAvecSeries), sans toucher à la base.
   const seancesAvecSeries = useMemo(
-    () => dedoublonnerSeances(seances.filter((s) => (seriesBySeance[s.id] || []).length > 0), (x) => (seriesBySeance[x.id] || []).length),
+    () => dedoublonnerSeances(seances.filter((s) => (seriesBySeance[s.id] || []).length > 0 || estSeanceCourse(s)), (x) => (seriesBySeance[x.id] || []).length + (estSeanceCourse(x) ? 1 : 0)),
     [seances, seriesBySeance]
   );
 
@@ -11189,6 +11887,36 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
     { key: "routines", label: "Routine", icon: RotateCcw },
     { key: "profil", label: "Profil", icon: User },
   ];
+
+  if (selectedProgramme && estSeanceCourse(selectedProgramme)) {
+    return (
+      <>
+        <CourseProgrammeCoach
+          programme={selectedProgramme}
+          seances={seancesAvecSeries}
+          onBack={() => setSelectedProgramme(null)}
+          onEdit={() => { setEditingProgramme(selectedProgramme); setShowSeanceForm(true); }}
+        />
+        {showSeanceForm && (
+          <SeanceForm
+            clientId={client.id}
+            coachId={client.coach_id}
+            editingProgramme={editingProgramme}
+            onClose={() => { setShowSeanceForm(false); setEditingProgramme(null); }}
+            onCreated={() => {
+              supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => {
+                const liste = (data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) }));
+                setCustomProgrammes(liste);
+                const maj = liste.find((p) => p.id === selectedProgramme.id);
+                if (maj) setSelectedProgramme(maj);
+              });
+            }}
+            fireToast={fireToast}
+          />
+        )}
+      </>
+    );
+  }
 
   if (selectedProgramme) {
     const historiqueFiltré = seancesAvecSeries.filter((s) => s.programme_id === selectedProgramme.id || s.nom_programme === selectedProgramme.nom);
@@ -11454,13 +12182,26 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
           <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 40 }}>Chargement...</div>
         ) : tab === "programme" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button onClick={() => setShowPlanCourse(true)} style={{ background: "rgba(58,214,160,0.12)", border: "1.5px solid rgba(58,214,160,0.7)", color: "#3AD6A0", borderRadius: 18, padding: "13px", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 0 16px rgba(58,214,160,0.3)" }}>
+              <Footprints size={17} /> Plan course du mois
+            </button>
+            {showPlanCourse && (
+              <PlanCourseGenerateur
+                client={client}
+                fireToast={fireToast}
+                onClose={() => setShowPlanCourse(false)}
+                onCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", client.id).order("created_at", { ascending: false }).then(({ data }) => setCustomProgrammes((data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) })))); }}
+              />
+            )}
             <button onClick={() => setShowSeanceForm(true)} style={{ background: "linear-gradient(90deg, #4C7DF0, #3B6FE0)", border: "none", color: "#FFFFFF", borderRadius: 18, padding: "15px", fontWeight: 800, fontSize: 16, boxShadow: "0 6px 20px rgba(76,125,240,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Plus size={16} /> Créer une séance
             </button>
             {customProgrammes.length > 0 && (() => {
               const JOURS_ORDRE = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
-              const avecJour = customProgrammes.filter((p) => p.jour_fixe);
-              const sansJour = customProgrammes.filter((p) => !p.jour_fixe);
+              const programmesActifs = customProgrammes.filter((p) => programmeVisibleCetteSemaine(p.plan_semaine, p.plan_debut));
+              const programmesPlan = customProgrammes.filter((p) => p.plan_semaine && p.plan_debut);
+              const avecJour = programmesActifs.filter((p) => p.jour_fixe);
+              const sansJour = programmesActifs.filter((p) => !p.jour_fixe);
 
               // Jours de la semaine en cours déjà validés par le client, pour le suivi vert
               const now = new Date();
@@ -11473,7 +12214,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 const dateSeanceIso = String(s.date).slice(0, 10);
                 if (dateSeanceIso < lundiIso) continue;
                 const p = avecJour.find((prog) => prog.id === s.programme_id) || avecJour.find((prog) => prog.nom === s.nom_programme);
-                if (p) joursValidesCetteSemaine.add(p.jour_fixe);
+                if (p) { joursValidesCetteSemaine.add(p.jour_fixe); joursValidesCetteSemaine.add(`id:${p.id}`); }
               }
               // Jours "validés" uniquement par une séance enregistrée automatiquement (non validée par le client)
               const joursNonValidesCetteSemaine = new Set();
@@ -11482,7 +12223,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 if (String(s.date).slice(0, 10) < lundiIso) continue;
                 const p = avecJour.find((prog) => prog.id === s.programme_id) || avecJour.find((prog) => prog.nom === s.nom_programme);
                 if (!p) continue;
-                (s.enregistree_auto ? joursNonValidesCetteSemaine : joursNormaux).add(p.jour_fixe);
+                (s.enregistree_auto ? joursNonValidesCetteSemaine : joursNormaux).add(`id:${p.id}`);
               }
               for (const j of joursNormaux) joursNonValidesCetteSemaine.delete(j);
 
@@ -11502,7 +12243,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                   </div>
                   <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 6 }}>{p.muscle}</div>
                   <div style={{ fontSize: 12.5, color: C.textDim }}>
-                    {(p.programme_exercices || []).length} exercices · {(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries
+                    {estSeanceCourse(p) ? `Course · ≈ ${estimerCourse(p.course_blocs || []).minutes} min${p.plan_semaine ? ` · semaine ${p.plan_semaine}/4` : ""}` : `${(p.programme_exercices || []).length} exercices · ${(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries`}
                   </div>
                   {p.updated_at && (
                     <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>Modifié le {formatDateDisplay(p.updated_at)}</div>
@@ -11515,12 +12256,14 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 6 }}>
                       <SectionLabel icon={Calendar} onBg>Semaine type</SectionLabel>
                       {showPopupNonValideeCoach && <PopupSeanceNonValidee pourCoach onClose={() => setShowPopupNonValideeCoach(false)} />}
-                      {JOURS_ORDRE.map((jour) => {
-                        const p = avecJour.find((prog) => prog.jour_fixe === jour);
-                        const estValide = joursValidesCetteSemaine.has(jour);
+                      {JOURS_ORDRE.flatMap((jour) => {
+                        const progsDuJour = avecJour.filter((prog) => prog.jour_fixe === jour);
+                        return (progsDuJour.length ? progsDuJour : [null]).map((p, kIdx) => {
+                        const estValide = p ? joursValidesCetteSemaine.has(`id:${p.id}`) : false;
+                        const course = estSeanceCourse(p);
                         return (
                           <Card
-                            key={jour}
+                            key={`${jour}-${p ? p.id : kIdx}`}
                             onClick={() => p && setSelectedProgramme(p)}
                             style={{
                               cursor: p ? "pointer" : "default", display: "flex", alignItems: "center", gap: 14, padding: 16,
@@ -11529,15 +12272,16 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                             }}
                           >
                             <div style={{ width: 48, height: 48, borderRadius: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: estValide ? "rgba(58,214,160,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${estValide ? "rgba(58,214,160,0.5)" : "rgba(255,255,255,0.08)"}` }}>
-                              {estValide ? <Check size={24} color={C.green} strokeWidth={3} /> : p ? <Dumbbell size={22} color="#9DB8FF" /> : <span style={{ fontSize: 20 }}>😴</span>}
+                              {estValide ? <Check size={24} color={C.green} strokeWidth={3} /> : p ? (course ? <Footprints size={22} color="#3AD6A0" /> : <Dumbbell size={22} color="#9DB8FF" />) : <span style={{ fontSize: 20 }}>😴</span>}
                             </div>
                             <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                               <div style={{ fontSize: 12.5, fontWeight: 700, color: estValide ? C.green : C.textMuted, textTransform: "capitalize", letterSpacing: 0 }}>
                                 {jour}{estValide && " · Validé cette semaine"}
-                                {estValide && joursNonValidesCetteSemaine.has(jour) && <EtiquetteNonValidee onClick={() => setShowPopupNonValideeCoach(true)} />}
+                                {estValide && p && joursNonValidesCetteSemaine.has(`id:${p.id}`) && <EtiquetteNonValidee onClick={() => setShowPopupNonValideeCoach(true)} />}
                               </div>
                               <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 19, color: p ? C.text : C.textDim, marginTop: 2 }}>{p ? p.nom : "Repos"}</div>
-                              {p && (
+                              {p && course && <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}><PastillesCourse blocs={p.course_blocs || []} /></div>}
+                              {p && !course && (
                                 <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
                                   <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{(p.programme_exercices || []).length} exercices</span>
                                   <span style={{ fontSize: 12, fontWeight: 600, color: "#B9C4E0", background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 9px" }}>{(p.programme_exercices || []).reduce((sum, ex) => sum + (ex.sets || 0), 0)} séries</span>
@@ -11547,9 +12291,52 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                             {p && <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ChevronRight size={18} color="#9DB8FF" /></div>}
                           </Card>
                         );
+                        });
                       })}
                     </div>
                   )}
+                  {programmesPlan.length > 0 && (() => {
+                    const debut = programmesPlan[0].plan_debut;
+                    const semCourante = semaineDuPlan(debut);
+                    const objectifPlan = programmesPlan[0].plan_objectif;
+                    const statut = semCourante < 1 ? "Commence le " + formatDateDisplay(String(debut).slice(0, 10)) : semCourante > 4 ? "Plan terminé · génère le mois suivant" : `Semaine ${semCourante}/4 en cours`;
+                    return (
+                      <Card style={{ border: "1.5px solid rgba(58,214,160,0.6)", boxShadow: "0 0 18px rgba(58,214,160,0.25), 0 10px 28px rgba(0,0,0,0.4)" }}>
+                        <button onClick={() => setPlanOuvert((o) => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: 0, textAlign: "left" }}>
+                          <IconBadge icon={Footprints} color="#3AD6A0" size={38} iconSize={18} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>Plan course{objectifPlan ? ` · ${objectifPlan}` : ""}</div>
+                            <div style={{ fontSize: 12.5, color: semCourante > 4 ? "#F5B833" : "#3AD6A0", fontWeight: 700 }}>{statut}</div>
+                          </div>
+                          <ChevronDown size={18} color={C.textMuted} style={{ transform: planOuvert ? "rotate(180deg)" : "none" }} />
+                        </button>
+                        {planOuvert && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                            {[1, 2, 3, 4].map((w) => (
+                              <div key={w}>
+                                <div style={{ fontSize: 12.5, fontWeight: 800, color: w === semCourante ? "#3AD6A0" : C.textMuted, marginBottom: 6 }}>Semaine {w}{w === 4 ? " · allégée" : ""}{w === semCourante ? " · en cours" : ""}</div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  {programmesPlan.filter((p) => p.plan_semaine === w).sort((a, b) => JOURS_SEMAINE.indexOf(a.jour_fixe) - JOURS_SEMAINE.indexOf(b.jour_fixe)).map((p) => {
+                                    const fait = seancesAvecSeries.some((x) => x.programme_id === p.id);
+                                    return (
+                                      <button key={p.id} onClick={() => setSelectedProgramme(p)} style={{ ...ROW_STYLE, width: "100%", textAlign: "left", cursor: "pointer", border: fait ? "1px solid rgba(58,214,160,0.55)" : ROW_STYLE.border }}>
+                                        <span style={{ fontSize: 12, fontWeight: 800, color: "#F5B833", width: 34, flexShrink: 0 }}>{p.jour_fixe ? JOURS_SEMAINE_LABEL[p.jour_fixe] : "—"}</span>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text }}>{p.nom}</div>
+                                          <SchemaBlocsCourse blocs={p.course_blocs || []} hauteur={12} />
+                                        </div>
+                                        {fait ? <Check size={16} color={C.green} /> : <ChevronRight size={16} color={C.textDim} />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })()}
                   {sansJour.length > 0 && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       <SectionLabel icon={Dumbbell} onBg>{avecJour.length > 0 ? "Autres séances (cycle)" : "Séances personnalisées"}</SectionLabel>
@@ -12706,6 +13493,8 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
           duree: "",
           ordre: p.ordre || 0,
           jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "",
+          typeSeance: p.type_seance || "muscu", courseBlocs: Array.isArray(p.course_blocs) ? p.course_blocs : [], courseConsigne: p.course_consigne || "",
+          planSemaine: p.plan_semaine || null, planDebut: p.plan_debut || null,
           exercices: (p.programme_exercices || [])
             .sort((a, b) => a.ordre - b.ordre)
             .map((ex) => ({
@@ -12726,7 +13515,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
               objectifRepsMax: ex.objectif_reps_max || null,
               objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [],
             })),
-        }));
+        })).filter((p) => programmeVisibleCetteSemaine(p.planSemaine, p.planDebut));
         setCustomProgrammes(formatted);
       });
   }, [profilId]);
@@ -13042,6 +13831,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
   };
   const [weightHistory, setWeightHistory] = useState([]);
   const [recentSeances, setRecentSeances] = useState([]);
+  const [rafraichirSeances, setRafraichirSeances] = useState(0);
 
   useEffect(() => {
     if (!profilId) return;
@@ -13052,7 +13842,7 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
       .order("date", { ascending: false })
       .limit(90)
       .then(({ data }) => setRecentSeances(dedoublonnerSeances(data || [])));
-  }, [profilId]);
+  }, [profilId, rafraichirSeances]);
   const [photosHistory, setPhotosHistory] = useState([]);
   const [uploadingPhotoKey, setUploadingPhotoKey] = useState(null);
   const [checkins, setCheckins] = useState([]);
@@ -13627,6 +14417,36 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
     }
   };
 
+  // Course à pied : le client saisit son résultat à la fin (une séance par jour et par programme)
+  const saveCourseSession = async (programme, r) => {
+    if (!profilId) return false;
+    try {
+      const todayStr = todayIso();
+      let q = supabase.from("seances").select("id").eq("profil_id", profilId).eq("date", todayStr);
+      q = programme.id ? q.eq("programme_id", programme.id) : q.eq("nom_programme", programme.nom);
+      const { data: doublons } = await q;
+      if (doublons && doublons.length) {
+        const ids = doublons.map((d) => d.id);
+        await supabase.from("series").delete().in("seance_id", ids);
+        await supabase.from("seances").delete().in("id", ids);
+      }
+      const { error } = await supabase.from("seances").insert({
+        profil_id: profilId, nom_programme: programme.nom, programme_id: programme.id || null,
+        duree_secondes: Math.round(r.dureeSec), date: todayStr, envoyee_au_coach: true,
+        type_seance: "course", distance_km: r.distanceKm, fc_moyenne: r.fcMoyenne, fc_max: r.fcMax,
+        rpe_seance: r.rpe, commentaire: r.commentaire, course_reps: r.reps,
+      });
+      if (error) throw error;
+      setStats((st) => ({ ...st, seancesRealisees: st.seancesRealisees + 1 }));
+      setRafraichirSeances((n) => n + 1);
+      return true;
+    } catch (err) {
+      console.error("Enregistrement course :", err);
+      fireToast(/type_seance|distance_km|column/i.test(err?.message || "") ? "Ton coach doit finir la mise à jour de l'app (script SQL)" : "Erreur d'envoi — vérifie ta connexion et réessaie");
+      return false;
+    }
+  };
+
   const saveSession = async ({ programme, logs, seconds, brouillon = null }) => {
     if (!profilId) return false;
     try {
@@ -13840,12 +14660,20 @@ function ClientApp({ profilRow, onLogout, fireToast, viewMode, setViewMode }) {
             <SideMenu viewMode={viewMode} setViewMode={setViewMode} onLogout={onLogout} showViewToggle={!!setViewMode} />
           </div>
           {tab === "accueil" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, notePerso: ex.note_perso || "", videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} streakEnAttente={streakNutritionEnAttente} routinesDuJour={routinesDuJour} onLaunchRoutine={setActiveRoutine} onManageRoutines={() => setShowRoutineManager(true)} prochaineRoutine={prochaineRoutine} toutesRoutines={routinesMobilite} onVoirRoutines={() => setShowRoutinesListeClient(true)} />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", typeSeance: p.type_seance || "muscu", courseBlocs: Array.isArray(p.course_blocs) ? p.course_blocs : [], courseConsigne: p.course_consigne || "", planSemaine: p.plan_semaine || null, planDebut: p.plan_debut || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, notePerso: ex.note_perso || "", videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })).filter((p) => programmeVisibleCetteSemaine(p.planSemaine, p.planDebut)); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} meals={meals} objectifsNutrition={objectifsNutrition} streak={streakNutrition} streakEnAttente={streakNutritionEnAttente} routinesDuJour={routinesDuJour} onLaunchRoutine={setActiveRoutine} onManageRoutines={() => setShowRoutineManager(true)} prochaineRoutine={prochaineRoutine} toutesRoutines={routinesMobilite} onVoirRoutines={() => setShowRoutinesListeClient(true)} />
           )}
           {tab === "seances" && !activeProgramme && (
-            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, notePerso: ex.note_perso || "", videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
+            <EntrainementHome user={user} stats={stats} onStart={setActiveProgramme} fireToast={fireToast} customProgrammes={customProgrammes} isCoach={profilRow.role === "coach"} profilId={profilId} onSeanceCreated={() => { supabase.from("programmes").select("*, programme_exercices(*)").eq("profil_id", profilId).order("ordre", { ascending: true }).then(({ data }) => { const formatted = (data || []).map((p) => ({ id: p.id, nom: p.nom, muscle: p.muscle, duree: "", ordre: p.ordre || 0, jourFixe: p.jour_fixe || null, echauffementGeneral: p.echauffement_general || "", typeSeance: p.type_seance || "muscu", courseBlocs: Array.isArray(p.course_blocs) ? p.course_blocs : [], courseConsigne: p.course_consigne || "", planSemaine: p.plan_semaine || null, planDebut: p.plan_debut || null, exercices: (p.programme_exercices || []).sort((a, b) => a.ordre - b.ordre).map((ex) => ({ id: ex.id, nom: ex.nom, sets: ex.sets, rest: ex.rest, repsParSerie: ex.reps_par_serie ? JSON.parse(ex.reps_par_serie) : [], tempo: ex.tempo, rpe: ex.rpe, note: ex.note, notePerso: ex.note_perso || "", videoDemoUrl: ex.video_demo_url, type: ex.type_exercice || "muscu", dureeMinutes: ex.duree_minutes, groupeSuperset: ex.groupe_superset, echauffement: ex.series_echauffement || 0, objectifRepsMax: ex.objectif_reps_max || null, objectifRepsRangeParSerie: ex.objectif_reps_range_par_serie ? JSON.parse(ex.objectif_reps_range_par_serie) : [] })) })).filter((p) => programmeVisibleCetteSemaine(p.planSemaine, p.planDebut)); setCustomProgrammes(formatted); }); }} weightHistory={weightHistory} recentSeances={recentSeances} setTab={setTab} mode="seances" />
           )}
-          {activeProgramme && (
+          {activeProgramme && activeProgramme.typeSeance === "course" && (
+            <CourseSessionView
+              programme={activeProgramme}
+              onClose={() => setActiveProgramme(null)}
+              onSubmit={(r) => saveCourseSession(activeProgramme, r)}
+              fireToast={fireToast}
+            />
+          )}
+          {activeProgramme && activeProgramme.typeSeance !== "course" && (
             <SessionView
               programme={activeProgramme}
               history={exerciseHistoryFiltered}
