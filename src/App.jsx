@@ -8795,7 +8795,8 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
   const carteExercice = (ex, i, badge, col, poignee, glisse, dyMembre) => {
     const coche = selectedForSuperset.includes(ex.uid);
     const ranges = fmtRanges(ex);
-    const chip = { fontSize: 11.5, fontWeight: 700, color: C.textMuted, background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" };
+    const chip = { fontSize: 12, fontWeight: 800, color: C.text, background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "3px 7px", whiteSpace: "nowrap", display: "inline-flex", gap: 4, alignItems: "baseline" };
+    const chipLib = { fontSize: 10.5, fontWeight: 700, color: C.textDim };
     return (
       <div style={{ borderRadius: 16, background: glisse ? "#1D2650" : coche ? `${VIOLET}14` : "rgba(255,255,255,0.04)", border: `1.5px solid ${glisse || coche ? (coche ? VIOLET : col) : col + "55"}`,
         boxShadow: glisse ? `0 16px 34px rgba(0,0,0,0.55), 0 0 20px ${col}55` : coche ? `0 0 16px ${VIOLET}44` : "none",
@@ -8808,16 +8809,21 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
             <span style={{ minWidth: 26, height: 26, padding: "0 4px", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#06171F", background: col }}>{badge}</span>
           </div>
           <button type="button" onClick={() => !drag && setExpandedIdx(i)} style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer", padding: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: col }}>
-              {ex.type === "cardio" ? `🏃 Cardio · ${ex.dureeMinutes || 0} min` : `${ex.sets} série${ex.sets > 1 ? "s" : ""}${ranges ? ` · ${ranges}` : ""}`}
+            <div style={{ fontSize: 17, fontWeight: 900, color: C.text, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.nom}</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 3 }}>
+              {ex.type === "cardio"
+                ? <span style={{ fontSize: 15, fontWeight: 900, color: col }}>🏃 {ex.dureeMinutes || 0} min de cardio</span>
+                : <span style={{ fontSize: 15, fontWeight: 900, color: col }}>{ex.sets} série{ex.sets > 1 ? "s" : ""}</span>}
+              {(ex.echauffement || 0) > 0 && <span style={{ fontSize: 12.5, fontWeight: 700, color: C.amber }}>+ {ex.echauffement} d'échauffement</span>}
             </div>
-            <div style={{ fontSize: 15.5, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.nom}</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
-              {Number(ex.rest) > 0 && <span style={chip}>⏸ {formatRepos(ex.rest)}</span>}
-              {ex.rpe ? <span style={{ ...chip, color: couleurRpe(ex.rpe), background: `${couleurRpe(ex.rpe)}1A` }}>RPE {String(ex.rpe).replace(".", ",")}</span> : null}
-              {ex.tempo ? <span style={{ ...chip, fontFamily: FONT_MONO }}>{ex.tempo}</span> : null}
-              {(ex.echauffement || 0) > 0 && <span style={{ ...chip, color: C.amber, background: "rgba(245,184,51,0.12)" }}>🔥 {ex.echauffement} éch.</span>}
-            </div>
+            {(ranges || Number(ex.rest) > 0 || ex.rpe || ex.tempo) && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 7, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                {ranges && <span style={chip}><span style={chipLib}>Reps</span>{ranges.replace(" reps", "")}</span>}
+                {Number(ex.rest) > 0 && <span style={chip}><span style={chipLib}>Repos</span>{formatRepos(ex.rest)}</span>}
+                {ex.rpe ? <span style={chip}><span style={chipLib}>RPE</span><span style={{ color: couleurRpe(ex.rpe) }}>{String(ex.rpe).replace(".", ",")}</span></span> : null}
+                {ex.tempo ? <span style={chip}><span style={chipLib}>Tempo</span><span style={{ fontFamily: FONT_MONO }}>{ex.tempo}</span></span> : null}
+              </div>
+            )}
           </button>
           <button type="button" onClick={() => toggleSelectForSuperset(ex.uid)} aria-label="Sélectionner pour un superset"
             style={{ ...iconBtn, width: 32, height: 32, borderRadius: 999, background: coche ? VIOLET : "rgba(255,255,255,0.05)", border: `1.5px solid ${coche ? VIOLET : "rgba(255,255,255,0.18)"}`, color: coche ? "#170B33" : C.textDim, transition: "all .18s", transform: coche ? "scale(1.08)" : "none" }}>
@@ -11718,7 +11724,8 @@ async function chargerNouveautesClient(clientId, client = null) {
   for (const g of Object.values(photosParJour)) evts.push({ type: "photo", quand: g.quand, titre: g.n > 1 ? "Nouvelles photos" : "Nouvelle photo", detail: `${g.n} photo${g.n > 1 ? "s" : ""} de suivi` });
   for (const m of nv(mensR)) evts.push({ type: "mensurations", quand: momentDe(m), titre: "Mensurations mises à jour", detail: "Nouvelles mesures enregistrées" });
   for (const b of nv(bilansR)) evts.push({ type: "bilan", quand: momentDe(b), titre: "Bilan de la semaine envoyé", detail: [b.satisfaction != null ? `Satisfaction ${b.satisfaction}/5` : null, b.motivation != null ? `Motivation ${b.motivation}/5` : null].filter(Boolean).join(" · ") || "À consulter dans Bilans" });
-  for (const c of nv(checkR)) evts.push({ type: "checkin", quand: momentDe(c), titre: "Check-in du jour", detail: [c.fatigue != null ? `Fatigue ${c.fatigue}/5` : null, c.sommeil != null ? `Sommeil ${c.sommeil}/5` : null, c.energie != null ? `Énergie ${c.energie}/5` : null].filter(Boolean).join(" · ") });
+  // Check-ins quotidiens volontairement exclus des nouveautés (peu utiles pour le coach)
+  if (false) for (const c of nv(checkR)) evts.push({ type: "checkin", quand: momentDe(c), titre: "Check-in du jour", detail: [c.fatigue != null ? `Fatigue ${c.fatigue}/5` : null, c.sommeil != null ? `Sommeil ${c.sommeil}/5` : null, c.energie != null ? `Énergie ${c.energie}/5` : null].filter(Boolean).join(" · ") });
 
   evts.sort((a, b) => b.quand - a.quand);
   return evts;
@@ -11767,7 +11774,7 @@ async function compterNouveautesClients(ids) {
   for (const x of phR.data || []) ajouter(x, "photo", String(x.date).slice(0, 10));
   for (const x of meR.data || []) ajouter(x, "mensurations");
   for (const x of biR.data || []) ajouter(x, "bilan");
-  for (const x of chR.data || []) ajouter(x, "checkin");
+  void chR; // check-ins quotidiens : pas comptés dans les nouveautés
   return res;
 }
 
