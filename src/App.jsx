@@ -125,6 +125,12 @@ const FontImports = () => (
     @keyframes pulseGlow { 0%,100% { opacity:.55; } 50% { opacity:1; } }
     @keyframes slideUp { from { transform: translateY(12px); opacity:0; } to { transform: translateY(0); opacity:1; } }
     @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+    @keyframes fondIn { from { opacity:0; } to { opacity:1; } }
+    @keyframes feuilleMonte { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes supersetIn { 0% { transform: scale(.94); opacity:.4; box-shadow: 0 0 0 rgba(167,139,250,0); } 55% { transform: scale(1.02); opacity:1; box-shadow: 0 0 34px rgba(167,139,250,.65); } 100% { transform: scale(1); } }
+    @keyframes supersetLueur { 0%,100% { box-shadow: 0 0 14px rgba(167,139,250,.28); } 50% { box-shadow: 0 0 24px rgba(167,139,250,.5); } }
+    @keyframes boutonPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+    @keyframes carteIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
   `}</style>
 );
 
@@ -3453,63 +3459,123 @@ function SessionView({ programme, history, setHistory, onFinish, onCancel, fireT
 /* ------------------------------------------------------------------ */
 /*  NUTRITION                                                          */
 /* ------------------------------------------------------------------ */
-const RPE_VALEURS = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
-function RPEPickerModal({ value, onSelect, onClose }) {
+// Feuille qui monte du bas (même style que les choix de la course)
+function FeuilleBas({ titre, sousTitre, couleur = "#8CBEFF", onClose, children, zIndex = 250 }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionHead icon={Flame} title={<>Choisir le RPE</>} />
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+    <div style={{ position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", animation: "fondIn .18s ease" }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "82vh", overflowY: "auto", background: C.card, borderTop: `1.5px solid ${couleur}`, borderRadius: "22px 22px 0 0", padding: "16px 16px max(20px, env(safe-area-inset-bottom))", boxShadow: `0 -10px 30px ${couleur}33`, textAlign: "left", animation: "feuilleMonte .28s cubic-bezier(.2,.9,.3,1.08)" }}>
+        <div style={{ width: 40, height: 4, borderRadius: 4, background: "rgba(255,255,255,0.2)", margin: "0 auto 12px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: sousTitre ? 2 : 12 }}>
+          <div style={{ flex: 1, fontSize: 17, fontWeight: 800, color: C.text }}>{titre}</div>
+          <button type="button" onClick={onClose} aria-label="Fermer" style={{ width: 32, height: 32, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, padding: 0 }}><X size={16} /></button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-          {RPE_VALEURS.map((v) => (
-            <button
-              key={v}
-              onClick={() => { onSelect(v); onClose(); }}
-              style={{
-                padding: "12px 0", borderRadius: 10, fontSize: 15, fontWeight: 700, fontFamily: FONT_MONO,
-                background: String(value) === String(v) ? C.blue : C.surface,
-                color: String(value) === String(v) ? "#06171F" : C.text,
-                border: `1px solid ${String(value) === String(v) ? C.blue : C.cardBorderLight}`,
-              }}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </Card>
+        {sousTitre && <div style={{ fontSize: 12.5, color: C.textMuted, marginBottom: 12 }}>{sousTitre}</div>}
+        {children}
+      </div>
     </div>
   );
 }
 
-const TEMPO_VALEURS = ["10X0", "11X0", "1010", "20X0", "21X0", "2020", "30X0", "31X0"];
-function TempoPickerModal({ value, onSelect, onClose }) {
+// Une ligne d'option (pastille à gauche, texte, rond coché à droite)
+function OptionFeuille({ actif, couleur = "#8CBEFF", onClick, gauche, titre, desc, bas, multiple = false }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionHead icon={Clock} title={<>Choisir le tempo</>} />
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-          {TEMPO_VALEURS.map((v) => (
-            <button
-              key={v}
-              onClick={() => { onSelect(v); onClose(); }}
-              style={{
-                padding: "12px 0", borderRadius: 10, fontSize: 15, fontWeight: 700, fontFamily: FONT_MONO,
-                background: value === v ? C.blue : C.surface,
-                color: value === v ? "#06171F" : C.text,
-                border: `1px solid ${value === v ? C.blue : C.cardBorderLight}`,
-              }}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </Card>
+    <button type="button" onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "11px 14px", borderRadius: 14, cursor: "pointer",
+      background: actif ? `${couleur}1F` : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? couleur : "rgba(255,255,255,0.08)"}`, boxShadow: actif ? `0 0 14px ${couleur}33` : "none", transition: "background .15s, border-color .15s" }}>
+      {gauche}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{titre}</div>
+        {desc && <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>{desc}</div>}
+        {bas}
+      </div>
+      <span style={{ width: 22, height: 22, borderRadius: multiple ? 7 : "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${actif ? couleur : "rgba(255,255,255,0.25)"}`, background: actif ? couleur : "transparent" }}>
+        {actif && <Check size={13} color="#06171F" strokeWidth={3.5} />}
+      </span>
+    </button>
+  );
+}
+
+// Le bouton « case » qui ouvre une feuille (même rendu que ChoixDeroulant)
+function CaseChoix({ label, valeur, placeholder = "Choisir…", onClick, couleur = "#8CBEFF", petit = false }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      {label && <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 5, fontWeight: 700 }}>{label}</div>}
+      <button type="button" onClick={onClick} style={{ ...inputStyle, padding: petit ? "9px 10px" : "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, textAlign: "left", cursor: "pointer", fontWeight: 700, color: valeur ? C.text : C.textDim, fontSize: 14 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{valeur || placeholder}</span>
+        <ChevronDown size={17} color={couleur} style={{ flexShrink: 0 }} />
+      </button>
     </div>
+  );
+}
+
+const RPE_VALEURS = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+const RPE_INFOS = {
+  6: "Facile · 4 reps en réserve", 6.5: "3 à 4 reps en réserve", 7: "Modéré · 3 reps en réserve", 7.5: "2 à 3 reps en réserve",
+  8: "Dur · 2 reps en réserve", 8.5: "1 à 2 reps en réserve", 9: "Très dur · 1 rep en réserve", 9.5: "Peut-être 1 rep de plus", 10: "Maximal · plus aucune rep possible",
+};
+const couleurRpe = (v) => { const n = Number(v); return n >= 9 ? "#FF5D6C" : n >= 8 ? "#F5B833" : n >= 7 ? "#8CBEFF" : "#3AD6A0"; };
+function RPEPickerModal({ value, onSelect, onClose }) {
+  return (
+    <FeuilleBas titre="💪 Intensité (RPE)" sousTitre="À quel point la série doit être dure, de 6 (facile) à 10 (échec)." couleur="#F5B833" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {RPE_VALEURS.map((v) => {
+          const col = couleurRpe(v);
+          return (
+            <OptionFeuille key={v} actif={String(value) === String(v)} couleur={col} onClick={() => { onSelect(v); onClose(); }}
+              gauche={<span style={{ width: 44, height: 34, borderRadius: 11, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_MONO, fontWeight: 900, fontSize: 15, color: col, background: `${col}1F`, border: `1px solid ${col}88` }}>{String(v).replace(".", ",")}</span>}
+              titre={RPE_INFOS[v].split(" · ")[0]}
+              desc={RPE_INFOS[v].includes(" · ") ? RPE_INFOS[v].split(" · ")[1] : null}
+              bas={<div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.08)", marginTop: 6, overflow: "hidden" }}><div style={{ width: `${((v - 5) / 5) * 100}%`, height: "100%", borderRadius: 4, background: `linear-gradient(90deg, #3AD6A0, ${col})` }} /></div>}
+            />
+          );
+        })}
+        {value !== "" && value != null && (
+          <button type="button" onClick={() => { onSelect(""); onClose(); }} style={{ marginTop: 4, background: "transparent", border: "none", color: C.red, fontSize: 13, fontWeight: 700, padding: 8 }}>Retirer le RPE</button>
+        )}
+      </div>
+    </FeuilleBas>
+  );
+}
+
+const TEMPO_VALEURS = ["10X0", "11X0", "1010", "20X0", "21X0", "2020", "30X0", "31X0"];
+const TEMPO_PHASES = [["Descente", "#8CBEFF"], ["Pause bas", "#7C88AD"], ["Montée", "#3AD6A0"], ["Pause haut", "#7C88AD"]];
+function decrireTempo(t) {
+  const c = String(t || "").toUpperCase().split("");
+  if (c.length !== 4) return "";
+  const d = (x) => (x === "X" ? "explosif" : `${x} s`);
+  return `${d(c[0])} descente · ${c[1] === "0" ? "sans pause" : `${c[1]} s pause`} · montée ${c[2] === "X" ? "explosive" : `${c[2]} s`}`;
+}
+function TempoTuiles({ tempo, taille = 26 }) {
+  const c = String(tempo || "").toUpperCase().split("");
+  return (
+    <span style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+      {TEMPO_PHASES.map(([, col], i) => (
+        <span key={i} style={{ width: taille, height: taille + 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_MONO, fontWeight: 900, fontSize: 14, color: c[i] === "X" ? "#F5B833" : col, background: `${c[i] === "X" ? "#F5B833" : col}1A`, border: `1px solid ${c[i] === "X" ? "#F5B833" : col}66` }}>{c[i] || "–"}</span>
+      ))}
+    </span>
+  );
+}
+function TempoPickerModal({ value, onSelect, onClose }) {
+  const [perso, setPerso] = useState(value && !TEMPO_VALEURS.includes(value) ? value : "");
+  const persoOk = /^[0-9X]{4}$/i.test(perso);
+  return (
+    <FeuilleBas titre="⏱️ Tempo" sousTitre="4 chiffres : descente · pause en bas · montée · pause en haut (X = explosif)." couleur="#8CBEFF" onClose={onClose}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        {TEMPO_PHASES.map(([l, col]) => (
+          <span key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: C.textMuted, fontWeight: 700 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: col }} />{l}</span>
+        ))}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {TEMPO_VALEURS.map((v) => (
+          <OptionFeuille key={v} actif={value === v} couleur="#8CBEFF" onClick={() => { onSelect(v); onClose(); }}
+            gauche={<TempoTuiles tempo={v} />} titre={v} desc={decrireTempo(v)} />
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <input value={perso} onChange={(e) => setPerso(e.target.value.toUpperCase().slice(0, 4))} placeholder="Autre (ex : 4010)" style={{ ...inputStyle, flex: 1, fontFamily: FONT_MONO, fontWeight: 800 }} />
+        <button type="button" disabled={!persoOk} onClick={() => { onSelect(perso.toUpperCase()); onClose(); }} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 12, padding: "0 16px", fontWeight: 800, opacity: persoOk ? 1 : 0.4 }}>OK</button>
+      </div>
+      {value && <button type="button" onClick={() => { onSelect(""); onClose(); }} style={{ width: "100%", marginTop: 8, background: "transparent", border: "none", color: C.red, fontSize: 13, fontWeight: 700, padding: 8 }}>Retirer le tempo</button>}
+    </FeuilleBas>
   );
 }
 
@@ -3548,92 +3614,53 @@ const REPOS_VALEURS = [
   { label: "2m", val: 120 }, { label: "2m30", val: 150 }, { label: "3m", val: 180 },
   { label: "3m30", val: 210 }, { label: "4m", val: 240 }, { label: "5m", val: 300 },
 ];
+const REPOS_INFOS = {
+  30: "Abdos, gainage, circuits", 60: "Isolation, supersets", 90: "Hypertrophie (le classique)", 120: "Hypertrophie sur gros mouvements",
+  150: "Poly-articulaires lourds", 180: "Force", 210: "Force, charges lourdes", 240: "Force lourde", 300: "Force maximale",
+};
 function RepoPickerModal({ value, onSelect, onClose }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionHead icon={Clock} title={<>Choisir le temps de repos</>} />
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-          {REPOS_VALEURS.map((r) => (
-            <button
-              key={r.val}
-              onClick={() => { onSelect(r.val); onClose(); }}
-              style={{
-                padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 700,
-                background: value === r.val ? C.blue : C.surface,
-                color: value === r.val ? "#06171F" : C.text,
-                border: `1px solid ${value === r.val ? C.blue : C.cardBorderLight}`,
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </Card>
-    </div>
+    <FeuilleBas titre="⏸️ Temps de repos" sousTitre="Entre deux séries du même exercice." couleur="#3AD6A0" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {REPOS_VALEURS.map((r) => (
+          <OptionFeuille key={r.val} actif={value === r.val} couleur="#3AD6A0" onClick={() => { onSelect(r.val); onClose(); }}
+            gauche={<span style={{ width: 50, height: 34, borderRadius: 11, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_MONO, fontWeight: 900, fontSize: 14, color: "#3AD6A0", background: "rgba(58,214,160,0.12)", border: "1px solid rgba(58,214,160,0.5)" }}>{r.label}</span>}
+            titre={REPOS_INFOS[r.val]}
+            bas={<div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.08)", marginTop: 6, overflow: "hidden" }}><div style={{ width: `${(r.val / 300) * 100}%`, height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#3AD6A0,#8CBEFF)" }} /></div>}
+          />
+        ))}
+      </div>
+    </FeuilleBas>
   );
 }
 
+const infoFourchette = (r) => (r.max <= 6 ? ["Force", "#FF5D6C"] : r.max <= 9 ? ["Force / hypertrophie", "#F5B833"] : r.max <= 12 ? ["Hypertrophie", "#8CBEFF"] : ["Endurance musculaire", "#3AD6A0"]);
 function RepRangePickerModal({ value, onSelect, onClose, titre }) {
-  const [showCustom, setShowCustom] = useState(false);
-  const [min, setMin] = useState(value?.min ?? "");
-  const [max, setMax] = useState(value?.max ?? "");
+  const [min, setMin] = useState(value && !REP_RANGES.some((r) => r.min === value.min && r.max === value.max) ? value.min : "");
+  const [max, setMax] = useState(value && !REP_RANGES.some((r) => r.min === value.min && r.max === value.max) ? value.max : "");
+  const mn = parseInt(min, 10), mx = parseInt(max, 10);
+  const persoOk = mn > 0 && mx >= mn;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <SectionHead icon={Target} title={<>{titre || "Choisir la fourchette de reps"}</>} />
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-          {REP_RANGES.map((r) => {
-            const actif = value && value.min === r.min && value.max === r.max;
-            return (
-              <button
-                key={`${r.min}-${r.max}`}
-                onClick={() => { onSelect({ min: r.min, max: r.max }); onClose(); }}
-                style={{
-                  padding: "12px 0", borderRadius: 10, fontSize: 15, fontWeight: 700, fontFamily: FONT_MONO,
-                  background: actif ? C.blue : C.surface,
-                  color: actif ? "#06171F" : C.text,
-                  border: `1px solid ${actif ? C.blue : C.cardBorderLight}`,
-                }}
-              >
-                {r.min}-{r.max}
-              </button>
-            );
-          })}
-        </div>
-        {!showCustom ? (
-          <button onClick={() => setShowCustom(true)} style={{ width: "100%", marginTop: 10, background: "transparent", border: `1px dashed ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 600 }}>
-            + Fourchette personnalisée
-          </button>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
-            <input type="number" value={min} onChange={(e) => setMin(e.target.value)} placeholder="min" style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px", color: C.text, fontSize: 13, textAlign: "center" }} />
-            <span style={{ color: C.textDim }}>-</span>
-            <input type="number" value={max} onChange={(e) => setMax(e.target.value)} placeholder="max" style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px", color: C.text, fontSize: 13, textAlign: "center" }} />
-            <button
-              onClick={() => {
-                const mn = parseInt(min), mx = parseInt(max);
-                if (mn > 0 && mx >= mn) { onSelect({ min: mn, max: mx }); onClose(); }
-              }}
-              style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}
-            >
-              OK
-            </button>
-          </div>
-        )}
-        {value && (
-          <button onClick={() => { onSelect(null); onClose(); }} style={{ width: "100%", marginTop: 10, background: "transparent", border: "none", color: C.red, fontSize: 12.5, fontWeight: 600 }}>
-            Retirer la fourchette
-          </button>
-        )}
-      </Card>
-    </div>
+    <FeuilleBas titre={`🎯 ${titre || "Fourchette de reps"}`} sousTitre="Quand le client atteint le haut de la fourchette, l'appli lui propose d'augmenter la charge." couleur="#8CBEFF" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {REP_RANGES.map((r) => {
+          const [lib, col] = infoFourchette(r);
+          return (
+            <OptionFeuille key={`${r.min}-${r.max}`} actif={!!value && value.min === r.min && value.max === r.max} couleur={col} onClick={() => { onSelect({ min: r.min, max: r.max }); onClose(); }}
+              gauche={<span style={{ width: 54, height: 34, borderRadius: 11, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_MONO, fontWeight: 900, fontSize: 14, color: col, background: `${col}1F`, border: `1px solid ${col}88` }}>{r.min}-{r.max}</span>}
+              titre={`${r.min} à ${r.max} reps`} desc={lib} />
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 700, margin: "14px 0 6px" }}>Fourchette personnalisée</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="number" inputMode="numeric" value={min} onChange={(e) => setMin(e.target.value)} placeholder="min" style={{ ...inputStyle, flex: 1, textAlign: "center", fontWeight: 800 }} />
+        <span style={{ color: C.textDim, fontWeight: 800 }}>à</span>
+        <input type="number" inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value)} placeholder="max" style={{ ...inputStyle, flex: 1, textAlign: "center", fontWeight: 800 }} />
+        <button type="button" disabled={!persoOk} onClick={() => { onSelect({ min: mn, max: mx }); onClose(); }} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 12, padding: "12px 16px", fontWeight: 800, opacity: persoOk ? 1 : 0.4 }}>OK</button>
+      </div>
+      {value && <button type="button" onClick={() => { onSelect(null); onClose(); }} style={{ width: "100%", marginTop: 8, background: "transparent", border: "none", color: C.red, fontSize: 13, fontWeight: 700, padding: 8 }}>Retirer la fourchette</button>}
+    </FeuilleBas>
   );
 }
 
@@ -8299,24 +8326,36 @@ function SeanceForm(props) {
 }
 
 function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, modeleSemaineId, modeleJourFixe, onClose, onCreated, fireToast, entete = null }) {
-  const [selectedForSuperset, setSelectedForSuperset] = useState([]);
+  const [selectedForSuperset, setSelectedForSuperset] = useState([]); // uids
+  const [supersetAnime, setSupersetAnime] = useState(null);
 
-  const toggleSelectForSuperset = (idx) => {
-    setSelectedForSuperset((prev) =>
-      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
-    );
+  const toggleSelectForSuperset = (uid) => {
+    if (navigator.vibrate) navigator.vibrate(6);
+    setSelectedForSuperset((prev) => (prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]));
   };
 
+  // Regroupe les exercices cochés : ils sont rapprochés (à la place du 1er coché) puis liés en superset
   const groupSuperset = () => {
     if (selectedForSuperset.length < 2) {
       fireToast("Sélectionne au moins 2 exercices");
       return;
     }
     const groupNum = Date.now();
-    setExercices((prev) =>
-      prev.map((ex, i) => (selectedForSuperset.includes(i) ? { ...ex, groupeSuperset: groupNum } : ex))
-    );
+    setExercices((prev) => {
+      const choisis = prev.filter((ex) => selectedForSuperset.includes(ex.uid));
+      const premier = prev.findIndex((ex) => selectedForSuperset.includes(ex.uid));
+      const autres = prev.filter((ex) => !selectedForSuperset.includes(ex.uid));
+      const avant = prev.slice(0, premier).filter((ex) => !selectedForSuperset.includes(ex.uid)).length;
+      const res = [...autres.slice(0, avant), ...choisis.map((ex) => ({ ...ex, groupeSuperset: groupNum })), ...autres.slice(avant)];
+      // un ancien superset réduit à 1 exercice redevient un exercice simple
+      const compte = {};
+      res.forEach((ex) => { if (ex.groupeSuperset) compte[ex.groupeSuperset] = (compte[ex.groupeSuperset] || 0) + 1; });
+      return res.map((ex) => (ex.groupeSuperset && compte[ex.groupeSuperset] < 2 ? { ...ex, groupeSuperset: null } : ex));
+    });
     setSelectedForSuperset([]);
+    setSupersetAnime(groupNum);
+    if (navigator.vibrate) navigator.vibrate([12, 40, 12]);
+    setTimeout(() => setSupersetAnime((g) => (g === groupNum ? null : g)), 900);
   };
 
   const degrouperSuperset = (groupeId) => {
@@ -8327,69 +8366,13 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
   const [jourFixe, setJourFixe] = useState(editingProgramme?.jourFixe || editingProgramme?.jour_fixe || "");
   const [echauffementGeneral, setEchauffementGeneral] = useState(editingProgramme?.echauffement_general || "");
   const [expandedIdx, setExpandedIdx] = useState(null);
-  const [draggedIdx, setDraggedIdx] = useState(null);
-  const [dragOverIdx, setDragOverIdx] = useState(null);
-  const exCardRefs = useRef([]);
-  const dragOverIdxRef = useRef(null);
-
-  const handleDrop = (targetIdx, explicitFromIdx = null) => {
-    const fromIdx = explicitFromIdx !== null ? explicitFromIdx : draggedIdx;
-    if (fromIdx === null || fromIdx === targetIdx) {
-      setDraggedIdx(null);
-      setDragOverIdx(null);
-      return;
-    }
-    setExercices((prev) => {
-      const arr = [...prev];
-      const [moved] = arr.splice(fromIdx, 1);
-      arr.splice(targetIdx, 0, moved);
-      return arr.map((ex, i) => ({ ...ex, ordre: i }));
-    });
-    setDraggedIdx(null);
-    setDragOverIdx(null);
-  };
   const updateExercice = (idx, field, value) => {
     setExercices((prev) => prev.map((ex, i) => (i === idx ? { ...ex, [field]: value } : ex)));
   };
-
-  // Glisser tactile (fonctionne au doigt ET à la souris) pour réordonner les exercices
-  useEffect(() => {
-    if (draggedIdx === null) return;
-    const handleMove = (e) => {
-      const y = e.touches ? e.touches[0].clientY : e.clientY;
-      let overIdx = null;
-      for (let i = 0; i < exCardRefs.current.length; i++) {
-        const el = exCardRefs.current[i];
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (y >= rect.top && y <= rect.bottom) { overIdx = i; break; }
-      }
-      if (overIdx !== null) {
-        dragOverIdxRef.current = overIdx;
-        setDragOverIdx(overIdx);
-      }
-    };
-    const handleUp = () => {
-      const finalOver = dragOverIdxRef.current;
-      const finalFrom = draggedIdx;
-      dragOverIdxRef.current = null;
-      if (finalOver !== null) handleDrop(finalOver, finalFrom);
-      else { setDraggedIdx(null); setDragOverIdx(null); }
-    };
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("touchmove", handleMove, { passive: true });
-    window.addEventListener("mouseup", handleUp);
-    window.addEventListener("touchend", handleUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("touchmove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-      window.removeEventListener("touchend", handleUp);
-    };
-  }, [draggedIdx]);
   const [exercices, setExercices] = useState(() => {
     const rawList = editingProgramme?.programme_exercices || editingProgramme?.exercices || [];
-    return [...rawList].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)).map((ex) => ({
+    return [...rawList].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)).map((ex, i) => ({
+      uid: ex.id ? `e${ex.id}` : `n${i}${nouvelIdBloc()}`,
       id: ex.id,
       nom: ex.nom,
       videoDemoUrl: ex.videoDemoUrl || ex.video_demo_url,
@@ -8488,6 +8471,7 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
     const ex = bibliotheque.find((b) => b.id === selectedExId);
     if (!ex) return;
     setExercices((prev) => [...prev, {
+      uid: nouvelIdBloc(),
       nom: ex.nom, videoDemoUrl: ex.video_demo_url,
       sets: exType === "cardio" ? 1 : exSets,
       repsParSerie: exType === "cardio" ? [0] : exRepsParSerie,
@@ -8513,10 +8497,84 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
   const removeExercice = (idx) => {
     const nomEx = exercices[idx]?.nom || "cet exercice";
     if (!confirm(`Supprimer "${nomEx}" de la séance ?`)) return;
-    setExercices((prev) => prev.filter((_, i) => i !== idx));
+    const uid = exercices[idx]?.uid;
+    setSelectedForSuperset((prev) => prev.filter((x) => x !== uid));
+    setExpandedIdx(null);
+    setExercices((prev) => {
+      const res = prev.filter((_, i) => i !== idx);
+      const compte = {};
+      res.forEach((ex) => { if (ex.groupeSuperset) compte[ex.groupeSuperset] = (compte[ex.groupeSuperset] || 0) + 1; });
+      return res.map((ex) => (ex.groupeSuperset && compte[ex.groupeSuperset] < 2 ? { ...ex, groupeSuperset: null } : ex));
+    });
   };
 
+  // Blocs affichés : un exercice seul, ou un superset (exercices consécutifs du même groupe)
+  const unites = useMemo(() => {
+    const u = [];
+    const vus = new Set();
+    exercices.forEach((ex, i) => {
+      const g = ex.groupeSuperset;
+      const dernier = u[u.length - 1];
+      if (g && dernier && dernier.groupe === g) dernier.indices.push(i);
+      else {
+        u.push({ cle: g ? `g${g}${vus.has(g) ? `-${i}` : ""}` : ex.uid, groupe: g || null, indices: [i] });
+        if (g) vus.add(g);
+      }
+    });
+    return u.map((x) => (x.groupe && x.indices.length < 2 ? { ...x, groupe: null, cle: exercices[x.indices[0]].uid } : x));
+  }, [exercices]);
+
+  // Glisser-déposer (doigt ou souris) par la poignée — même mécanique que les blocs de course.
+  // type "unite" : un exercice seul ou un superset entier ; type "membre" : un exercice à l'intérieur d'un superset.
+  const uniteRefs = useRef({});
+  const membreRefs = useRef({});
+  const [drag, setDrag] = useState(null); // { type, cle, dernierY, dy }
+  const ECART = 10;
+  const debutDrag = (e, type, cle) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
+    if (navigator.vibrate) navigator.vibrate(10);
+    setDrag({ type, cle, dernierY: e.clientY, dy: 0 });
+  };
+  const bougerDrag = (e) => {
+    if (!drag) return;
+    let dy = drag.dy + (e.clientY - drag.dernierY);
+    const hauteur = (el, ecart) => (el ? el.offsetHeight + ecart : 0);
+    if (drag.type === "unite") {
+      const idx = unites.findIndex((u) => u.cle === drag.cle);
+      const suiv = unites[idx + 1], prec = unites[idx - 1];
+      const hS = suiv ? hauteur(uniteRefs.current[suiv.cle], ECART) : 0;
+      const hP = prec ? hauteur(uniteRefs.current[prec.cle], ECART) : 0;
+      const echanger = (j) => {
+        const ordre = unites.map((u) => u.indices);
+        [ordre[idx], ordre[j]] = [ordre[j], ordre[idx]];
+        setExercices((prev) => ordre.flat().map((k) => prev[k]));
+        if (navigator.vibrate) navigator.vibrate(5);
+      };
+      if (suiv && dy > hS / 2) { echanger(idx + 1); dy -= hS; }
+      else if (prec && dy < -hP / 2) { echanger(idx - 1); dy += hP; }
+    } else {
+      const i = exercices.findIndex((ex) => ex.uid === drag.cle);
+      const g = exercices[i]?.groupeSuperset;
+      const suiv = exercices[i + 1]?.groupeSuperset === g ? exercices[i + 1] : null;
+      const prec = exercices[i - 1]?.groupeSuperset === g ? exercices[i - 1] : null;
+      const hS = suiv ? hauteur(membreRefs.current[suiv.uid], 8) : 0;
+      const hP = prec ? hauteur(membreRefs.current[prec.uid], 8) : 0;
+      const echanger = (j) => {
+        setExercices((prev) => { const a = [...prev]; [a[i], a[j]] = [a[j], a[i]]; return a; });
+        if (navigator.vibrate) navigator.vibrate(5);
+      };
+      if (suiv && dy > hS / 2) { echanger(i + 1); dy -= hS; }
+      else if (prec && dy < -hP / 2) { echanger(i - 1); dy += hP; }
+    }
+    setDrag({ ...drag, dernierY: e.clientY, dy });
+  };
+  const finDrag = () => setDrag(null);
+
+  const listeOrdonnee = () => exercices.map((ex, i) => ({ ...ex, ordre: i }));
   const submit = async () => {
+    const exercices = listeOrdonnee();
     if (!nom.trim() || exercices.length === 0) {
       fireToast("Ajoute un nom et au moins un exercice");
       return;
@@ -8640,190 +8698,315 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
     }
   };
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20, overflowY: "auto" }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto", overflowX: "hidden" }} onClick={(e) => e.stopPropagation()}>
-        <SectionHead icon={Dumbbell} title={<>{estModele ? (editingProgramme?.id ? "Modifier le modèle" : "Nouveau modèle") : (editingProgramme?.id ? "Modifier la séance" : "Nouvelle séance")}</>} />
-        {entete}
-        <input type="text" placeholder="Nom (ex: Push)" value={nom} onChange={(e) => setNom(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 8 }} />
-        <input type="text" placeholder="Muscle ciblé (ex: Pecs / Épaules)" value={muscle} onChange={(e) => setMuscle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, marginBottom: 16 }} />
-        {!estModele && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "none" }}>Type de programme</div>
-            <select
-              value={jourFixe}
-              onChange={(e) => setJourFixe(e.target.value)}
-              style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14 }}
-            >
-              <option value="">Cycle (le client fait les séances dans l'ordre, sans jour fixe)</option>
-              <option value="lundi">Jour fixe — Lundi</option>
-              <option value="mardi">Jour fixe — Mardi</option>
-              <option value="mercredi">Jour fixe — Mercredi</option>
-              <option value="jeudi">Jour fixe — Jeudi</option>
-              <option value="vendredi">Jour fixe — Vendredi</option>
-              <option value="samedi">Jour fixe — Samedi</option>
-              <option value="dimanche">Jour fixe — Dimanche</option>
-            </select>
+  const PALETTE_EX = ["#5B8CFF", "#3AD6A0", "#F5B833", "#FF7AA8", "#38C6F4", "#FF9F5A"];
+  const VIOLET = "#A78BFA";
+  // couleur stable par exercice (ne change pas quand on le déplace)
+  const couleurUnite = (u) => {
+    const ex = exercices[u.indices[0]];
+    if (u.groupe) return VIOLET;
+    if (ex?.type === "cardio") return "#3AD6A0";
+    const h = String(ex?.uid || "").split("").reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+    return PALETTE_EX[h % PALETTE_EX.length];
+  };
+  const fmtRanges = (ex) => {
+    const r = (ex.objectifRepsRangeParSerie || []).filter(Boolean);
+    if (!r.length) return null;
+    const t = r.map((x) => `${x.min}-${x.max}`);
+    return t.every((x) => x === t[0]) ? `${t[0]} reps` : t.join(" / ");
+  };
+  // Durée estimée : ~45 s par série + repos (dans un superset, on ne se repose qu'après le dernier exercice)
+  const estimation = (() => {
+    let sec = 0, series = 0;
+    exercices.forEach((ex, i) => {
+      if (ex.type === "cardio") { sec += (Number(ex.dureeMinutes) || 0) * 60 + (Number(ex.rest) || 0); return; }
+      const n = (Number(ex.sets) || 0) + (Number(ex.echauffement) || 0);
+      series += Number(ex.sets) || 0;
+      const finDeTour = !ex.groupeSuperset || exercices[i + 1]?.groupeSuperset !== ex.groupeSuperset;
+      sec += n * 45 + Math.max(0, n - 1) * (finDeTour ? Number(ex.rest) || 0 : 15);
+    });
+    return { minutes: Math.round(sec / 60 / 5) * 5, series };
+  })();
+  const etiquette = { fontSize: 12, color: C.textMuted, fontWeight: 700, marginBottom: 5 };
+  const champ = { ...inputStyle, padding: "10px 12px", fontSize: 15 };
+  const iconBtn = { width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, padding: 0, flexShrink: 0 };
+  const segment = (options, valeur, onChange, col) => (
+    <div style={{ display: "flex", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 3, gap: 3 }}>
+      {options.map(([v, l]) => (
+        <button key={String(v)} type="button" onClick={() => onChange(v)} style={{ flex: 1, padding: "8px 4px", borderRadius: 9, fontSize: 13.5, fontWeight: 800, border: "none",
+          color: valeur === v ? "#06171F" : C.textMuted, background: valeur === v ? col : "transparent", transition: "background .15s" }}>{l}</button>
+      ))}
+    </div>
+  );
+  const compteur = (valeur, moins, plus) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <button type="button" onClick={moins} style={{ ...iconBtn, width: 42, height: 44, fontSize: 20, fontWeight: 800, color: C.text }}>−</button>
+      <div style={{ flex: 1, textAlign: "center", ...inputStyle, padding: "10px 0", fontSize: 17, fontWeight: 900, fontFamily: FONT_MONO }}>{valeur}</div>
+      <button type="button" onClick={plus} style={{ ...iconBtn, width: 42, height: 44, fontSize: 20, fontWeight: 800, color: C.text }}>+</button>
+    </div>
+  );
+  const grilleFourchettes = (ranges, ouvrir) => (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(62px, 1fr))", gap: 6 }}>
+      {ranges.map((range, si) => {
+        const col = range ? infoFourchette(range)[1] : null;
+        return (
+          <button key={si} type="button" onClick={() => ouvrir(si)} style={{ borderRadius: 12, padding: "6px 4px 8px", textAlign: "center", background: range ? `${col}1A` : "rgba(255,255,255,0.04)", border: `1.5px solid ${range ? col + "88" : "rgba(255,255,255,0.1)"}` }}>
+            <div style={{ fontSize: 10.5, color: C.textDim, fontWeight: 800 }}>S{si + 1}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 900, fontFamily: FONT_MONO, color: range ? col : C.textDim }}>{range ? `${range.min}-${range.max}` : "—"}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+  const optionsJour = [{ value: "", label: "Cycle", desc: "Le client fait les séances dans l'ordre, sans jour fixe" }, ...JOURS_SEMAINE.map((j) => ({ value: j, label: j.charAt(0).toUpperCase() + j.slice(1), desc: "Jour fixe" }))];
+  const lignesEchauf = echauffementGeneral.split("\n").filter(Boolean);
+  const presetsActifs = ECHAUFFEMENT_PRESETS.filter((p) => lignesEchauf.includes(p.texte));
+
+  // Carte d'un exercice (seul ou dans un superset)
+  const carteExercice = (ex, i, badge, col, poignee, glisse, dyMembre) => {
+    const coche = selectedForSuperset.includes(ex.uid);
+    const ranges = fmtRanges(ex);
+    const chip = { fontSize: 11.5, fontWeight: 700, color: C.textMuted, background: "rgba(255,255,255,0.07)", borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" };
+    return (
+      <div style={{ borderRadius: 16, background: glisse ? "#1D2650" : coche ? `${VIOLET}14` : "rgba(255,255,255,0.04)", border: `1.5px solid ${glisse || coche ? (coche ? VIOLET : col) : col + "55"}`,
+        boxShadow: glisse ? `0 16px 34px rgba(0,0,0,0.55), 0 0 20px ${col}55` : coche ? `0 0 16px ${VIOLET}44` : "none",
+        transform: dyMembre != null ? `translateY(${dyMembre}px) scale(1.03)` : "none", transition: dyMembre != null ? "none" : "transform .18s ease, box-shadow .18s, border-color .18s, background .18s",
+        position: "relative", zIndex: dyMembre != null ? 6 : 1, animation: "carteIn .25s ease" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 10px 6px" }}>
+          <div onPointerDown={poignee} onPointerMove={bougerDrag} onPointerUp={finDrag} onPointerCancel={finDrag}
+            style={{ display: "flex", alignItems: "center", gap: 2, padding: "6px 2px 6px 4px", cursor: glisse ? "grabbing" : "grab", touchAction: "none", flexShrink: 0 }} aria-label="Glisser pour déplacer">
+            <GripVertical size={18} color={glisse ? col : C.textDim} />
+            <span style={{ minWidth: 26, height: 26, padding: "0 4px", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#06171F", background: col }}>{badge}</span>
           </div>
-        )}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: C.textDim, marginBottom: 4, fontWeight: 600, textTransform: "none" }}>Échauffement général (optionnel)</div>
-          {(() => {
-            const lignes = echauffementGeneral.split("\n").filter(Boolean);
-            const presetsActifs = ECHAUFFEMENT_PRESETS.filter((p) => lignes.includes(p.texte));
-            return (
-              <button
-                type="button"
-                onClick={() => setShowEchauffementPicker(true)}
-                style={{
-                  width: "100%", textAlign: "left", background: presetsActifs.length ? C.blueSoft : C.surface,
-                  border: `1px solid ${presetsActifs.length ? C.blue : C.cardBorderLight}`, borderRadius: 10,
-                  padding: "9px 10px", color: presetsActifs.length ? C.blue : C.textDim, fontSize: 13, fontWeight: presetsActifs.length ? 700 : 400,
-                  marginBottom: 8,
-                }}
-              >
-                {presetsActifs.length === 0 ? "Choisir un type d'échauffement..." : presetsActifs.map((p) => p.label).join(" · ")}
-              </button>
-            );
-          })()}
-          <textarea
-            value={echauffementGeneral}
-            onChange={(e) => setEchauffementGeneral(e.target.value)}
-            placeholder="ex : 5 min de vélo + rotations articulaires (épaules, hanches, chevilles) — ou choisis un type ci-dessus"
-            rows={2}
-            style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13, resize: "none" }}
-          />
+          <button type="button" onClick={() => !drag && setExpandedIdx(i)} style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer", padding: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: col }}>
+              {ex.type === "cardio" ? `🏃 Cardio · ${ex.dureeMinutes || 0} min` : `${ex.sets} série${ex.sets > 1 ? "s" : ""}${ranges ? ` · ${ranges}` : ""}`}
+            </div>
+            <div style={{ fontSize: 15.5, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.nom}</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
+              {Number(ex.rest) > 0 && <span style={chip}>⏸ {formatRepos(ex.rest)}</span>}
+              {ex.rpe ? <span style={{ ...chip, color: couleurRpe(ex.rpe), background: `${couleurRpe(ex.rpe)}1A` }}>RPE {String(ex.rpe).replace(".", ",")}</span> : null}
+              {ex.tempo ? <span style={{ ...chip, fontFamily: FONT_MONO }}>{ex.tempo}</span> : null}
+              {(ex.echauffement || 0) > 0 && <span style={{ ...chip, color: C.amber, background: "rgba(245,184,51,0.12)" }}>🔥 {ex.echauffement} éch.</span>}
+            </div>
+          </button>
+          <button type="button" onClick={() => toggleSelectForSuperset(ex.uid)} aria-label="Sélectionner pour un superset"
+            style={{ ...iconBtn, width: 32, height: 32, borderRadius: 999, background: coche ? VIOLET : "rgba(255,255,255,0.05)", border: `1.5px solid ${coche ? VIOLET : "rgba(255,255,255,0.18)"}`, color: coche ? "#170B33" : C.textDim, transition: "all .18s", transform: coche ? "scale(1.08)" : "none" }}>
+            {coche ? <Check size={15} strokeWidth={3.5} /> : <Zap size={14} />}
+          </button>
         </div>
-        {showEchauffementPicker && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 190, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowEchauffementPicker(false)}>
-            <Card style={{ width: "100%", maxWidth: 380, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <SectionHead icon={Flame} title={<>Type d'échauffement</>} />
-                <button onClick={() => setShowEchauffementPicker(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto", overflowX: "hidden", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1 }}><SectionHead icon={Dumbbell} title={<>{estModele ? (editingProgramme?.id ? "Modifier le modèle" : "Nouveau modèle") : (editingProgramme?.id ? "Modifier la séance" : "Nouvelle séance de muscu")}</>} /></div>
+          <button onClick={onClose} style={iconBtn}><X size={16} /></button>
+        </div>
+        {entete}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Nom"><input style={champ} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex : Push" /></Field>
+            <Field label="Muscles ciblés"><input style={champ} value={muscle} onChange={(e) => setMuscle(e.target.value)} placeholder="ex : Pecs / Épaules" /></Field>
+          </div>
+          {!estModele && <ChoixDeroulant label="Jour" valeur={jourFixe} onChange={setJourFixe} couleur="#F5B833" options={optionsJour} />}
+
+          <div>
+            <CaseChoix label="🔥 Échauffement général (optionnel)" valeur={presetsActifs.map((p) => p.label).join(" · ")} placeholder="Choisir un type d'échauffement…" onClick={() => setShowEchauffementPicker(true)} couleur="#F5B833" />
+            <textarea value={echauffementGeneral} onChange={(e) => setEchauffementGeneral(e.target.value)} rows={2}
+              placeholder="ex : 5 min de vélo + rotations articulaires — ou choisis un type ci-dessus"
+              style={{ ...champ, marginTop: 8, fontSize: 13.5, resize: "none" }} />
+          </div>
+          {showEchauffementPicker && (
+            <FeuilleBas titre="🔥 Type d'échauffement" sousTitre="Plusieurs choix possibles" couleur="#F5B833" onClose={() => setShowEchauffementPicker(false)}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                 {ECHAUFFEMENT_PRESETS.map((preset) => {
-                  const lignes = echauffementGeneral.split("\n").filter(Boolean);
-                  const actif = lignes.includes(preset.texte);
+                  const actif = lignesEchauf.includes(preset.texte);
                   return (
-                    <button
-                      key={preset.key}
-                      type="button"
-                      title={preset.description}
-                      onClick={() => {
-                        const next = actif ? lignes.filter((l) => l !== preset.texte) : [...lignes, preset.texte];
-                        setEchauffementGeneral(next.join("\n"));
-                      }}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 8, textAlign: "left",
-                        border: `1px solid ${actif ? C.blue : C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px",
-                        background: actif ? C.blueSoft : "transparent", color: actif ? C.blue : C.textMuted,
-                        fontSize: 13, fontWeight: 700,
-                      }}
-                    >
-                      {actif ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${C.cardBorderLight}`, flexShrink: 0 }} />}
-                      <div>
-                        <div>{preset.label}</div>
-                        <div style={{ fontSize: 11, fontWeight: 400, color: C.textDim, marginTop: 1 }}>{preset.description}</div>
-                      </div>
-                    </button>
+                    <OptionFeuille key={preset.key} multiple actif={actif} couleur="#F5B833" titre={preset.label} desc={preset.description}
+                      onClick={() => setEchauffementGeneral((actif ? lignesEchauf.filter((l) => l !== preset.texte) : [...lignesEchauf, preset.texte]).join("\n"))} />
                   );
                 })}
               </div>
-              <button onClick={() => setShowEchauffementPicker(false)} style={{ width: "100%", marginTop: 14, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 10, padding: "11px", fontWeight: 800, fontSize: 13 }}>
-                Terminé
-              </button>
-            </Card>
+              <button onClick={() => setShowEchauffementPicker(false)} style={{ width: "100%", marginTop: 14, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 14, padding: 13, fontWeight: 800, fontSize: 15 }}>Valider</button>
+            </FeuilleBas>
+          )}
+
+          {/* Aperçu de la séance : une barre par série (hauteur = RPE), une couleur par exercice */}
+          <div style={{ borderRadius: 16, padding: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 8 }}>
+              <span>Aperçu</span>
+              <span style={{ color: C.text }}>{exercices.length ? `≈ ${estimation.minutes} min · ${exercices.length} exo${exercices.length > 1 ? "s" : ""} · ${estimation.series} séries` : "—"}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 38 }} aria-hidden>
+              {exercices.length === 0 && <span style={{ flex: 1, height: "30%", borderRadius: 4, background: "rgba(255,255,255,0.06)" }} />}
+              {unites.map((u, n) => {
+                const col = couleurUnite(u, n);
+                return (
+                  <div key={u.cle} style={{ flex: `${u.indices.reduce((a, k) => a + (exercices[k].type === "cardio" ? 3 : (exercices[k].sets || 1) + (exercices[k].echauffement || 0) * 0.6), 0)} 0 0`, display: "flex", alignItems: "flex-end", gap: 2, height: "100%", minWidth: 8 }}>
+                    {u.indices.map((k, m) => {
+                      const ex = exercices[k];
+                      const op = u.groupe ? (m % 2 ? 0.6 : 1) : 1;
+                      if (ex.type === "cardio") return <span key={k} style={{ flex: "3 0 0", height: "50%", background: col, opacity: op, borderRadius: "4px 4px 2px 2px", boxShadow: `0 0 6px ${col}55` }} />;
+                      const h = Math.min(1, 0.35 + ((Number(ex.rpe) || 7.5) - 5) * 0.13);
+                      return [
+                        ...Array.from({ length: ex.echauffement || 0 }).map((_, z) => <span key={`${k}e${z}`} style={{ flex: "0.6 0 0", height: "26%", background: C.amber, opacity: 0.7, borderRadius: "3px 3px 2px 2px" }} />),
+                        ...Array.from({ length: ex.sets || 1 }).map((_, z) => <span key={`${k}s${z}`} style={{ flex: "1 0 0", minWidth: 3, height: `${h * 100}%`, background: col, opacity: op, borderRadius: "4px 4px 2px 2px", boxShadow: `0 0 6px ${col}55` }} />),
+                      ];
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        )}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <SectionHead icon={Plus} title={<>Exercices</>} />
-          {exercices.length > 0 && (
-            <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
-              <button
-                onClick={() => { if (confirm("Retirer l'échauffement de tous les exercices de cette séance ?")) setExercices((prev) => prev.map((ex) => ({ ...ex, echauffement: 0 }))); }}
-                style={{ background: "transparent", border: "none", color: C.amber, fontSize: 11.5, fontWeight: 700 }}
-              >
-                Retirer tout l'échauffement
-              </button>
-              <button
-                onClick={() => { if (confirm("Vider tous les exercices de cette séance ?")) setExercices([]); }}
-                style={{ background: "transparent", border: "none", color: C.red, fontSize: 11.5, fontWeight: 700 }}
-              >
-                Tout vider
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>Exercices</div>
+            {exercices.length > 0 && (
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={() => { if (confirm("Retirer l'échauffement de tous les exercices de cette séance ?")) setExercices((prev) => prev.map((ex) => ({ ...ex, echauffement: 0 }))); }}
+                  style={{ background: "transparent", border: "none", color: C.amber, fontSize: 11.5, fontWeight: 700, padding: 0 }}>Retirer l'échauffement</button>
+                <button onClick={() => { if (confirm("Vider tous les exercices de cette séance ?")) { setExercices([]); setSelectedForSuperset([]); } }}
+                  style={{ background: "transparent", border: "none", color: C.red, fontSize: 11.5, fontWeight: 700, padding: 0 }}>Tout vider</button>
+              </div>
+            )}
+          </div>
+
+          {exercices.length === 0 ? (
+            <div style={{ borderRadius: 16, padding: "20px 14px", textAlign: "center", border: "1.5px dashed rgba(140,190,255,0.35)", color: C.textMuted, fontSize: 13.5 }}>
+              Aucun exercice pour l'instant.<br />Ajoute ton premier exercice ci-dessous.
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: C.textDim, marginTop: -6 }}>Glisse ⋮⋮ pour réordonner · touche ⚡ sur 2 exercices ou plus pour faire un superset</div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: ECART }}>
+            {unites.map((u, n) => {
+              const col = couleurUnite(u, n);
+              const glisse = drag?.type === "unite" && drag.cle === u.cle;
+              const styleUnite = {
+                transform: glisse ? `translateY(${drag.dy}px) scale(1.03)` : "none",
+                transition: glisse ? "none" : "transform .18s ease",
+                position: "relative", zIndex: glisse ? 5 : 1,
+              };
+              if (!u.groupe) {
+                const i = u.indices[0];
+                return (
+                  <div key={u.cle} ref={(el) => { uniteRefs.current[u.cle] = el; }} style={styleUnite}>
+                    {carteExercice(exercices[i], i, n + 1, col, (e) => debutDrag(e, "unite", u.cle), glisse, null)}
+                  </div>
+                );
+              }
+              const dernier = exercices[u.indices[u.indices.length - 1]];
+              const nouveau = supersetAnime === u.groupe;
+              return (
+                <div key={u.cle} ref={(el) => { uniteRefs.current[u.cle] = el; }}
+                  style={{ ...styleUnite, borderRadius: 20, padding: "8px 8px 10px", background: `linear-gradient(180deg, ${VIOLET}26, ${VIOLET}0A)`, border: `1.5px solid ${VIOLET}`,
+                    boxShadow: glisse ? `0 18px 36px rgba(0,0,0,0.55), 0 0 26px ${VIOLET}88` : `0 0 16px ${VIOLET}38`,
+                    animation: nouveau ? "supersetIn .7s cubic-bezier(.2,.9,.3,1.1)" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px 8px 0" }}>
+                    <div onPointerDown={(e) => debutDrag(e, "unite", u.cle)} onPointerMove={bougerDrag} onPointerUp={finDrag} onPointerCancel={finDrag}
+                      style={{ display: "flex", alignItems: "center", gap: 2, padding: "4px 2px", cursor: glisse ? "grabbing" : "grab", touchAction: "none" }} aria-label="Glisser le superset">
+                      <GripVertical size={18} color={glisse ? VIOLET : C.textDim} />
+                      <span style={{ width: 26, height: 26, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 900, color: "#170B33", background: VIOLET }}>{n + 1}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: VIOLET }}>⚡ Superset</div>
+                      <div style={{ fontSize: 11.5, color: C.textMuted, fontWeight: 600 }}>{u.indices.length} exercices enchaînés sans pause · {Number(dernier.rest) > 0 ? `repos ${formatRepos(dernier.rest)} après le tour` : "pas de repos après le tour"}</div>
+                    </div>
+                    <button type="button" onClick={() => degrouperSuperset(u.groupe)} style={{ background: "rgba(167,139,250,0.14)", border: `1px solid ${VIOLET}88`, color: VIOLET, fontSize: 11.5, fontWeight: 800, borderRadius: 999, padding: "5px 10px" }}>Dégrouper</button>
+                  </div>
+                  <div style={{ position: "relative", paddingLeft: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <span style={{ position: "absolute", left: 3, top: 14, bottom: 14, width: 2.5, borderRadius: 2, background: `linear-gradient(${VIOLET}, ${VIOLET}33)` }} />
+                    {u.indices.map((i, m) => {
+                      const ex = exercices[i];
+                      const glisseM = drag?.type === "membre" && drag.cle === ex.uid;
+                      return (
+                        <div key={ex.uid} ref={(el) => { membreRefs.current[ex.uid] = el; }} style={{ position: "relative" }}>
+                          <span style={{ position: "absolute", left: -13, top: "50%", width: 8, height: 8, marginTop: -4, borderRadius: "50%", background: VIOLET, boxShadow: `0 0 8px ${VIOLET}` }} />
+                          {carteExercice(ex, i, `${n + 1}${String.fromCharCode(65 + m)}`, VIOLET, (e) => debutDrag(e, "membre", ex.uid), glisseM, glisseM ? drag.dy : null)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {selectedForSuperset.length > 0 && (
+            <div style={{ display: "flex", gap: 8, animation: "carteIn .2s ease" }}>
+              <button type="button" onClick={() => setSelectedForSuperset([])} style={{ ...iconBtn, width: 48, height: 48, borderRadius: 14 }} aria-label="Annuler la sélection"><X size={18} /></button>
+              <button type="button" onClick={groupSuperset} disabled={selectedForSuperset.length < 2}
+                style={{ flex: 1, borderRadius: 14, padding: "12px", fontWeight: 900, fontSize: 14.5, border: "none", color: selectedForSuperset.length >= 2 ? "#170B33" : VIOLET,
+                  background: selectedForSuperset.length >= 2 ? `linear-gradient(135deg, #C4B5FD, ${VIOLET})` : "rgba(167,139,250,0.12)",
+                  boxShadow: selectedForSuperset.length >= 2 ? `0 6px 22px ${VIOLET}66` : "none", animation: selectedForSuperset.length >= 2 ? "boutonPulse 1.4s ease-in-out infinite" : "none" }}>
+                {selectedForSuperset.length >= 2 ? `⚡ Grouper en superset (${selectedForSuperset.length})` : "Sélectionne encore 1 exercice"}
               </button>
             </div>
           )}
-        </div>
-        {exercices.map((ex, i) => {
-          const estDebutSuperset = ex.groupeSuperset && exercices[i - 1]?.groupeSuperset !== ex.groupeSuperset;
-          const estFinSuperset = ex.groupeSuperset && exercices[i + 1]?.groupeSuperset !== ex.groupeSuperset;
-          return (
-          <div
-            key={i}
-            ref={(el) => { exCardRefs.current[i] = el; }}
-            style={{
-              background: ex.groupeSuperset ? C.blueSoft : C.surface,
-              border: dragOverIdx === i && draggedIdx !== i
-                ? `2px dashed ${C.blue}`
-                : ex.groupeSuperset
-                  ? `3px solid ${C.blue}`
-                  : "2px solid rgba(255,180,60,0.85)",
-              boxShadow: (!ex.groupeSuperset && !(dragOverIdx === i && draggedIdx !== i))
-                ? "0 0 18px rgba(255,180,60,0.5), 0 0 8px rgba(255,210,80,0.6)"
-                : undefined,
-              borderTopLeftRadius: !ex.groupeSuperset || estDebutSuperset ? 14 : 0,
-              borderTopRightRadius: !ex.groupeSuperset || estDebutSuperset ? 14 : 0,
-              borderBottomLeftRadius: !ex.groupeSuperset || estFinSuperset ? 14 : 0,
-              borderBottomRightRadius: !ex.groupeSuperset || estFinSuperset ? 14 : 0,
-              borderTop: ex.groupeSuperset && !estDebutSuperset ? "none" : undefined,
-              padding: "16px 16px",
-              marginBottom: estFinSuperset || !ex.groupeSuperset ? 10 : 0,
-              opacity: draggedIdx === i ? 0.4 : 1,
-            }}
-          >
-            {estDebutSuperset && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <Zap size={13} color={C.blue} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.blue, textTransform: "none", letterSpacing: 0 }}>Superset</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); degrouperSuperset(ex.groupeSuperset); }}
-                  style={{ background: "transparent", border: "none", color: C.blue, fontSize: 10.5, fontWeight: 700, padding: 0, textDecoration: "underline" }}
-                >
-                  Dégrouper
-                </button>
-              </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
-                <div
-                  onMouseDown={() => setDraggedIdx(i)}
-                  onTouchStart={() => setDraggedIdx(i)}
-                  style={{ color: C.textMuted, fontSize: 20, lineHeight: 1, padding: "4px 2px", cursor: "grab", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
-                >
-                  ⠿
-                </div>
-                <input type="checkbox" checked={selectedForSuperset.includes(i)} onChange={(e) => { e.stopPropagation(); toggleSelectForSuperset(i); }} onClick={(e) => e.stopPropagation()} />
-                <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setExpandedIdx(i)}>
-                  {ex.groupeSuperset && <span style={{ color: C.blue, fontWeight: 700, fontSize: 11 }}>[Superset] </span>}
-                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{ex.nom}</div>
-                  <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 2 }}>
-                    {ex.sets} séries · {ex.rest}s
-                    {(ex.echauffement || 0) > 0 && <span style={{ color: C.amber }}> · 🔥 {ex.echauffement} éch.</span>}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <button onClick={() => setExpandedIdx(i)} style={{ background: "transparent", border: "none", color: C.textMuted, padding: 6 }}><ChevronRight size={18} /></button>
-                <button onClick={() => removeExercice(i)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={16} /></button>
-              </div>
-            </div>
+
+          <button type="button" onClick={() => setShowAjoutExercice(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: 16, fontWeight: 800, fontSize: 15, color: "#8CBEFF", background: "rgba(91,140,255,0.1)", border: "1.5px dashed rgba(140,190,255,0.7)" }}>
+            <Plus size={18} /> Ajouter un exercice
+          </button>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: C.text, borderRadius: 14, padding: "14px", fontWeight: 700, fontSize: 15 }}>Annuler</button>
+            <button onClick={submit} disabled={saving} style={{ flex: 1.6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
+              {saving ? "Enregistrement..." : editingProgramme?.id ? "Enregistrer" : estModele ? "Créer le modèle" : "Créer la séance"}
+            </button>
           </div>
+        </div>
+
+        {/* Modifier un exercice */}
+        {expandedIdx !== null && exercices[expandedIdx] && (() => {
+          const ex = exercices[expandedIdx];
+          const i = expandedIdx;
+          const changerSeries = (n) => {
+            const arr = [...(ex.repsParSerie || [])];
+            while (arr.length < n) arr.push(10);
+            while (arr.length > n) arr.pop();
+            const r = [...(ex.objectifRepsRangeParSerie || [])];
+            while (r.length < n) r.push(r[r.length - 1] || null);
+            while (r.length > n) r.pop();
+            updateExercice(i, "sets", n);
+            updateExercice(i, "repsParSerie", arr);
+            updateExercice(i, "objectifRepsRangeParSerie", r);
+          };
+          return (
+            <FeuilleBas titre={ex.nom} sousTitre={ex.groupeSuperset ? "⚡ Fait partie d'un superset" : null} couleur="#5B8CFF" zIndex={200} onClose={() => setExpandedIdx(null)}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {ex.type === "cardio" ? (
+                  <div><div style={etiquette}>Durée (minutes)</div><input type="number" inputMode="numeric" style={{ ...champ, fontWeight: 800 }} value={ex.dureeMinutes || ""} onChange={(e) => updateExercice(i, "dureeMinutes", parseInt(e.target.value) || 0)} /></div>
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div><div style={etiquette}>Séries</div>{compteur(ex.sets, () => changerSeries(Math.max(1, ex.sets - 1)), () => changerSeries(ex.sets + 1))}</div>
+                      <CaseChoix label="Repos" valeur={formatRepos(ex.rest)} onClick={() => setShowRepoPickerIdx(i)} couleur="#3AD6A0" />
+                    </div>
+                    <div><div style={{ ...etiquette, color: C.amber }}>🔥 Séries d'échauffement</div>{segment([[0, "Aucune"], [1, "1"], [2, "2"], [3, "3"]], ex.echauffement || 0, (v) => updateExercice(i, "echauffement", v), C.amber)}</div>
+                    <div>
+                      <div style={etiquette}>🎯 Répétitions par série <span style={{ color: C.textDim, fontWeight: 500 }}>(touche une série)</span></div>
+                      {grilleFourchettes(Array.from({ length: ex.sets }).map((_, si) => (ex.objectifRepsRangeParSerie || [])[si] || null), setShowRangePickerSi)}
+                    </div>
+                  </>
+                )}
+                {ex.type === "cardio" && <CaseChoix label="Repos après" valeur={formatRepos(ex.rest)} onClick={() => setShowRepoPickerIdx(i)} couleur="#3AD6A0" />}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <CaseChoix label="Tempo" valeur={ex.tempo} placeholder="Aucun" onClick={() => setShowTempoPickerIdx(i)} couleur="#8CBEFF" />
+                  <CaseChoix label="RPE" valeur={ex.rpe ? `RPE ${String(ex.rpe).replace(".", ",")}` : ""} placeholder="Aucun" onClick={() => setShowRpePickerIdx(i)} couleur={ex.rpe ? couleurRpe(ex.rpe) : "#F5B833"} />
+                </div>
+                <div><div style={etiquette}>Note</div><textarea value={ex.note || ""} onChange={(e) => updateExercice(i, "note", e.target.value)} rows={2} placeholder="ex : coudes serrés" style={{ ...champ, fontSize: 14, resize: "none" }} /></div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" onClick={() => removeExercice(i)} style={{ ...iconBtn, width: 50, height: 50, borderRadius: 14, color: C.red, border: "1px solid rgba(255,93,108,0.45)" }} aria-label="Supprimer l'exercice"><Trash2 size={18} /></button>
+                  <button onClick={() => setExpandedIdx(null)} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFF", borderRadius: 14, padding: 13, fontWeight: 800, fontSize: 15 }}>Terminé</button>
+                </div>
+              </div>
+            </FeuilleBas>
           );
-        })}
+        })()}
         {showRpePickerIdx !== null && (
           <RPEPickerModal value={exercices[showRpePickerIdx]?.rpe} onSelect={(v) => updateExercice(showRpePickerIdx, "rpe", v)} onClose={() => setShowRpePickerIdx(null)} />
         )}
@@ -8835,7 +9018,7 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
         )}
         {showRangePickerSi !== null && expandedIdx !== null && exercices[expandedIdx] && (
           <RepRangePickerModal
-            titre={`Série ${showRangePickerSi + 1} — fourchette de reps`}
+            titre={`Série ${showRangePickerSi + 1}`}
             value={(exercices[expandedIdx].objectifRepsRangeParSerie || [])[showRangePickerSi] || null}
             onSelect={(r) => {
               const arr = [...(exercices[expandedIdx].objectifRepsRangeParSerie || [])];
@@ -8846,262 +9029,73 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
             onClose={() => setShowRangePickerSi(null)}
           />
         )}
-        {expandedIdx !== null && exercices[expandedIdx] && (() => {
-          const ex = exercices[expandedIdx];
-          const i = expandedIdx;
-          return (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setExpandedIdx(null)}>
-              <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <SectionHead icon={Dumbbell} title={<>{ex.nom}</>} />
-                  <button onClick={() => setExpandedIdx(null)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={20} /></button>
-                </div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Séries</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                  <button onClick={() => {
-                    const n = Math.max(1, ex.sets - 1);
-                    const arr = [...(ex.repsParSerie || [])];
-                    while (arr.length > n) arr.pop();
-                    const rangeArr = Array.from({ length: n }, () => (ex.objectifRepsRangeParSerie || [])[0] || null);
-                    updateExercice(i, "sets", n);
-                    updateExercice(i, "repsParSerie", arr);
-                    updateExercice(i, "objectifRepsRangeParSerie", rangeArr);
-                  }} style={{ width: 36, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 18, fontWeight: 700 }}>−</button>
-                  <div style={{ flex: 1, textAlign: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 0", color: C.text, fontSize: 15, fontWeight: 700 }}>{ex.sets}</div>
-                  <button onClick={() => {
-                    const n = ex.sets + 1;
-                    const arr = [...(ex.repsParSerie || [])];
-                    while (arr.length < n) arr.push(10);
-                    const rangeArr = Array.from({ length: n }, () => (ex.objectifRepsRangeParSerie || [])[0] || null);
-                    updateExercice(i, "sets", n);
-                    updateExercice(i, "repsParSerie", arr);
-                    updateExercice(i, "objectifRepsRangeParSerie", rangeArr);
-                  }} style={{ width: 36, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 18, fontWeight: 700 }}>+</button>
-                </div>
-                <div style={{ fontSize: 11, color: C.amber, marginBottom: 4, fontWeight: 700 }}>🔥 Séries d'échauffement (0 si aucune)</div>
-                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                  {[0, 1, 2, 3].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => updateExercice(i, "echauffement", n)}
-                      style={{
-                        flex: 1, padding: "8px", borderRadius: 8, fontSize: 14, fontWeight: 700,
-                        background: (ex.echauffement || 0) === n ? C.amber : C.surface,
-                        color: (ex.echauffement || 0) === n ? "#3D2600" : C.textMuted,
-                        border: `1px solid ${(ex.echauffement || 0) === n ? C.amber : C.cardBorderLight}`,
-                      }}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>
-                  🎯 Répétitions par série <span style={{ color: C.textDim }}>(atteindre le haut de la fourchette suggère d'augmenter la charge)</span>
-                </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                  {Array.from({ length: ex.sets }).map((_, si) => {
-                    const range = (ex.objectifRepsRangeParSerie || [])[si] || null;
-                    return (
-                      <div key={si} style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3, fontWeight: 700 }}>S{si + 1}</div>
-                        <button
-                          type="button"
-                          onClick={() => setShowRangePickerSi(si)}
-                          style={{
-                            width: 56, background: range ? C.blueSoft : C.surface, border: `1px solid ${range ? C.blue : C.cardBorderLight}`,
-                            borderRadius: 8, padding: "8px 4px", color: range ? C.blue : C.textDim, fontSize: 12.5, fontWeight: 700, fontFamily: FONT_MONO,
-                          }}
-                        >
-                          {range ? `${range.min}-${range.max}` : "—"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Repos</div>
-                    <button onClick={() => setShowRepoPickerIdx(i)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: C.text, fontSize: 13, textAlign: "left" }}>
-                      {formatRepos(ex.rest)}
-                    </button>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>RPE</div>
-                    <button onClick={() => setShowRpePickerIdx(i)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: ex.rpe ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
-                      {ex.rpe || "RPE"}
-                    </button>
-                  </div>
-                </div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Tempo</div>
-                <button onClick={() => setShowTempoPickerIdx(i)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: ex.tempo ? C.text : C.textDim, fontSize: 13, textAlign: "left", marginBottom: 12 }}>
-                  {ex.tempo || "Tempo"}
-                </button>
-                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Note</div>
-                <textarea value={ex.note || ""} onChange={(e) => updateExercice(i, "note", e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "9px 8px", color: C.text, fontSize: 13, resize: "none", marginBottom: 14 }} />
-                <button onClick={() => setExpandedIdx(null)} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14 }}>
-                  Terminé
-                </button>
-              </Card>
-            </div>
-          );
-        })()}
-        {selectedForSuperset.length >= 2 && (       <button onClick={groupSuperset} style={{ width: "100%", background: C.blueSoft, border: `1px solid ${C.blue}`, color: C.blue, borderRadius: 10, padding: "8px", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-            Grouper en superset ({selectedForSuperset.length} exercices)
-          </button>
-        )}
-        <button
-          onClick={() => setShowAjoutExercice(true)}
-          style={{ width: "100%", background: C.amber, border: "none", color: "#3D2600", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-        >
-          <Plus size={16} /> Ajouter un exercice
-        </button>
 
+        {/* Nouvel exercice */}
         {showAjoutExercice && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 160, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowAjoutExercice(false)}>
-            <Card style={{ width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto", border: `2px solid ${C.amber}` }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <SectionHead icon={Plus} title={<>Nouvel exercice</>} />
-                <button onClick={() => setShowAjoutExercice(false)} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
-              </div>
-
+          <FeuilleBas titre="🏋️ Nouvel exercice" couleur="#F5B833" zIndex={200} onClose={() => setShowAjoutExercice(false)}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {showNewExercice ? (
-                <div style={{ background: C.surface, borderRadius: 10, padding: 10, marginBottom: 8 }}>
-                  <input type="text" placeholder="Nom du nouvel exercice" value={newExNom} onChange={(e) => setNewExNom(e.target.value)} style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 6 }} />
-                  <input
-                    type="text"
-                    placeholder="Lien YouTube non répertorié (optionnel)"
-                    value={newExVideoUrl}
-                    onChange={(e) => setNewExVideoUrl(e.target.value)}
-                    style={{ width: "100%", background: C.card, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 8 }}
-                  />
+                <div style={{ borderRadius: 14, padding: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input type="text" placeholder="Nom du nouvel exercice" value={newExNom} onChange={(e) => setNewExNom(e.target.value)} style={champ} />
+                  <input type="text" placeholder="Lien YouTube non répertorié (optionnel)" value={newExVideoUrl} onChange={(e) => setNewExVideoUrl(e.target.value)} style={{ ...champ, fontSize: 13.5 }} />
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => setShowNewExercice(false)} style={{ flex: 1, background: "transparent", border: `1px solid ${C.cardBorderLight}`, color: C.textMuted, borderRadius: 8, padding: "8px", fontSize: 12 }}>Annuler</button>
-                    <button onClick={createExercice} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 8, padding: "8px", fontSize: 12, fontWeight: 700 }}>Ajouter</button>
+                    <button onClick={() => setShowNewExercice(false)} style={{ flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.15)", color: C.textMuted, borderRadius: 12, padding: 10, fontSize: 13, fontWeight: 700 }}>Annuler</button>
+                    <button onClick={createExercice} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", border: "none", color: "#FFF", borderRadius: 12, padding: 10, fontSize: 13, fontWeight: 800 }}>Créer</button>
                   </div>
                 </div>
               ) : (
-                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                  <button onClick={() => setShowExercicePickerPage(!showExercicePickerPage)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: selectedExId ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
-                    {selectedExId ? bibliotheque.find((b) => b.id === selectedExId)?.nom : "Choisir un exercice..."}
-                  </button>
-                  <button onClick={() => setShowNewExercice(true)} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}><Plus size={14} /></button>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <CaseChoix label="Exercice" valeur={selectedExId ? bibliotheque.find((b) => b.id === selectedExId)?.nom : ""} placeholder="Choisir dans ma bibliothèque…" onClick={() => setShowExercicePickerPage(!showExercicePickerPage)} couleur="#F5B833" />
+                  </div>
+                  <button type="button" onClick={() => setShowNewExercice(true)} style={{ ...iconBtn, width: 46, height: 46, borderRadius: 12, color: "#8CBEFF" }} aria-label="Créer un exercice"><Plus size={18} /></button>
                 </div>
               )}
               {showExercicePickerPage && (
-                <ExercicePickerInline
-                  bibliotheque={bibliotheque}
-                  onSelect={(id) => { setSelectedExId(id); setShowExercicePickerPage(false); }}
-                />
+                <ExercicePickerInline bibliotheque={bibliotheque} onSelect={(id) => { setSelectedExId(id); setShowExercicePickerPage(false); }} />
               )}
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <PillButton active={exType === "muscu"} onClick={() => setExType("muscu")} style={{ flex: 1, textAlign: "center" }}>🏋️ Musculation</PillButton>
-                <PillButton active={exType === "cardio"} onClick={() => setExType("cardio")} style={{ flex: 1, textAlign: "center" }}>🏃 Cardio</PillButton>
-              </div>
+              {segment([["muscu", "🏋️ Musculation"], ["cardio", "🏃 Cardio"]], exType, setExType, "#8CBEFF")}
               {exType === "cardio" ? (
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Durée (minutes)</div>
-                    <input type="number" value={exDureeMinutes} onChange={(e) => setExDureeMinutes(parseInt(e.target.value) || 15)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13 }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>Repos après</div>
-                    <button onClick={() => setShowRepoPickerNew(true)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, textAlign: "left" }}>
-                      {formatRepos(exRest)}
-                    </button>
-                  </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div><div style={etiquette}>Durée (minutes)</div><input type="number" inputMode="numeric" value={exDureeMinutes} onChange={(e) => setExDureeMinutes(parseInt(e.target.value) || 15)} style={{ ...champ, fontWeight: 800 }} /></div>
+                  <CaseChoix label="Repos après" valeur={formatRepos(exRest)} onClick={() => setShowRepoPickerNew(true)} couleur="#3AD6A0" />
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>SÉRIES</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <button onClick={() => setExSets(Math.max(1, exSets - 1))} style={{ width: 32, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 16, fontWeight: 700 }}>−</button>
-                        <div style={{ flex: 1, textAlign: "center", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, padding: "8px 0", color: C.text, fontSize: 14, fontWeight: 700 }}>{exSets}</div>
-                        <button onClick={() => setExSets(exSets + 1)} style={{ width: 32, height: 36, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 8, color: C.text, fontSize: 16, fontWeight: 700 }}>+</button>
-                      </div>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>REPOS</div>
-                      <button onClick={() => setShowRepoPickerNew(true)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, textAlign: "left", height: 36 }}>
-                        {formatRepos(exRest)}
-                      </button>
-                    </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><div style={etiquette}>Séries</div>{compteur(exSets, () => setExSets(Math.max(1, exSets - 1)), () => setExSets(exSets + 1))}</div>
+                    <CaseChoix label="Repos" valeur={formatRepos(exRest)} onClick={() => setShowRepoPickerNew(true)} couleur="#3AD6A0" />
                   </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 10.5, color: C.amber, marginBottom: 4, fontWeight: 700 }}>🔥 SÉRIES D'ÉCHAUFFEMENT (0 SI AUCUNE)</div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      {[0, 1, 2, 3].map((n) => (
-                        <button
-                          key={n}
-                          onClick={() => setExEchauffement(n)}
-                          style={{
-                            flex: 1, padding: "8px", borderRadius: 10, fontSize: 13, fontWeight: 700,
-                            background: exEchauffement === n ? C.amber : C.surface,
-                            color: exEchauffement === n ? "#3D2600" : C.textMuted,
-                            border: `1px solid ${exEchauffement === n ? C.amber : C.cardBorderLight}`,
-                          }}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 10.5, color: C.textDim, marginBottom: 4, fontWeight: 700 }}>
-                    🎯 RÉPÉTITIONS PAR SÉRIE <span style={{ color: C.textDim, fontWeight: 400, textTransform: "none" }}>(choisis une fourchette pour activer l'objectif de progression — laisse vide sinon)</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                    {exObjectifRepsRangeParSerie.map((range, i) => (
-                      <div key={i} style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: 10, color: C.textDim, marginBottom: 3, fontWeight: 700 }}>S{i + 1}</div>
-                        <button
-                          type="button"
-                          onClick={() => setShowRangePickerSiNew(i)}
-                          style={{
-                            width: 56, background: range ? C.blueSoft : C.surface, border: `1px solid ${range ? C.blue : C.cardBorderLight}`,
-                            borderRadius: 8, padding: "8px 4px", color: range ? C.blue : C.textDim, fontSize: 12.5, fontWeight: 700, fontFamily: FONT_MONO,
-                          }}
-                        >
-                          {range ? `${range.min}-${range.max}` : "—"}
-                        </button>
-                      </div>
-                    ))}
+                  <div><div style={{ ...etiquette, color: C.amber }}>🔥 Séries d'échauffement</div>{segment([[0, "Aucune"], [1, "1"], [2, "2"], [3, "3"]], exEchauffement, setExEchauffement, C.amber)}</div>
+                  <div>
+                    <div style={etiquette}>🎯 Répétitions par série <span style={{ color: C.textDim, fontWeight: 500 }}>(laisse vide si pas d'objectif)</span></div>
+                    {grilleFourchettes(exObjectifRepsRangeParSerie, setShowRangePickerSiNew)}
                   </div>
                 </>
               )}
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <button onClick={() => setShowTempoPickerNew(true)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: exTempo ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
-                  {exTempo || "Tempo"}
-                </button>
-                <button onClick={() => setShowRpePickerNew(true)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: exRpe ? C.text : C.textDim, fontSize: 13, textAlign: "left" }}>
-                  {exRpe || "RPE"}
-                </button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <CaseChoix label="Tempo" valeur={exTempo} placeholder="Aucun" onClick={() => setShowTempoPickerNew(true)} couleur="#8CBEFF" />
+                <CaseChoix label="RPE" valeur={exRpe ? `RPE ${String(exRpe).replace(".", ",")}` : ""} placeholder="Aucun" onClick={() => setShowRpePickerNew(true)} couleur={exRpe ? couleurRpe(exRpe) : "#F5B833"} />
               </div>
-              <textarea placeholder="Note spéciale (optionnel)" value={exNote} onChange={(e) => setExNote(e.target.value)} rows={2} style={{ width: "100%", background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "8px 10px", color: C.text, fontSize: 13, marginBottom: 12, resize: "none" }} />
-              <button
-                onClick={() => { addExercice(); setShowAjoutExercice(false); }}
-                style={{ width: "100%", background: C.amber, border: "none", color: "#3D2600", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 800 }}
-              >
-                + Ajouter cet exercice à la séance
+              <textarea placeholder="Note spéciale (optionnel)" value={exNote} onChange={(e) => setExNote(e.target.value)} rows={2} style={{ ...champ, fontSize: 14, resize: "none" }} />
+              <button type="button" disabled={!selectedExId} onClick={() => { addExercice(); setShowAjoutExercice(false); }}
+                style={{ background: selectedExId ? "linear-gradient(135deg,#FFD166,#F5B833)" : "rgba(245,184,51,0.15)", border: "none", color: selectedExId ? "#3D2600" : C.amber, borderRadius: 14, padding: 14, fontSize: 15, fontWeight: 900, boxShadow: selectedExId ? "0 6px 20px rgba(245,184,51,0.4)" : "none" }}>
+                {selectedExId ? "Ajouter à la séance" : "Choisis d'abord un exercice"}
               </button>
-            </Card>
-          </div>
+            </div>
+          </FeuilleBas>
         )}
         {showRpePickerNew && <RPEPickerModal value={exRpe} onSelect={setExRpe} onClose={() => setShowRpePickerNew(false)} />}
         {showTempoPickerNew && <TempoPickerModal value={exTempo} onSelect={setExTempo} onClose={() => setShowTempoPickerNew(false)} />}
         {showRepoPickerNew && <RepoPickerModal value={exRest} onSelect={setExRest} onClose={() => setShowRepoPickerNew(false)} />}
         {showRangePickerSiNew !== null && (
           <RepRangePickerModal
-            titre={`Série ${showRangePickerSiNew + 1} — fourchette de reps`}
+            titre={`Série ${showRangePickerSiNew + 1}`}
             value={exObjectifRepsRangeParSerie[showRangePickerSiNew] || null}
             onSelect={(r) => setExObjectifRepsRangeParSerie((prev) => prev.map((x, idx) => (idx === showRangePickerSiNew ? r : x)))}
             onClose={() => setShowRangePickerSiNew(null)}
           />
         )}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.text, borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14 }}>Annuler</button>
-          <button onClick={submit} disabled={saving} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 12, padding: "12px", fontWeight: 800, fontSize: 14 }}>{saving ? "..." : editingProgramme?.id ? "Enregistrer" : "Créer"}</button>
-        </div>
       </Card>
     </div>
   );
