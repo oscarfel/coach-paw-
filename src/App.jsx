@@ -8559,7 +8559,7 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
   const uniteRefs = useRef({});
   const membreRefs = useRef({});
   const [drag, setDrag] = useState(null); // { type, cle, dernierY, dy }
-  const ECART = 10;
+  const ECART = 8;
   const debutDrag = (e, type, cle) => {
     e.preventDefault();
     e.stopPropagation();
@@ -8589,8 +8589,8 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
       const g = exercices[i]?.groupeSuperset;
       const suiv = exercices[i + 1]?.groupeSuperset === g ? exercices[i + 1] : null;
       const prec = exercices[i - 1]?.groupeSuperset === g ? exercices[i - 1] : null;
-      const hS = suiv ? hauteur(membreRefs.current[suiv.uid], 8) : 0;
-      const hP = prec ? hauteur(membreRefs.current[prec.uid], 8) : 0;
+      const hS = suiv ? hauteur(membreRefs.current[suiv.uid], 6) : 0;
+      const hP = prec ? hauteur(membreRefs.current[prec.uid], 6) : 0;
       const echanger = (j) => {
         setExercices((prev) => { const a = [...prev]; [a[i], a[j]] = [a[j], a[i]]; return a; });
         if (navigator.vibrate) navigator.vibrate(5);
@@ -8795,38 +8795,33 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
   const carteExercice = (ex, i, badge, col, poignee, glisse, dyMembre) => {
     const coche = selectedForSuperset.includes(ex.uid);
     const ranges = fmtRanges(ex);
-    const chip = { fontSize: 12, fontWeight: 800, color: C.text, background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "3px 7px", whiteSpace: "nowrap", display: "inline-flex", gap: 4, alignItems: "baseline" };
-    const chipLib = { fontSize: 10.5, fontWeight: 700, color: C.textDim };
+    const chip = { fontSize: 11.5, fontWeight: 800, color: C.text, background: "rgba(255,255,255,0.06)", borderRadius: 7, padding: "2px 6px", whiteSpace: "nowrap", display: "inline-flex", gap: 4, alignItems: "baseline" };
+    const chipLib = { fontSize: 10, fontWeight: 700, color: C.textDim };
     return (
       <div style={{ borderRadius: 16, background: glisse ? "#1D2650" : coche ? `${VIOLET}14` : "rgba(255,255,255,0.04)", border: `1.5px solid ${glisse || coche ? (coche ? VIOLET : col) : col + "55"}`,
         boxShadow: glisse ? `0 16px 34px rgba(0,0,0,0.55), 0 0 20px ${col}55` : coche ? `0 0 16px ${VIOLET}44` : "none",
         transform: dyMembre != null ? `translateY(${dyMembre}px) scale(1.03)` : "none", transition: dyMembre != null ? "none" : "transform .18s ease, box-shadow .18s, border-color .18s, background .18s",
         position: "relative", zIndex: dyMembre != null ? 6 : 1, animation: "carteIn .25s ease" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 10px 6px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 8px 8px 4px" }}>
           <div onPointerDown={poignee} onPointerMove={bougerDrag} onPointerUp={finDrag} onPointerCancel={finDrag}
             style={{ display: "flex", alignItems: "center", gap: 2, padding: "6px 2px 6px 4px", cursor: glisse ? "grabbing" : "grab", touchAction: "none", flexShrink: 0 }} aria-label="Glisser pour déplacer">
             <GripVertical size={18} color={glisse ? col : C.textDim} />
             <span style={{ minWidth: 26, height: 26, padding: "0 4px", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#06171F", background: col }}>{badge}</span>
           </div>
           <button type="button" onClick={() => !drag && setExpandedIdx(i)} style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer", padding: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 900, color: C.text, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.nom}</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 3 }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.text, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.nom}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
               {ex.type === "cardio"
-                ? <span style={{ fontSize: 15, fontWeight: 900, color: col }}>🏃 {ex.dureeMinutes || 0} min de cardio</span>
-                : <span style={{ fontSize: 15, fontWeight: 900, color: col }}>{ex.sets} série{ex.sets > 1 ? "s" : ""}</span>}
-              {(ex.echauffement || 0) > 0 && <span style={{ fontSize: 12.5, fontWeight: 700, color: C.amber }}>+ {ex.echauffement} d'échauffement</span>}
+                ? <span style={{ fontSize: 14, fontWeight: 900, color: col, marginRight: 3 }}>🏃 {ex.dureeMinutes || 0} min</span>
+                : <span style={{ fontSize: 14, fontWeight: 900, color: col, marginRight: 3 }}>{ex.sets} série{ex.sets > 1 ? "s" : ""}{(ex.echauffement || 0) > 0 && <span style={{ fontSize: 12, color: C.amber }}> +{ex.echauffement} éch.</span>}</span>}
+              {ranges && <span style={chip}><span style={chipLib}>Reps</span>{ranges.replace(" reps", "")}</span>}
+              {Number(ex.rest) > 0 && <span style={chip}><span style={chipLib}>Repos</span>{formatRepos(ex.rest)}</span>}
+              {ex.rpe ? <span style={chip}><span style={chipLib}>RPE</span><span style={{ color: couleurRpe(ex.rpe) }}>{String(ex.rpe).replace(".", ",")}</span></span> : null}
+              {ex.tempo ? <span style={chip}><span style={chipLib}>Tempo</span><span style={{ fontFamily: FONT_MONO }}>{ex.tempo}</span></span> : null}
             </div>
-            {(ranges || Number(ex.rest) > 0 || ex.rpe || ex.tempo) && (
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 7, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                {ranges && <span style={chip}><span style={chipLib}>Reps</span>{ranges.replace(" reps", "")}</span>}
-                {Number(ex.rest) > 0 && <span style={chip}><span style={chipLib}>Repos</span>{formatRepos(ex.rest)}</span>}
-                {ex.rpe ? <span style={chip}><span style={chipLib}>RPE</span><span style={{ color: couleurRpe(ex.rpe) }}>{String(ex.rpe).replace(".", ",")}</span></span> : null}
-                {ex.tempo ? <span style={chip}><span style={chipLib}>Tempo</span><span style={{ fontFamily: FONT_MONO }}>{ex.tempo}</span></span> : null}
-              </div>
-            )}
           </button>
           <button type="button" onClick={() => toggleSelectForSuperset(ex.uid)} aria-label="Sélectionner pour un superset"
-            style={{ ...iconBtn, width: 32, height: 32, borderRadius: 999, background: coche ? VIOLET : "rgba(255,255,255,0.05)", border: `1.5px solid ${coche ? VIOLET : "rgba(255,255,255,0.18)"}`, color: coche ? "#170B33" : C.textDim, transition: "all .18s", transform: coche ? "scale(1.08)" : "none" }}>
+            style={{ ...iconBtn, width: 30, height: 30, borderRadius: 999, background: coche ? VIOLET : "rgba(255,255,255,0.05)", border: `1.5px solid ${coche ? VIOLET : "rgba(255,255,255,0.18)"}`, color: coche ? "#170B33" : C.textDim, transition: "all .18s", transform: coche ? "scale(1.08)" : "none" }}>
             {coche ? <Check size={15} strokeWidth={3.5} /> : <Zap size={14} />}
           </button>
         </div>
@@ -8915,7 +8910,7 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
               Aucun exercice pour l'instant.<br />Ajoute ton premier exercice ci-dessous.
             </div>
           ) : (
-            <div style={{ fontSize: 12, color: C.textDim, marginTop: -6 }}>Glisse ⋮⋮ pour réordonner · touche ⚡ sur 2 exercices ou plus pour faire un superset</div>
+            <div style={{ fontSize: 12, color: C.textDim, marginTop: -8 }}>⋮⋮ pour déplacer · ⚡ sur 2 exos = superset</div>
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: ECART }}>
@@ -8939,10 +8934,10 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
               const nouveau = supersetAnime === u.groupe;
               return (
                 <div key={u.cle} ref={(el) => { uniteRefs.current[u.cle] = el; }}
-                  style={{ ...styleUnite, borderRadius: 20, padding: "8px 8px 10px", background: `linear-gradient(180deg, ${VIOLET}26, ${VIOLET}0A)`, border: `1.5px solid ${VIOLET}`,
+                  style={{ ...styleUnite, borderRadius: 18, padding: "6px 6px 8px", background: `linear-gradient(180deg, ${VIOLET}26, ${VIOLET}0A)`, border: `1.5px solid ${VIOLET}`,
                     boxShadow: glisse ? `0 18px 36px rgba(0,0,0,0.55), 0 0 26px ${VIOLET}88` : `0 0 16px ${VIOLET}38`,
                     animation: nouveau ? "supersetIn .7s cubic-bezier(.2,.9,.3,1.1)" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px 8px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px 6px 0" }}>
                     <div onPointerDown={(e) => debutDrag(e, "unite", u.cle)} onPointerMove={bougerDrag} onPointerUp={finDrag} onPointerCancel={finDrag}
                       style={{ display: "flex", alignItems: "center", gap: 2, padding: "4px 2px", cursor: glisse ? "grabbing" : "grab", touchAction: "none" }} aria-label="Glisser le superset">
                       <GripVertical size={18} color={glisse ? VIOLET : C.textDim} />
@@ -8950,11 +8945,11 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 900, color: VIOLET }}>⚡ Superset</div>
-                      <div style={{ fontSize: 11.5, color: C.textMuted, fontWeight: 600 }}>{u.indices.length} exercices enchaînés sans pause · {Number(dernier.rest) > 0 ? `repos ${formatRepos(dernier.rest)} après le tour` : "pas de repos après le tour"}</div>
+                      <div style={{ fontSize: 11.5, color: C.textMuted, fontWeight: 600 }}>{Number(dernier.rest) > 0 ? `Repos ${formatRepos(dernier.rest)} après le tour` : "Pas de repos après le tour"}</div>
                     </div>
                     <button type="button" onClick={() => degrouperSuperset(u.groupe)} style={{ background: "rgba(167,139,250,0.14)", border: `1px solid ${VIOLET}88`, color: VIOLET, fontSize: 11.5, fontWeight: 800, borderRadius: 999, padding: "5px 10px" }}>Dégrouper</button>
                   </div>
-                  <div style={{ position: "relative", paddingLeft: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ position: "relative", paddingLeft: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                     <span style={{ position: "absolute", left: 3, top: 14, bottom: 14, width: 2.5, borderRadius: 2, background: `linear-gradient(${VIOLET}, ${VIOLET}33)` }} />
                     {u.indices.map((i, m) => {
                       const ex = exercices[i];
