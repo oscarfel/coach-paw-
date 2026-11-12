@@ -9580,7 +9580,6 @@ function ProgrammesCourseView({ coachId, clients, fireToast }) {
   }
 
   const VERT = "#3AD6A0";
-  const chip = (actif, col = VERT) => ({ flexShrink: 0, padding: "6px 11px", borderRadius: 999, fontSize: 12.5, fontWeight: 800, border: `1px solid ${actif ? col : "rgba(255,255,255,0.14)"}`, background: actif ? `${col}26` : "rgba(255,255,255,0.04)", color: actif ? col : C.textMuted });
   const pastille = (txt, col = "#B9C4E0", fond = "rgba(255,255,255,0.07)") => <span style={{ fontSize: 11.5, fontWeight: 800, color: col, background: fond, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>{txt}</span>;
   const couleurNiveau = { debutant: "#3AD6A0", intermediaire: "#F5B833", confirme: "#FF5D6C" };
   const plansFiltres = plans.filter((p) => (filtreNiveau === "tous" || p.niveau === filtreNiveau) && (filtreObjectif === "tous" || p.objectif === filtreObjectif));
@@ -9625,15 +9624,11 @@ function ProgrammesCourseView({ coachId, clients, fireToast }) {
             <button onClick={() => setEditionPlan({})} style={btnPrincipal}><Plus size={17} /> Nouveau plan</button>
             <button onClick={() => setAssigner({ type: "direct" })} style={btnSecond}><User size={16} /> Sur mesure</button>
           </div>
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 4 }}>
-            {[["tous", "Tous niveaux"], ...Object.entries(COURSE_NIVEAUX)].map(([k, l]) => (
-              <button key={k} onClick={() => setFiltreNiveau(k)} style={chip(filtreNiveau === k, couleurNiveau[k] || VERT)}>{l}</button>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 6 }}>
-            {[["tous", "Tous objectifs"], ...Object.entries(COURSE_OBJECTIFS).map(([k, v]) => [k, v.label])].map(([k, l]) => (
-              <button key={k} onClick={() => setFiltreObjectif(k)} style={chip(filtreObjectif === k, "#8CBEFF")}>{l}</button>
-            ))}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <ChoixDeroulant label="Niveau" valeur={filtreNiveau} onChange={setFiltreNiveau} couleur={couleurNiveau[filtreNiveau] || VERT}
+              options={[{ value: "tous", label: "Tous" }, ...Object.entries(COURSE_NIVEAUX).map(([k, l]) => ({ value: k, label: l }))]} />
+            <ChoixDeroulant label="Objectif" valeur={filtreObjectif} onChange={setFiltreObjectif} couleur="#8CBEFF"
+              options={[{ value: "tous", label: "Tous" }, ...Object.entries(COURSE_OBJECTIFS).map(([k, v]) => ({ value: k, label: v.label }))]} />
           </div>
           {loading ? (
             <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
