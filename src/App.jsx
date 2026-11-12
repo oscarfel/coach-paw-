@@ -6986,6 +6986,7 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
   const [open, setOpen] = useState(false);
   const [outilsOuvert, setOutilsOuvert] = useState(false);
   const [alimentationOuvert, setAlimentationOuvert] = useState(false);
+  const [programmesOuvert, setProgrammesOuvert] = useState(true);
   return (
     <>
       <button
@@ -7071,7 +7072,13 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
                   <NavItem tab="dashboard" icon={LayoutDashboard} label="Tableau de bord" />
                   <NavItem tab="clients" icon={User} label="Clients" />
                   <NavItem tab="taches" icon={ClipboardList} label="Tâches" badge={tachesEnAttenteCount} />
-                  <NavItem tab="programmes" icon={Dumbbell} label="Programmes" />
+                  <NavItem icon={Dumbbell} label="Programmes" chevron chevronOpen={programmesOuvert} onClick={() => setProgrammesOuvert(!programmesOuvert)} actif={["programmes", "programmes-course"].includes(coachTab)} />
+                  {programmesOuvert && (
+                    <div style={subWrap}>
+                      <SubItem tab="programmes" icon={Dumbbell} label="Muscu" />
+                      <SubItem tab="programmes-course" icon={Footprints} label="Course" />
+                    </div>
+                  )}
                   <NavItem icon={Apple} label="Alimentation" chevron chevronOpen={alimentationOuvert} onClick={() => setAlimentationOuvert(!alimentationOuvert)} actif={["alimentation-aliments", "alimentation-recettes", "alimentation-courses", "alimentation-supplements"].includes(coachTab)} />
                   {alimentationOuvert && (
                     <div style={subWrap}>
@@ -7665,7 +7672,7 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: modeLocal ? 230 : 100, padding: 16 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ flex: 1 }}><SectionHead icon={Footprints} title={p.id || modeLocal ? "Modifier la course" : "Nouvelle séance de course"} color="#3AD6A0" /></div>
+          <div style={{ flex: 1 }}><SectionHead icon={Footprints} title={p.id || (modeLocal && p.nom) ? "Modifier la course" : "Nouvelle séance de course"} color="#3AD6A0" /></div>
           <button onClick={onClose} style={iconBtn}><X size={16} /></button>
         </div>
         {entete}
@@ -7791,7 +7798,7 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
           </Field>
 
           <button onClick={enregistrer} disabled={saving} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Enregistrement..." : modeLocal ? "Valider la modification" : p.id ? "Enregistrer les modifications" : "Créer la séance"}
+            {saving ? "Enregistrement..." : modeLocal ? (p.nom ? "Valider la modification" : "Enregistrer la séance") : p.id ? "Enregistrer les modifications" : "Créer la séance"}
           </button>
         </div>
       </Card>
@@ -9453,6 +9460,136 @@ function TachesView({ coachId, fireToast }) {
   );
 }
 
+/* ---------- Coach : bibliothèque de séances de course (Programmes > Course) ---------- */
+function ProgrammesCourseView({ coachId, clients, fireToast }) {
+  const [modeles, setModeles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sqlManquant, setSqlManquant] = useState(false);
+  const [edition, setEdition] = useState(null); // {} = nouvelle séance, sinon le modèle
+  const [assigner, setAssigner] = useState(null); // modèle à envoyer
+  const [planPour, setPlanPour] = useState(null); // "choix" | client
+  const [envoi, setEnvoi] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("programmes_modeles").select("*").eq("coach_id", coachId).eq("type_seance", "course").order("created_at", { ascending: false });
+    if (error) { console.error(error); setSqlManquant(/type_seance|column/i.test(error.message || "")); setModeles([]); }
+    else { setSqlManquant(false); setModeles(data || []); }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, [coachId]);
+
+  const enregistrer = async (ligne) => {
+    const row = { nom: ligne.nom, muscle: "Course à pied", jour_fixe: ligne.jour_fixe || null, type_seance: "course", course_blocs: ligne.course_blocs, course_consigne: ligne.course_consigne || null, exercices: [] };
+    const { error } = edition?.id
+      ? await supabase.from("programmes_modeles").update(row).eq("id", edition.id)
+      : await supabase.from("programmes_modeles").insert({ ...row, coach_id: coachId });
+    if (error) {
+      console.error(error);
+      fireToast(/type_seance|course_|column/i.test(error.message || "") ? "Lance d'abord le script SQL « modèles course » dans Supabase" : "Erreur enregistrement");
+      return;
+    }
+    fireToast(edition?.id ? "Séance modifiée" : "Séance de course enregistrée", "green");
+    load();
+  };
+
+  const supprimer = async (m) => {
+    if (!confirm(`Supprimer la séance « ${m.nom} » de ta bibliothèque ?`)) return;
+    const { error } = await supabase.from("programmes_modeles").delete().eq("id", m.id);
+    if (error) { fireToast("Erreur suppression"); return; }
+    setModeles((prev) => prev.filter((x) => x.id !== m.id));
+  };
+
+  const envoyerA = async (client) => {
+    setEnvoi(true);
+    const { error } = await supabase.from("programmes").insert({
+      profil_id: client.id, nom: assigner.nom, muscle: "Course à pied", jour_fixe: assigner.jour_fixe || null,
+      type_seance: "course", course_blocs: assigner.course_blocs || [], course_consigne: assigner.course_consigne || null,
+    });
+    setEnvoi(false);
+    if (error) { console.error(error); fireToast("Erreur envoi au client"); return; }
+    fireToast(`« ${assigner.nom} » envoyée à ${client.prenom}`, "green");
+    setAssigner(null);
+  };
+
+  const listeClients = (onChoisir, titre, retour) => (
+    <div>
+      <button onClick={retour} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
+      </button>
+      <SectionHead icon={User} title={titre} color="#3AD6A0" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+        {clients.length === 0 && <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun client pour le moment</div></Card>}
+        {clients.map((c) => (
+          <Card key={c.id} onClick={() => !envoi && onChoisir(c)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: envoi ? 0.6 : 1 }}>
+            <span style={{ fontSize: 14.5, color: C.text, fontWeight: 700 }}>{c.prenom} {c.nom}</span>
+            <ChevronRight size={16} color={C.textDim} />
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (assigner) return listeClients(envoyerA, <>Envoyer « {assigner.nom} » à…</>, () => setAssigner(null));
+  if (planPour === "choix") return listeClients((c) => setPlanPour(c), <>Plan du mois pour…</>, () => setPlanPour(null));
+
+  return (
+    <>
+      {planPour && planPour !== "choix" && (
+        <PlanCourseGenerateur client={planPour} fireToast={fireToast} onClose={() => setPlanPour(null)} onCreated={() => { setPlanPour(null); fireToast("Plan du mois envoyé", "green"); }} />
+      )}
+      {edition && (
+        <CourseSeanceForm modeLocal editingProgramme={edition.id ? edition : null} onClose={() => setEdition(null)} onLocalSave={enregistrer} fireToast={fireToast} />
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+        <button onClick={() => setEdition({})} style={{ background: "linear-gradient(135deg,#3AD6A0,#1FA97C)", border: "none", color: "#06171F", borderRadius: 18, padding: "14px 10px", fontWeight: 900, fontSize: 14.5, boxShadow: "0 6px 20px rgba(58,214,160,0.35)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <Plus size={17} /> Nouvelle séance
+        </button>
+        <button onClick={() => setPlanPour("choix")} style={{ background: "rgba(58,214,160,0.1)", border: "1.5px solid rgba(58,214,160,0.7)", color: "#3AD6A0", borderRadius: 18, padding: "14px 10px", fontWeight: 900, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <Calendar size={17} /> Plan du mois
+        </button>
+      </div>
+      <div style={{ fontSize: 13, color: C.textOnBgMuted, marginBottom: 12 }}>
+        Tes séances de course réutilisables : crée-les une fois, puis envoie-les à n'importe quel client.
+      </div>
+      {sqlManquant ? (
+        <Card style={{ border: "1.5px solid rgba(245,184,51,0.6)" }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.amber, marginBottom: 4 }}>Script SQL à lancer</div>
+          <div style={{ fontSize: 13.5, color: C.textMuted }}>Lance <b>20261112_modeles_course.sql</b> dans Supabase (SQL Editor) pour activer la bibliothèque de séances de course.</div>
+        </Card>
+      ) : loading ? (
+        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+      ) : modeles.length === 0 ? (
+        <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucune séance de course pour le moment 🏃</div></Card>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {modeles.map((m) => (
+            <Card key={m.id} style={{ padding: 14, border: "1px solid rgba(58,214,160,0.35)" }}>
+              <div onClick={() => setEdition(m)} style={{ cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <IconBadge icon={Footprints} color="#3AD6A0" size={40} iconSize={19} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nom}</div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 3 }}><PastillesCourse blocs={m.course_blocs || []} /></div>
+                  </div>
+                  <ChevronRight size={16} color={C.textDim} />
+                </div>
+                <SchemaBlocsCourse blocs={m.course_blocs || []} hauteur={26} />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button onClick={() => setAssigner(m)} style={{ flex: 1, background: "rgba(58,214,160,0.12)", border: "1px solid rgba(58,214,160,0.6)", color: "#3AD6A0", borderRadius: 12, padding: "10px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <Send size={14} /> Envoyer à un client
+                </button>
+                <button onClick={() => supprimer(m)} style={{ width: 42, background: "rgba(255,93,108,0.08)", border: "1px solid rgba(255,93,108,0.45)", color: C.red, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }} aria-label="Supprimer"><Trash2 size={15} /></button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function ProgrammesModelesView({ coachId, clients, fireToast }) {
   const [modeles, setModeles] = useState([]);
   const [semaines, setSemaines] = useState([]);
@@ -9477,7 +9614,7 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
       ]);
       if (modelesRes.error) throw modelesRes.error;
       if (semainesRes.error) throw semainesRes.error;
-      setModeles(modelesRes.data || []);
+      setModeles((modelesRes.data || []).filter((m) => m.type_seance !== "course"));
       setSemaines(semainesRes.data || []);
     } catch (err) {
       console.error(err);
@@ -13527,7 +13664,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <div>
             <div style={{ fontFamily: FONT_BODY, fontSize: 13.5, color: C.textOnBgMuted, fontWeight: 600 }}>Espace coach</div>
             <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, lineHeight: 1.15, color: C.textOnBg }}>
-              {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes" : coachTab === "alimentation-aliments" ? "Mes aliments" : coachTab === "alimentation-recettes" ? "Recettes" : coachTab === "alimentation-courses" ? "Liste de courses" : coachTab === "alimentation-supplements" ? "Suppléments" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
+              {coachTab === "dashboard" ? "Tableau de bord" : coachTab === "clients" ? "Mes clients" : coachTab === "taches" ? "Mes tâches" : coachTab === "programmes" ? "Programmes muscu" : coachTab === "programmes-course" ? "Programmes course" : coachTab === "alimentation-aliments" ? "Mes aliments" : coachTab === "alimentation-recettes" ? "Recettes" : coachTab === "alimentation-courses" ? "Liste de courses" : coachTab === "alimentation-supplements" ? "Suppléments" : coachTab === "outils-drive" ? "Drive" : coachTab === "outils-automatisation" ? "Automatisation" : coachTab === "vod" ? "VOD" : "Notifications"}
             </div>
           </div>
         </div>
@@ -13538,6 +13675,8 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <TachesView coachId={coachProfil.id} fireToast={fireToast} />
         ) : coachTab === "programmes" ? (
           <ProgrammesModelesView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
+        ) : coachTab === "programmes-course" ? (
+          <ProgrammesCourseView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
         ) : coachTab === "alimentation-aliments" ? (
           <MesAlimentsView coachId={coachProfil.id} fireToast={fireToast} />        ) : coachTab === "alimentation-recettes" ? (
           <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="recettes" />
