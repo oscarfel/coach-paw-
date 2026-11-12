@@ -6986,7 +6986,7 @@ function SideMenu({ viewMode, setViewMode, onLogout, showViewToggle, coachTab, s
   const [open, setOpen] = useState(false);
   const [outilsOuvert, setOutilsOuvert] = useState(false);
   const [alimentationOuvert, setAlimentationOuvert] = useState(false);
-  const [programmesOuvert, setProgrammesOuvert] = useState(true);
+  const [programmesOuvert, setProgrammesOuvert] = useState(false);
   return (
     <>
       <button
@@ -7877,31 +7877,43 @@ function genererPlanCourse({ objectif, niveau, seancesParSemaine, jours, allureF
   return plan;
 }
 
-function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
-  const [objectif, setObjectif] = useState("5k");
-  const [niveau, setNiveau] = useState("debutant");
-  const [nb, setNb] = useState(3);
-  const [jours, setJours] = useState(["lundi", "mercredi", "dimanche"]);
-  const [allure, setAllure] = useState("");
-  const [mois, setMois] = useState(1);
+// modeModele : crée / modifie un plan type (sans client) ; modele : plan type de départ (pré-remplit tout)
+function PlanCourseGenerateur({ client, onClose, onCreated, fireToast, modele = null, modeModele = false, onSaveModele = null }) {
+  const [objectif, setObjectif] = useState(modele?.objectif || "5k");
+  const [niveau, setNiveau] = useState(modele?.niveau || "debutant");
+  const [nb, setNb] = useState(modele?.seances_par_semaine || 3);
+  const [jours, setJours] = useState(Array.isArray(modele?.jours) && modele.jours.length ? modele.jours : ["lundi", "mercredi", "dimanche"]);
+  const [allure, setAllure] = useState(modele?.allure || "");
+  const [mois, setMois] = useState(modele?.mois || 1);
+  const [nomPlan, setNomPlan] = useState(modele?.nom || "");
+  const premierRendu = useRef(!!(modele && Array.isArray(modele.seances) && modele.seances.length));
   const [debut, setDebut] = useState(() => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return lundiIso(d); });
   const [remplacer, setRemplacer] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [plan, setPlan] = useState(() => genererPlanCourse({ objectif: "5k", niveau: "debutant", seancesParSemaine: 3, jours: ["lundi", "mercredi", "dimanche"], allureFacileSec: null, mois: 1 }));
-  const [modifie, setModifie] = useState(false);
+  const [plan, setPlan] = useState(() => (premierRendu.current ? modele.seances : genererPlanCourse({ objectif: "5k", niveau: "debutant", seancesParSemaine: 3, jours: ["lundi", "mercredi", "dimanche"], allureFacileSec: null, mois: 1 })));
+  const [modifie, setModifie] = useState(premierRendu.current);
   const [editionIdx, setEditionIdx] = useState(null);
 
   const allureSec = parseAllureSec(allure);
   const joursTries = [...jours].sort((a, b) => JOURS_SEMAINE.indexOf(a) - JOURS_SEMAINE.indexOf(b));
   // Le plan est régénéré quand les réglages changent (les retouches manuelles sont alors perdues)
   useEffect(() => {
+    if (premierRendu.current) { premierRendu.current = false; return; } // plan type chargé : on garde ses retouches
     setPlan(genererPlanCourse({ objectif, niveau, seancesParSemaine: nb, jours: joursTries, allureFacileSec: allureSec, mois }));
     setModifie(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objectif, niveau, nb, jours.join(","), allureSec, mois]);
 
+  const nomParDefaut = `${COURSE_OBJECTIFS[objectif]?.label || "Course"} · ${COURSE_NIVEAUX[niveau] || ""} · mois ${mois}`;
   const creer = async () => {
     if (jours.length < nb) { fireToast(`Choisis ${nb} jours de course`); return; }
+    if (modeModele) {
+      setSaving(true);
+      const ok = await onSaveModele({ nom: nomPlan.trim() || nomParDefaut, objectif, niveau, seances_par_semaine: nb, jours: joursTries, mois, allure: allure || null, seances: plan });
+      setSaving(false);
+      if (ok !== false) onClose();
+      return;
+    }
     setSaving(true);
     try {
       if (remplacer) {
@@ -7932,10 +7944,14 @@ function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
       <Card style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ flex: 1 }}><SectionHead icon={Footprints} title="Plan course du mois" color="#3AD6A0" /></div>
+          <div style={{ flex: 1 }}><SectionHead icon={Footprints} title={modeModele ? (modele?.id ? "Modifier le plan type" : "Nouveau plan type") : "Plan course du mois"} color="#3AD6A0" /></div>
           <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted }}><X size={16} /></button>
         </div>
+        {!modeModele && modele && client && (
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "-4px 0 12px" }}>Plan type « <b style={{ color: C.text }}>{modele.nom}</b> » pour <b style={{ color: C.text }}>{client.prenom}</b> : choisis la date de début, ajuste si besoin, puis crée.</div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {modeModele && <Field label="Nom du plan type"><input style={inputStyle} value={nomPlan} onChange={(e) => setNomPlan(e.target.value)} placeholder={nomParDefaut} /></Field>}
           <ChoixDeroulant label="Objectif" valeur={objectif} onChange={setObjectif} couleur="#3AD6A0" options={[
             { value: "debuter", label: "Débuter / courir 30 min", desc: "Alternance course-marche jusqu'à 30 min sans s'arrêter" },
             { value: "5k", label: "5 km", desc: "Premier 5 km ou améliorer son temps" },
@@ -7962,10 +7978,14 @@ function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
             <Field label="Allure footing (optionnel)"><input style={inputStyle} value={allure} onChange={(e) => setAllure(e.target.value)} placeholder="ex : 6:30" /></Field>
             <ChoixDeroulant label="Mois du plan" valeur={mois} onChange={setMois} options={[1, 2, 3, 4, 5, 6].map((m) => ({ value: m, label: `Mois ${m}`, desc: m === 1 ? "Démarrage" : "La charge continue de monter" }))} />
           </div>
-          <Field label="Début (lundi de la semaine 1)"><input type="date" style={inputStyle} value={debut} onChange={(e) => setDebut(lundiIso(new Date(`${e.target.value}T12:00:00`)))} /></Field>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: C.textMuted }}>
-            <input type="checkbox" checked={remplacer} onChange={(e) => setRemplacer(e.target.checked)} /> Remplacer le plan de course actuel
-          </label>
+          {!modeModele && (
+            <>
+              <Field label="Début (lundi de la semaine 1)"><input type="date" style={inputStyle} value={debut} onChange={(e) => setDebut(lundiIso(new Date(`${e.target.value}T12:00:00`)))} /></Field>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: C.textMuted }}>
+                <input type="checkbox" checked={remplacer} onChange={(e) => setRemplacer(e.target.checked)} /> Remplacer le plan de course actuel
+              </label>
+            </>
+          )}
 
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
@@ -7975,7 +7995,7 @@ function PlanCourseGenerateur({ client, onClose, onCreated, fireToast }) {
             <PlanSemaines plan={plan} onOuvrir={(idx) => setEditionIdx(idx)} />
           </div>
           <button onClick={creer} disabled={saving} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Création..." : "Créer le plan du mois"}
+            {saving ? "Enregistrement..." : modeModele ? "Enregistrer le plan type" : "Créer le plan du mois"}
           </button>
         </div>
       </Card>
@@ -9460,131 +9480,236 @@ function TachesView({ coachId, fireToast }) {
   );
 }
 
-/* ---------- Coach : bibliothèque de séances de course (Programmes > Course) ---------- */
+/* ---------- Coach : bibliothèque course (Programmes > Course) : séances + plans du mois types ---------- */
 function ProgrammesCourseView({ coachId, clients, fireToast }) {
+  const [onglet, setOnglet] = useState("plans"); // "plans" | "seances"
   const [modeles, setModeles] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sqlManquant, setSqlManquant] = useState(false);
-  const [edition, setEdition] = useState(null); // {} = nouvelle séance, sinon le modèle
-  const [assigner, setAssigner] = useState(null); // modèle à envoyer
-  const [planPour, setPlanPour] = useState(null); // "choix" | client
+  const [edition, setEdition] = useState(null); // séance : {} = nouvelle
+  const [editionPlan, setEditionPlan] = useState(null); // plan type : {} = nouveau
+  const [assigner, setAssigner] = useState(null); // { type: "seance" | "plan" | "direct", item }
+  const [planPourClient, setPlanPourClient] = useState(null); // { client, modele }
   const [envoi, setEnvoi] = useState(false);
+  const [filtreNiveau, setFiltreNiveau] = useState("tous");
+  const [filtreObjectif, setFiltreObjectif] = useState("tous");
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("programmes_modeles").select("*").eq("coach_id", coachId).eq("type_seance", "course").order("created_at", { ascending: false });
-    if (error) { console.error(error); setSqlManquant(/type_seance|column/i.test(error.message || "")); setModeles([]); }
-    else { setSqlManquant(false); setModeles(data || []); }
+    const [sRes, pRes] = await Promise.all([
+      supabase.from("programmes_modeles").select("*").eq("coach_id", coachId).eq("type_seance", "course").order("created_at", { ascending: false }),
+      supabase.from("plans_course_modeles").select("*").eq("coach_id", coachId).order("created_at", { ascending: false }),
+    ]);
+    const manque = [sRes.error, pRes.error].some((e) => e && /type_seance|column|plans_course_modeles|relation|schema cache/i.test(e.message || ""));
+    if (sRes.error) console.error(sRes.error);
+    if (pRes.error) console.error(pRes.error);
+    setSqlManquant(manque);
+    setModeles(sRes.data || []);
+    setPlans(pRes.data || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, [coachId]);
 
-  const enregistrer = async (ligne) => {
+  const erreurSql = (error) => fireToast(/type_seance|course_|column|plans_course|relation|schema cache/i.test(error?.message || "") ? "Lance d'abord le script SQL « plans course » dans Supabase" : "Erreur enregistrement");
+
+  const enregistrerSeance = async (ligne) => {
     const row = { nom: ligne.nom, muscle: "Course à pied", jour_fixe: ligne.jour_fixe || null, type_seance: "course", course_blocs: ligne.course_blocs, course_consigne: ligne.course_consigne || null, exercices: [] };
     const { error } = edition?.id
       ? await supabase.from("programmes_modeles").update(row).eq("id", edition.id)
       : await supabase.from("programmes_modeles").insert({ ...row, coach_id: coachId });
-    if (error) {
-      console.error(error);
-      fireToast(/type_seance|course_|column/i.test(error.message || "") ? "Lance d'abord le script SQL « modèles course » dans Supabase" : "Erreur enregistrement");
-      return;
-    }
+    if (error) { console.error(error); erreurSql(error); return; }
     fireToast(edition?.id ? "Séance modifiée" : "Séance de course enregistrée", "green");
     load();
   };
 
-  const supprimer = async (m) => {
-    if (!confirm(`Supprimer la séance « ${m.nom} » de ta bibliothèque ?`)) return;
-    const { error } = await supabase.from("programmes_modeles").delete().eq("id", m.id);
-    if (error) { fireToast("Erreur suppression"); return; }
-    setModeles((prev) => prev.filter((x) => x.id !== m.id));
+  const enregistrerPlan = async (row) => {
+    const { error } = editionPlan?.id
+      ? await supabase.from("plans_course_modeles").update({ ...row, updated_at: new Date().toISOString() }).eq("id", editionPlan.id)
+      : await supabase.from("plans_course_modeles").insert({ ...row, coach_id: coachId });
+    if (error) { console.error(error); erreurSql(error); return false; }
+    fireToast(editionPlan?.id ? "Plan type modifié" : "Plan type enregistré", "green");
+    load();
+    return true;
   };
 
-  const envoyerA = async (client) => {
-    setEnvoi(true);
-    const { error } = await supabase.from("programmes").insert({
-      profil_id: client.id, nom: assigner.nom, muscle: "Course à pied", jour_fixe: assigner.jour_fixe || null,
-      type_seance: "course", course_blocs: assigner.course_blocs || [], course_consigne: assigner.course_consigne || null,
-    });
-    setEnvoi(false);
-    if (error) { console.error(error); fireToast("Erreur envoi au client"); return; }
-    fireToast(`« ${assigner.nom} » envoyée à ${client.prenom}`, "green");
+  const supprimer = async (table, item) => {
+    if (!confirm(`Supprimer « ${item.nom} » de ta bibliothèque ?`)) return;
+    const { error } = await supabase.from(table).delete().eq("id", item.id);
+    if (error) { fireToast("Erreur suppression"); return; }
+    load();
+  };
+
+  const choisirClient = async (client) => {
+    if (assigner.type === "seance") {
+      const m = assigner.item;
+      setEnvoi(true);
+      const { error } = await supabase.from("programmes").insert({
+        profil_id: client.id, nom: m.nom, muscle: "Course à pied", jour_fixe: m.jour_fixe || null,
+        type_seance: "course", course_blocs: m.course_blocs || [], course_consigne: m.course_consigne || null,
+      });
+      setEnvoi(false);
+      if (error) { console.error(error); fireToast("Erreur envoi au client"); return; }
+      fireToast(`« ${m.nom} » envoyée à ${client.prenom}`, "green");
+      setAssigner(null);
+      return;
+    }
+    setPlanPourClient({ client, modele: assigner.type === "plan" ? assigner.item : null });
     setAssigner(null);
   };
 
-  const listeClients = (onChoisir, titre, retour) => (
-    <div>
-      <button onClick={retour} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
-      </button>
-      <SectionHead icon={User} title={titre} color="#3AD6A0" />
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-        {clients.length === 0 && <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun client pour le moment</div></Card>}
-        {clients.map((c) => (
-          <Card key={c.id} onClick={() => !envoi && onChoisir(c)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: envoi ? 0.6 : 1 }}>
-            <span style={{ fontSize: 14.5, color: C.text, fontWeight: 700 }}>{c.prenom} {c.nom}</span>
-            <ChevronRight size={16} color={C.textDim} />
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-
-  if (assigner) return listeClients(envoyerA, <>Envoyer « {assigner.nom} » à…</>, () => setAssigner(null));
-  if (planPour === "choix") return listeClients((c) => setPlanPour(c), <>Plan du mois pour…</>, () => setPlanPour(null));
-
-  return (
-    <>
-      {planPour && planPour !== "choix" && (
-        <PlanCourseGenerateur client={planPour} fireToast={fireToast} onClose={() => setPlanPour(null)} onCreated={() => { setPlanPour(null); fireToast("Plan du mois envoyé", "green"); }} />
-      )}
-      {edition && (
-        <CourseSeanceForm modeLocal editingProgramme={edition.id ? edition : null} onClose={() => setEdition(null)} onLocalSave={enregistrer} fireToast={fireToast} />
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-        <button onClick={() => setEdition({})} style={{ background: "linear-gradient(135deg,#3AD6A0,#1FA97C)", border: "none", color: "#06171F", borderRadius: 18, padding: "14px 10px", fontWeight: 900, fontSize: 14.5, boxShadow: "0 6px 20px rgba(58,214,160,0.35)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-          <Plus size={17} /> Nouvelle séance
+  if (assigner) {
+    const titre = assigner.type === "seance" ? <>Envoyer « {assigner.item.nom} » à…</> : assigner.type === "plan" ? <>Assigner « {assigner.item.nom} » à…</> : <>Plan sur mesure pour…</>;
+    return (
+      <div>
+        <button onClick={() => setAssigner(null)} style={{ background: "transparent", border: "none", color: C.textOnBgMuted, fontSize: 13.5, display: "flex", alignItems: "center", gap: 4, marginBottom: 14 }}>
+          <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Retour
         </button>
-        <button onClick={() => setPlanPour("choix")} style={{ background: "rgba(58,214,160,0.1)", border: "1.5px solid rgba(58,214,160,0.7)", color: "#3AD6A0", borderRadius: 18, padding: "14px 10px", fontWeight: 900, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-          <Calendar size={17} /> Plan du mois
-        </button>
-      </div>
-      <div style={{ fontSize: 13, color: C.textOnBgMuted, marginBottom: 12 }}>
-        Tes séances de course réutilisables : crée-les une fois, puis envoie-les à n'importe quel client.
-      </div>
-      {sqlManquant ? (
-        <Card style={{ border: "1.5px solid rgba(245,184,51,0.6)" }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.amber, marginBottom: 4 }}>Script SQL à lancer</div>
-          <div style={{ fontSize: 13.5, color: C.textMuted }}>Lance <b>20261112_modeles_course.sql</b> dans Supabase (SQL Editor) pour activer la bibliothèque de séances de course.</div>
-        </Card>
-      ) : loading ? (
-        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
-      ) : modeles.length === 0 ? (
-        <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucune séance de course pour le moment 🏃</div></Card>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {modeles.map((m) => (
-            <Card key={m.id} style={{ padding: 14, border: "1px solid rgba(58,214,160,0.35)" }}>
-              <div onClick={() => setEdition(m)} style={{ cursor: "pointer" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <IconBadge icon={Footprints} color="#3AD6A0" size={40} iconSize={19} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nom}</div>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 3 }}><PastillesCourse blocs={m.course_blocs || []} /></div>
-                  </div>
-                  <ChevronRight size={16} color={C.textDim} />
-                </div>
-                <SchemaBlocsCourse blocs={m.course_blocs || []} hauteur={26} />
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button onClick={() => setAssigner(m)} style={{ flex: 1, background: "rgba(58,214,160,0.12)", border: "1px solid rgba(58,214,160,0.6)", color: "#3AD6A0", borderRadius: 12, padding: "10px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <Send size={14} /> Envoyer à un client
-                </button>
-                <button onClick={() => supprimer(m)} style={{ width: 42, background: "rgba(255,93,108,0.08)", border: "1px solid rgba(255,93,108,0.45)", color: C.red, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }} aria-label="Supprimer"><Trash2 size={15} /></button>
-              </div>
+        <SectionHead icon={User} title={titre} color="#3AD6A0" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          {clients.length === 0 && <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucun client pour le moment</div></Card>}
+          {clients.map((c) => (
+            <Card key={c.id} onClick={() => !envoi && choisirClient(c)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: envoi ? 0.6 : 1 }}>
+              <span style={{ fontSize: 14.5, color: C.text, fontWeight: 700 }}>{c.prenom} {c.nom}</span>
+              <ChevronRight size={16} color={C.textDim} />
             </Card>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  const VERT = "#3AD6A0";
+  const chip = (actif, col = VERT) => ({ flexShrink: 0, padding: "6px 11px", borderRadius: 999, fontSize: 12.5, fontWeight: 800, border: `1px solid ${actif ? col : "rgba(255,255,255,0.14)"}`, background: actif ? `${col}26` : "rgba(255,255,255,0.04)", color: actif ? col : C.textMuted });
+  const pastille = (txt, col = "#B9C4E0", fond = "rgba(255,255,255,0.07)") => <span style={{ fontSize: 11.5, fontWeight: 800, color: col, background: fond, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap" }}>{txt}</span>;
+  const couleurNiveau = { debutant: "#3AD6A0", intermediaire: "#F5B833", confirme: "#FF5D6C" };
+  const plansFiltres = plans.filter((p) => (filtreNiveau === "tous" || p.niveau === filtreNiveau) && (filtreObjectif === "tous" || p.objectif === filtreObjectif));
+  const btnPrincipal = { background: "linear-gradient(135deg,#3AD6A0,#1FA97C)", border: "none", color: "#06171F", borderRadius: 18, padding: "14px 10px", fontWeight: 900, fontSize: 14.5, boxShadow: "0 6px 20px rgba(58,214,160,0.35)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 };
+  const btnSecond = { background: "rgba(58,214,160,0.1)", border: "1.5px solid rgba(58,214,160,0.7)", color: VERT, borderRadius: 18, padding: "14px 10px", fontWeight: 900, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 };
+  const actions = (onEnvoyer, libelle, onSuppr) => (
+    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <button onClick={onEnvoyer} style={{ flex: 1, background: "rgba(58,214,160,0.12)", border: "1px solid rgba(58,214,160,0.6)", color: VERT, borderRadius: 12, padding: "10px", fontWeight: 800, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+        <Send size={14} /> {libelle}
+      </button>
+      <button onClick={onSuppr} style={{ width: 42, background: "rgba(255,93,108,0.08)", border: "1px solid rgba(255,93,108,0.45)", color: C.red, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }} aria-label="Supprimer"><Trash2 size={15} /></button>
+    </div>
+  );
+
+  return (
+    <>
+      {planPourClient && (
+        <PlanCourseGenerateur client={planPourClient.client} modele={planPourClient.modele} fireToast={fireToast} onClose={() => setPlanPourClient(null)} onCreated={() => fireToast(`Plan envoyé à ${planPourClient.client.prenom}`, "green")} />
+      )}
+      {editionPlan && (
+        <PlanCourseGenerateur modeModele modele={editionPlan.id ? editionPlan : null} fireToast={fireToast} onClose={() => setEditionPlan(null)} onSaveModele={enregistrerPlan} />
+      )}
+      {edition && (
+        <CourseSeanceForm modeLocal editingProgramme={edition.id ? edition : null} onClose={() => setEdition(null)} onLocalSave={enregistrerSeance} fireToast={fireToast} />
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <PillButton active={onglet === "plans"} onClick={() => setOnglet("plans")} onBg style={{ flex: 1, justifyContent: "center" }}>📅 Plans du mois</PillButton>
+        <PillButton active={onglet === "seances"} onClick={() => setOnglet("seances")} onBg style={{ flex: 1, justifyContent: "center" }}>🏃 Séances</PillButton>
+      </div>
+
+      {sqlManquant && (
+        <Card style={{ border: "1.5px solid rgba(245,184,51,0.6)", marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.amber, marginBottom: 4 }}>Script SQL à lancer</div>
+          <div style={{ fontSize: 13.5, color: C.textMuted }}>Lance <b>20261113_plans_course_types.sql</b> dans Supabase (SQL Editor) pour activer ta bibliothèque course.</div>
+        </Card>
+      )}
+
+      {onglet === "plans" ? (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <button onClick={() => setEditionPlan({})} style={btnPrincipal}><Plus size={17} /> Nouveau plan</button>
+            <button onClick={() => setAssigner({ type: "direct" })} style={btnSecond}><User size={16} /> Sur mesure</button>
+          </div>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 4 }}>
+            {[["tous", "Tous niveaux"], ...Object.entries(COURSE_NIVEAUX)].map(([k, l]) => (
+              <button key={k} onClick={() => setFiltreNiveau(k)} style={chip(filtreNiveau === k, couleurNiveau[k] || VERT)}>{l}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 6 }}>
+            {[["tous", "Tous objectifs"], ...Object.entries(COURSE_OBJECTIFS).map(([k, v]) => [k, v.label])].map(([k, l]) => (
+              <button key={k} onClick={() => setFiltreObjectif(k)} style={chip(filtreObjectif === k, "#8CBEFF")}>{l}</button>
+            ))}
+          </div>
+          {loading ? (
+            <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+          ) : plansFiltres.length === 0 ? (
+            <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>{plans.length ? "Aucun plan pour ces filtres" : "Aucun plan type pour le moment 📅\nCrée ton premier plan débutant, intermédiaire…"}</div></Card>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {plansFiltres.map((p) => {
+                const seances = Array.isArray(p.seances) ? p.seances : [];
+                const minSemaines = [1, 2, 3, 4].map((w) => seances.filter((s) => s.semaine === w).reduce((t, s) => t + estimerCourse(s.blocs).minutes, 0));
+                const maxMin = Math.max(1, ...minSemaines);
+                const colN = couleurNiveau[p.niveau] || VERT;
+                return (
+                  <Card key={p.id} style={{ padding: 14, border: `1px solid ${colN}55` }}>
+                    <div onClick={() => setEditionPlan(p)} style={{ cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <IconBadge icon={Calendar} color={colN} size={40} iconSize={19} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nom}</div>
+                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
+                            {pastille(COURSE_NIVEAUX[p.niveau] || p.niveau, colN, `${colN}22`)}
+                            {pastille(COURSE_OBJECTIFS[p.objectif]?.label || p.objectif, "#8CBEFF", "rgba(140,190,255,0.14)")}
+                            {pastille(`${p.seances_par_semaine || "?"}×/sem`)}
+                            {pastille(`Mois ${p.mois || 1}`)}
+                          </div>
+                        </div>
+                        <ChevronRight size={16} color={C.textDim} />
+                      </div>
+                      {/* volume des 4 semaines */}
+                      <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 34, marginTop: 12 }}>
+                        {minSemaines.map((m, i) => (
+                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, height: "100%", justifyContent: "flex-end" }}>
+                            <span style={{ width: "100%", height: `${Math.max(12, (m / maxMin) * 100)}%`, borderRadius: "5px 5px 2px 2px", background: i === 3 ? "#F5B833" : colN, opacity: i === 3 ? 0.8 : 0.55 + i * 0.15, boxShadow: `0 0 6px ${colN}44` }} />
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 3 }}>
+                        {minSemaines.map((m, i) => <span key={i} style={{ flex: 1, textAlign: "center", fontSize: 10.5, color: C.textDim, fontWeight: 700 }}>S{i + 1} · {m}′</span>)}
+                      </div>
+                    </div>
+                    {actions(() => setAssigner({ type: "plan", item: p }), "Assigner à un client", () => supprimer("plans_course_modeles", p))}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <button onClick={() => setEdition({})} style={{ ...btnPrincipal, width: "100%", marginBottom: 12 }}><Plus size={17} /> Nouvelle séance</button>
+          <div style={{ fontSize: 13, color: C.textOnBgMuted, marginBottom: 12 }}>Tes séances de course réutilisables : crée-les une fois, puis envoie-les à n'importe quel client.</div>
+          {loading ? (
+            <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 30 }}>Chargement...</div>
+          ) : modeles.length === 0 ? (
+            <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>Aucune séance de course pour le moment 🏃</div></Card>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {modeles.map((m) => (
+                <Card key={m.id} style={{ padding: 14, border: "1px solid rgba(58,214,160,0.35)" }}>
+                  <div onClick={() => setEdition(m)} style={{ cursor: "pointer" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <IconBadge icon={Footprints} color={VERT} size={40} iconSize={19} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nom}</div>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 3 }}><PastillesCourse blocs={m.course_blocs || []} /></div>
+                      </div>
+                      <ChevronRight size={16} color={C.textDim} />
+                    </div>
+                    <SchemaBlocsCourse blocs={m.course_blocs || []} hauteur={26} />
+                  </div>
+                  {actions(() => setAssigner({ type: "seance", item: m }), "Envoyer à un client", () => supprimer("programmes_modeles", m))}
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </>
   );
