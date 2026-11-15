@@ -7581,6 +7581,20 @@ function ListeBlocsCourse({ blocs }) {
 
 /* ---------- Coach : créer / modifier une séance de course ---------- */
 // modeLocal : modifie une séance de l'aperçu du plan (pas encore en base) et la renvoie via onLocalSave.
+// Suppression vérifiée : Supabase ne renvoie pas d'erreur quand les droits (RLS) bloquent une suppression,
+// il renvoie juste 0 ligne. On vérifie donc ce qui a vraiment été supprimé.
+async function supprimerLignes(table, ids) {
+  const liste = Array.isArray(ids) ? ids : [ids];
+  const { data, error } = await supabase.from(table).delete().in("id", liste).select("id");
+  if (error) {
+    console.error("Suppression", table, error);
+    if (error.code === "23503" || /foreign key/i.test(error.message || "")) return { ok: false, message: "Séance liée à l'historique du client : lance le script SQL « suppression séances » dans Supabase" };
+    return { ok: false, message: `Erreur suppression : ${error.message || error.code || "inconnue"}` };
+  }
+  if (!data || data.length === 0) return { ok: false, message: "La base a refusé la suppression (droits) : lance le script SQL « suppression séances » dans Supabase" };
+  return { ok: true, n: data.length };
+}
+
 function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fireToast, entete = null, modeLocal = false, onLocalSave = null }) {
   const p = editingProgramme || {};
   // Nouvelle séance : vide, c'est au coach de composer (le plan du mois, lui, arrive pré-rempli)
@@ -7658,9 +7672,9 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
   const supprimerSeance = async () => {
     if (!confirm(`Supprimer définitivement la séance « ${p.nom || nom} » ? Le client ne la verra plus dans son programme.`)) return;
     setSaving(true);
-    const { error } = await supabase.from("programmes").delete().eq("id", p.id);
+    const res = await supprimerLignes("programmes", p.id);
     setSaving(false);
-    if (error) { console.error(error); fireToast("Erreur lors de la suppression"); return; }
+    if (!res.ok) { fireToast(res.message); return; }
     fireToast("Séance supprimée", "green");
     onCreated && onCreated();
     onClose();
@@ -8076,9 +8090,9 @@ function PlanCourseCoachView({ client, programmesPlan, seances, onBack, onRechar
     if (!confirm(`Supprimer tout le plan course du mois de ${client.prenom || "ce client"} (${programmesPlan.length} séances) ? Les résultats déjà saisis par le client restent dans son historique.`)) return;
     setSuppression(true);
     const ids = programmesPlan.map((p) => p.id);
-    const { error } = await supabase.from("programmes").delete().in("id", ids);
+    const res = await supprimerLignes("programmes", ids);
     setSuppression(false);
-    if (error) { console.error(error); fireToast("Erreur lors de la suppression du plan"); return; }
+    if (!res.ok) { fireToast(res.message); return; }
     fireToast("Plan course supprimé", "green");
     onSupprime && onSupprime(ids);
   };
@@ -8649,9 +8663,9 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
     if (!editingProgramme?.id) return;
     if (!confirm(`Supprimer définitivement la séance « ${editingProgramme.nom || nom} » ?${estModele ? "" : " Le client ne la verra plus dans son programme."}`)) return;
     setSaving(true);
-    const { error } = await supabase.from(estModele ? "programmes_modeles" : "programmes").delete().eq("id", editingProgramme.id);
+    const res = await supprimerLignes(estModele ? "programmes_modeles" : "programmes", editingProgramme.id);
     setSaving(false);
-    if (error) { console.error(error); fireToast("Erreur lors de la suppression"); return; }
+    if (!res.ok) { fireToast(res.message); return; }
     fireToast("Séance supprimée", "green");
     onCreated && onCreated();
     onClose();
@@ -12905,7 +12919,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={(e) => { e.stopPropagation(); setEditingProgramme(p); setShowSeanceForm(true); }} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, color: C.blue, borderRadius: 8, padding: "6px 10px", fontSize: 11 }}>Modifier</button>
-                      <button onClick={async (e) => { e.stopPropagation(); if (!confirm("Supprimer cette séance ?")) return; await supabase.from("programmes").delete().eq("id", p.id); setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
+                      <button onClick={async (e) => { e.stopPropagation(); if (!confirm("Supprimer cette séance ?")) return; const res = await supprimerLignes("programmes", p.id); if (!res.ok) { fireToast(res.message); return; } setCustomProgrammes((prev) => prev.filter((x) => x.id !== p.id)); }} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={14} /></button>
                     </div>
                   </div>
                   <div style={{ fontSize: 13.5, color: C.textMuted, marginBottom: 6 }}>{p.muscle}</div>
