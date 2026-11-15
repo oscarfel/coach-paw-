@@ -7655,6 +7655,16 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
     }
   };
 
+  const supprimerSeance = async () => {
+    if (!confirm(`Supprimer définitivement la séance « ${p.nom || nom} » ? Le client ne la verra plus dans son programme.`)) return;
+    setSaving(true);
+    const { error } = await supabase.from("programmes").delete().eq("id", p.id);
+    setSaving(false);
+    if (error) { console.error(error); fireToast("Erreur lors de la suppression"); return; }
+    fireToast("Séance supprimée", "green");
+    onCreated && onCreated();
+    onClose();
+  };
   const etiquette = { fontSize: 11.5, color: C.textMuted, fontWeight: 700, marginBottom: 4 };
   const champ = { ...inputStyle, padding: "10px 12px", fontSize: 15 };
   const segment = (options, valeur, onChange, col) => (
@@ -7797,9 +7807,14 @@ function CourseSeanceForm({ clientId, editingProgramme, onClose, onCreated, fire
             <textarea style={{ ...champ, minHeight: 60, resize: "vertical" }} value={consigne} onChange={(e) => setConsigne(e.target.value)} placeholder="ex : hydrate-toi bien, terrain plat" />
           </Field>
 
-          <button onClick={enregistrer} disabled={saving} style={{ background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Enregistrement..." : modeLocal ? (p.nom ? "Valider la modification" : "Enregistrer la séance") : p.id ? "Enregistrer les modifications" : "Créer la séance"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {p.id && !modeLocal && (
+              <button onClick={supprimerSeance} disabled={saving} aria-label="Supprimer la séance" style={{ width: 52, flexShrink: 0, background: "rgba(255,93,108,0.08)", border: "1.5px solid rgba(255,93,108,0.55)", color: C.red, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}><Trash2 size={18} /></button>
+            )}
+            <button onClick={enregistrer} disabled={saving} style={{ flex: 1, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
+              {saving ? "Enregistrement..." : modeLocal ? (p.nom ? "Valider la modification" : "Enregistrer la séance") : p.id ? "Enregistrer les modifications" : "Créer la séance"}
+            </button>
+          </div>
         </div>
       </Card>
     </div>
@@ -8630,6 +8645,17 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
   const finDrag = () => setDrag(null);
 
   const listeOrdonnee = () => exercices.map((ex, i) => ({ ...ex, ordre: i }));
+  const supprimerSeance = async () => {
+    if (!editingProgramme?.id) return;
+    if (!confirm(`Supprimer définitivement la séance « ${editingProgramme.nom || nom} » ?${estModele ? "" : " Le client ne la verra plus dans son programme."}`)) return;
+    setSaving(true);
+    const { error } = await supabase.from(estModele ? "programmes_modeles" : "programmes").delete().eq("id", editingProgramme.id);
+    setSaving(false);
+    if (error) { console.error(error); fireToast("Erreur lors de la suppression"); return; }
+    fireToast("Séance supprimée", "green");
+    onCreated && onCreated();
+    onClose();
+  };
   const submit = async () => {
     const exercices = listeOrdonnee();
     if (!nom.trim() || exercices.length === 0) {
@@ -9011,6 +9037,9 @@ function SeanceFormMuscu({ clientId, coachId, editingProgramme, estModele, model
           </button>
 
           <div style={{ display: "flex", gap: 8 }}>
+            {editingProgramme?.id && (
+              <button onClick={supprimerSeance} disabled={saving} aria-label="Supprimer la séance" style={{ width: 52, flexShrink: 0, background: "rgba(255,93,108,0.08)", border: "1.5px solid rgba(255,93,108,0.55)", color: C.red, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}><Trash2 size={18} /></button>
+            )}
             <button onClick={onClose} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: C.text, borderRadius: 14, padding: "14px", fontWeight: 700, fontSize: 15 }}>Annuler</button>
             <button onClick={submit} disabled={saving} style={{ flex: 1.6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "14px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
               {saving ? "Enregistrement..." : editingProgramme?.id ? "Enregistrer" : estModele ? "Créer le modèle" : "Créer la séance"}
@@ -12546,7 +12575,7 @@ function ClientDetailView({ client, onBack, onLogout, fireToast, onDeleted }) {
                 const liste = (data || []).map((p) => ({ ...p, programme_exercices: [...(p.programme_exercices || [])].sort((a, b) => (a.ordre || 0) - (b.ordre || 0)) }));
                 setCustomProgrammes(liste);
                 const maj = liste.find((p) => p.id === selectedProgramme.id);
-                if (maj) setSelectedProgramme(maj);
+                if (maj) setSelectedProgramme(maj); else setSelectedProgramme(null); // séance supprimée
               });
             }}
             fireToast={fireToast}
