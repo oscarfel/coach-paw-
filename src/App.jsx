@@ -8366,6 +8366,127 @@ function CourseProgrammeCoach({ programme, seances, onBack, onEdit }) {
 
 // « Nouvelle séance » : d'abord le type (Musculation, Course à pied… d'autres viendront),
 // puis l'éditeur correspondant. Une séance existante s'ouvre directement dans le bon éditeur.
+// Réorganiser la semaine d'un client : déplacer ses séances d'un jour à l'autre (sans les recréer)
+function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
+  const [seances, setSeances] = useState(null);
+  const [initial, setInitial] = useState({});
+  const [deplacer, setDeplacer] = useState(null); // séance en cours de déplacement
+  const [anime, setAnime] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase.from("programmes").select("*, programme_exercices(id, sets)").eq("profil_id", clientId).then(({ data, error }) => {
+      if (error) { console.error(error); fireToast("Erreur chargement des séances"); setSeances([]); return; }
+      const liste = (data || []).filter((p) => programmeVisibleCetteSemaine(p.plan_semaine, p.plan_debut));
+      setSeances(liste.map((p) => ({ ...p, jour_fixe: p.jour_fixe || "" })));
+      setInitial(Object.fromEntries(liste.map((p) => [p.id, p.jour_fixe || ""])));
+    });
+  }, [clientId]);
+
+  const changes = (seances || []).filter((s) => (initial[s.id] ?? "") !== s.jour_fixe);
+  const choisirJour = (jour) => {
+    const id = deplacer.id;
+    setSeances((prev) => prev.map((s) => (s.id === id ? { ...s, jour_fixe: jour } : s)));
+    setDeplacer(null);
+    setAnime(id);
+    if (navigator.vibrate) navigator.vibrate(8);
+    setTimeout(() => setAnime((a) => (a === id ? null : a)), 700);
+  };
+
+  const enregistrer = async () => {
+    if (changes.length === 0) { onClose(); return; }
+    setSaving(true);
+    let erreurs = 0;
+    for (const s of changes) {
+      const { data, error } = await supabase.from("programmes").update({ jour_fixe: s.jour_fixe || null, updated_at: new Date().toISOString() }).eq("id", s.id).select("id");
+      if (error || !data || data.length === 0) { erreurs++; console.error(error); }
+    }
+    setSaving(false);
+    if (erreurs) { fireToast(`${erreurs} séance(s) n'ont pas pu être déplacées`); return; }
+    fireToast(`Semaine réorganisée (${changes.length} séance${changes.length > 1 ? "s" : ""} déplacée${changes.length > 1 ? "s" : ""})`, "green");
+    onCreated && onCreated();
+    onClose();
+  };
+
+  const jours = [...JOURS_SEMAINE, ""];
+  const carteSeance = (s) => {
+    const course = estSeanceCourse(s);
+    const col = course ? "#3AD6A0" : "#8CBEFF";
+    const bouge = (initial[s.id] ?? "") !== s.jour_fixe;
+    const nbEx = (s.programme_exercices || []).length;
+    return (
+      <button key={s.id} type="button" onClick={() => setDeplacer(s)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "9px 10px", borderRadius: 14, cursor: "pointer",
+        background: bouge ? `${col}1A` : "rgba(255,255,255,0.04)", border: `1.5px solid ${bouge ? col : col + "44"}`,
+        boxShadow: anime === s.id ? `0 0 18px ${col}88` : "none", animation: anime === s.id ? "supersetIn .6s ease" : "none", transition: "all .2s" }}>
+        <span style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `${col}22`, border: `1px solid ${col}66` }}>
+          {course ? <Footprints size={16} color={col} /> : <Dumbbell size={16} color={col} />}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.nom}</div>
+          <div style={{ fontSize: 12, color: C.textMuted }}>
+            {course ? "Course à pied" : `${nbEx} exercice${nbEx > 1 ? "s" : ""}`}
+            {bouge && <span style={{ color: col, fontWeight: 800 }}> · déplacée (avant : {initial[s.id] ? initial[s.id].charAt(0).toUpperCase() + initial[s.id].slice(1) : "sans jour"})</span>}
+          </div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 800, color: col, display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>Déplacer <ChevronRight size={14} /></span>
+      </button>
+    );
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1 }}><SectionHead icon={Calendar} title="Organiser la semaine" /></div>
+          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted }}><X size={16} /></button>
+        </div>
+        <div style={{ fontSize: 13, color: C.textMuted, margin: "-4px 0 12px" }}>Touche une séance pour la changer de jour.</div>
+        {seances === null ? (
+          <div style={{ color: C.textMuted, textAlign: "center", padding: 24 }}>Chargement...</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {jours.map((j) => {
+              const duJour = seances.filter((s) => s.jour_fixe === j);
+              if (j === "" && duJour.length === 0) return null;
+              return (
+                <div key={j || "aucun"} style={{ display: "grid", gridTemplateColumns: "44px 1fr", gap: 8, alignItems: "start" }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 900, color: duJour.length ? "#F5B833" : C.textDim, paddingTop: duJour.length ? 15 : 9 }}>{j ? JOURS_SEMAINE_LABEL[j] : "Libre"}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {duJour.length ? duJour.map(carteSeance) : (
+                      <div style={{ fontSize: 12.5, color: C.textDim, padding: "8px 10px", borderRadius: 12, border: "1px dashed rgba(255,255,255,0.1)" }}>😴 Repos</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button onClick={onClose} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: C.text, borderRadius: 14, padding: "13px", fontWeight: 700, fontSize: 15 }}>Annuler</button>
+          <button onClick={enregistrer} disabled={saving} style={{ flex: 1.6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
+            {saving ? "Enregistrement..." : changes.length ? `Enregistrer (${changes.length})` : "Fermer"}
+          </button>
+        </div>
+      </Card>
+      {deplacer && (
+        <FeuilleBas titre={`Déplacer « ${deplacer.nom} »`} couleur="#F5B833" onClose={() => setDeplacer(null)}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {jours.map((j) => {
+              const nb = seances.filter((s) => s.jour_fixe === j && s.id !== deplacer.id).length;
+              return (
+                <TuileChoix key={j || "aucun"} actif={deplacer.jour_fixe === j} couleur="#F5B833" onClick={() => choisirJour(j)}>
+                  <span style={{ fontSize: 15, fontWeight: 900, color: deplacer.jour_fixe === j ? "#F5B833" : C.text }}>{j ? JOURS_SEMAINE_LABEL[j] : "Libre"}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: C.textDim }}>{nb ? `${nb} séance${nb > 1 ? "s" : ""}` : j ? "repos" : "sans jour"}</span>
+                </TuileChoix>
+              );
+            })}
+          </div>
+        </FeuilleBas>
+      )}
+    </div>
+  );
+}
+
 const TYPES_SEANCE = [
   { key: "muscu", label: "Musculation", desc: "Exercices, séries, charges et repos", icon: Dumbbell, color: "#8CBEFF" },
   { key: "course", label: "Course à pied", desc: "Séance en blocs : footing, fractionné, seuil, zones", icon: Footprints, color: "#3AD6A0" },
@@ -8382,6 +8503,7 @@ function SeanceForm(props) {
     </button>
   );
   if (type === "course") return <CourseSeanceForm {...props} entete={retour} />;
+  if (type === "organiser") return <OrganiserSemaine clientId={props.clientId} onClose={onClose} onCreated={props.onCreated} fireToast={props.fireToast} />;
   if (type === "muscu") return <SeanceFormMuscu {...props} entete={retour} />;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
@@ -8405,6 +8527,11 @@ function SeanceForm(props) {
               </button>
             );
           })}
+          {props.clientId && (
+            <button type="button" onClick={() => setType("organiser")} style={{ alignSelf: "center", marginTop: 2, background: "transparent", border: "none", color: "#F5B833", fontSize: 13.5, fontWeight: 800, padding: "6px 10px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Calendar size={15} /> Modifier le plan de la semaine
+            </button>
+          )}
         </div>
       </Card>
     </div>
