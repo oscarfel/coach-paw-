@@ -8384,13 +8384,48 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
   }, [clientId]);
 
   const changes = (seances || []).filter((s) => (initial[s.id] ?? "") !== s.jour_fixe);
-  const choisirJour = (jour) => {
-    const id = deplacer.id;
+  const deplacerVers = (id, jour) => {
     setSeances((prev) => prev.map((s) => (s.id === id ? { ...s, jour_fixe: jour } : s)));
-    setDeplacer(null);
     setAnime(id);
     if (navigator.vibrate) navigator.vibrate(8);
     setTimeout(() => setAnime((a) => (a === id ? null : a)), 700);
+  };
+  const choisirJour = (jour) => { const id = deplacer.id; setDeplacer(null); deplacerVers(id, jour); };
+
+  // Glisser une séance vers un autre jour (doigt ou souris), par la poignée
+  const jourRefs = useRef({});
+  const boiteRef = useRef(null);
+  const [drag, setDrag] = useState(null); // { id, x0, y0, dx, dy, cible, depart }
+  const cibleSous = (y) => {
+    for (const [k, el] of Object.entries(jourRefs.current)) {
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (y >= r.top - 3 && y <= r.bottom + 3) return k === "aucun" ? "" : k;
+    }
+    return null;
+  };
+  const debutDrag = (e, s) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
+    if (navigator.vibrate) navigator.vibrate(10);
+    setDrag({ id: s.id, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0, cible: s.jour_fixe, depart: s.jour_fixe });
+  };
+  const bougerDrag = (e) => {
+    if (!drag) return;
+    const boite = boiteRef.current;
+    if (boite) { // défilement automatique près des bords
+      const r = boite.getBoundingClientRect();
+      if (e.clientY < r.top + 50) boite.scrollTop -= 10;
+      else if (e.clientY > r.bottom - 50) boite.scrollTop += 10;
+    }
+    const cible = cibleSous(e.clientY);
+    if (cible !== null && cible !== drag.cible && navigator.vibrate) navigator.vibrate(4);
+    setDrag({ ...drag, dx: e.clientX - drag.x0, dy: e.clientY - drag.y0, cible: cible ?? drag.cible });
+  };
+  const finDrag = () => {
+    if (drag && drag.cible !== null && drag.cible !== drag.depart) deplacerVers(drag.id, drag.cible);
+    setDrag(null);
   };
 
   const enregistrer = async () => {
@@ -8415,9 +8450,16 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
     const bouge = (initial[s.id] ?? "") !== s.jour_fixe;
     const nbEx = (s.programme_exercices || []).length;
     return (
-      <button key={s.id} type="button" onClick={() => setDeplacer(s)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "9px 10px", borderRadius: 14, cursor: "pointer",
-        background: bouge ? `${col}1A` : "rgba(255,255,255,0.04)", border: `1.5px solid ${bouge ? col : col + "44"}`,
-        boxShadow: anime === s.id ? `0 0 18px ${col}88` : "none", animation: anime === s.id ? "supersetIn .6s ease" : "none", transition: "all .2s" }}>
+      <div key={s.id} role="button" onClick={() => !drag && setDeplacer(s)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 10px 9px 4px", borderRadius: 14, cursor: "pointer",
+        background: drag?.id === s.id ? "#1D2650" : bouge ? `${col}1A` : "rgba(255,255,255,0.04)", border: `1.5px solid ${bouge || drag?.id === s.id ? col : col + "44"}`,
+        boxShadow: drag?.id === s.id ? `0 16px 34px rgba(0,0,0,0.6), 0 0 20px ${col}66` : anime === s.id ? `0 0 18px ${col}88` : "none",
+        animation: anime === s.id ? "supersetIn .6s ease" : "none",
+        transform: drag?.id === s.id ? `translate(${drag.dx}px, ${drag.dy}px) scale(1.04)` : "none",
+        transition: drag?.id === s.id ? "none" : "transform .18s, box-shadow .2s, background .2s", position: "relative", zIndex: drag?.id === s.id ? 20 : 1 }}>
+        <div onPointerDown={(e) => debutDrag(e, s)} onPointerMove={bougerDrag} onPointerUp={finDrag} onPointerCancel={finDrag} onClick={(e) => e.stopPropagation()}
+          style={{ padding: "8px 2px 8px 4px", cursor: drag?.id === s.id ? "grabbing" : "grab", touchAction: "none", display: "flex", flexShrink: 0 }} aria-label="Glisser vers un autre jour">
+          <GripVertical size={18} color={drag?.id === s.id ? col : C.textDim} />
+        </div>
         <span style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `${col}22`, border: `1px solid ${col}66` }}>
           {course ? <Footprints size={16} color={col} /> : <Dumbbell size={16} color={col} />}
         </span>
@@ -8428,28 +8470,31 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
             {bouge && <span style={{ color: col, fontWeight: 800 }}> · déplacée (avant : {initial[s.id] ? initial[s.id].charAt(0).toUpperCase() + initial[s.id].slice(1) : "sans jour"})</span>}
           </div>
         </div>
-        <span style={{ fontSize: 12, fontWeight: 800, color: col, display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>Déplacer <ChevronRight size={14} /></span>
-      </button>
+        <ChevronRight size={16} color={col} style={{ flexShrink: 0 }} />
+      </div>
     );
   };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={onClose}>
-      <Card style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+      <div ref={boiteRef} style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto", overflowX: "hidden", borderRadius: 22 }} onClick={(e) => e.stopPropagation()}>
+      <Card style={{ width: "100%", textAlign: "left" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1 }}><SectionHead icon={Calendar} title="Organiser la semaine" /></div>
           <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted }}><X size={16} /></button>
         </div>
-        <div style={{ fontSize: 13, color: C.textMuted, margin: "-4px 0 12px" }}>Touche une séance pour la changer de jour.</div>
+        <div style={{ fontSize: 13, color: C.textMuted, margin: "-4px 0 12px" }}>Glisse ⋮⋮ une séance vers un autre jour, ou touche-la pour choisir.</div>
         {seances === null ? (
           <div style={{ color: C.textMuted, textAlign: "center", padding: 24 }}>Chargement...</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {jours.map((j) => {
               const duJour = seances.filter((s) => s.jour_fixe === j);
-              if (j === "" && duJour.length === 0) return null;
+              if (j === "" && duJour.length === 0 && !drag) return null;
+              const survol = drag && drag.cible === j && drag.depart !== j;
               return (
-                <div key={j || "aucun"} style={{ display: "grid", gridTemplateColumns: "44px 1fr", gap: 8, alignItems: "start" }}>
+                <div key={j || "aucun"} ref={(el) => { jourRefs.current[j || "aucun"] = el; }} style={{ display: "grid", gridTemplateColumns: "44px 1fr", gap: 8, alignItems: "start", borderRadius: 14, padding: 3, margin: -3,
+                  background: survol ? "rgba(245,184,51,0.12)" : "transparent", outline: survol ? "1.5px dashed rgba(245,184,51,0.8)" : "1.5px dashed transparent", transition: "background .15s, outline-color .15s" }}>
                   <div style={{ fontSize: 12.5, fontWeight: 900, color: duJour.length ? "#F5B833" : C.textDim, paddingTop: duJour.length ? 15 : 9 }}>{j ? JOURS_SEMAINE_LABEL[j] : "Libre"}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {duJour.length ? duJour.map(carteSeance) : (
@@ -8468,6 +8513,7 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
           </button>
         </div>
       </Card>
+      </div>
       {deplacer && (
         <FeuilleBas titre={`Déplacer « ${deplacer.nom} »`} couleur="#F5B833" onClose={() => setDeplacer(null)}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
