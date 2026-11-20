@@ -5543,6 +5543,78 @@ function MacroRing({ label, val, obj, color }) {
   );
 }
 
+// Calories de la semaine (lundi → dimanche) sous les macros de la page Nutrition
+function CaloriesSemaine({ profilId, totalsAujourdhui, objectifs }) {
+  const [parJour, setParJour] = useState({}); // dateIso -> { kcal, prot, gluc, lip }
+  const [profil, setProfil] = useState(null);
+  const [choix, setChoix] = useState(null);
+  const lundi = lundiIso();
+  const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(`${lundi}T12:00:00`); d.setDate(d.getDate() + i); return d.toISOString().slice(0, 10); }), [lundi]);
+  const aujourdhui = todayIso();
+
+  useEffect(() => {
+    if (!profilId) return;
+    supabase.from("repas").select("date, kcal, prot, gluc, lip").eq("profil_id", profilId).gte("date", dates[0]).lte("date", dates[6]).limit(2000).then(({ data }) => {
+      const acc = {};
+      for (const r of data || []) {
+        const j = String(r.date).slice(0, 10);
+        const a = (acc[j] = acc[j] || { kcal: 0, prot: 0, gluc: 0, lip: 0 });
+        a.kcal += Number(r.kcal) || 0; a.prot += Number(r.prot) || 0; a.gluc += Number(r.gluc) || 0; a.lip += Number(r.lip) || 0;
+      }
+      setParJour(acc);
+    });
+    supabase.from("profils").select("*").eq("id", profilId).maybeSingle().then(({ data }) => setProfil(data || null));
+  }, [profilId, dates[0]]);
+
+  const objectifDu = (d) => (d === aujourdhui ? objectifs : profil ? objectifsNutritionClientPourDate(profil, d) : objectifs);
+  const valeurDu = (d) => (d === aujourdhui ? { kcal: totalsAujourdhui.kcal, prot: totalsAujourdhui.prot, gluc: totalsAujourdhui.gluc, lip: totalsAujourdhui.lip } : parJour[d] || { kcal: 0, prot: 0, gluc: 0, lip: 0 });
+  const LETTRES = ["L", "M", "M", "J", "V", "S", "D"];
+  const sel = choix || aujourdhui;
+  const vSel = valeurDu(sel), oSel = objectifDu(sel) || {};
+  const nomJour = (d) => new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
+
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", cursor: "default" }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 12 }}>Calories cette semaine</div>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", height: 84 }}>
+        {dates.map((d, i) => {
+          const v = valeurDu(d).kcal, obj = objectifDu(d)?.kcal || 0;
+          const ratio = obj ? v / obj : 0;
+          const futur = d > aujourdhui;
+          const estAuj = d === aujourdhui, estSel = d === sel;
+          const col = ratio > 1.1 ? C.red : estAuj ? C.amber : ratio >= 0.9 ? C.green : "#7FA0FF";
+          return (
+            <button key={d} type="button" onClick={() => setChoix(d === choix ? null : d)} disabled={futur}
+              style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, cursor: futur ? "default" : "pointer" }}>
+              <div style={{ flex: 1, width: "100%", maxWidth: 34, borderRadius: 9, background: futur ? "transparent" : "rgba(255,255,255,0.06)", position: "relative", overflow: "hidden",
+                outline: estSel && !futur ? `1.5px solid ${col}` : "none", outlineOffset: 2 }}>
+                {futur ? (
+                  <span style={{ position: "absolute", left: 4, right: 4, bottom: 0, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.12)" }} />
+                ) : (
+                  <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, ratio * 100)}%`, borderRadius: 9, background: col, opacity: estAuj || estSel ? 1 : 0.75,
+                    boxShadow: estAuj ? `0 0 12px ${col}88` : "none", transition: "height .5s ease" }} />
+                )}
+              </div>
+              <span style={{ fontSize: 12, fontWeight: estAuj || estSel ? 900 : 700, color: estAuj ? C.amber : estSel ? C.text : C.textDim }}>{LETTRES[i]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 12, borderRadius: 12, padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 800, color: C.textMuted, textTransform: "capitalize" }}>{sel === aujourdhui ? "Aujourd'hui" : nomJour(sel)}</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{Math.round(vSel.kcal)} <span style={{ color: C.textDim, fontWeight: 600 }}>/ {Math.round(oSel.kcal || 0)} kcal</span></span>
+        </div>
+        <div style={{ display: "flex", gap: 12, marginTop: 5, fontSize: 12, fontWeight: 700 }}>
+          <span style={{ color: "#7FA0FF" }}>P {Math.round(vSel.prot)}<span style={{ color: C.textDim }}>/{Math.round(oSel.prot || 0)}g</span></span>
+          <span style={{ color: "#F5C542" }}>G {Math.round(vSel.gluc)}<span style={{ color: C.textDim }}>/{Math.round(oSel.gluc || 0)}g</span></span>
+          <span style={{ color: "#F28C38" }}>L {Math.round(vSel.lip)}<span style={{ color: C.textDim }}>/{Math.round(oSel.lip || 0)}g</span></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fireToast, saveObjectifsNutrition, eauVerres, onChangeWater, isCoach = false, selfClientPlan = null, onSaveParJour, onSaveParKg, onSaveNutritionParJour, coachIdAliments = null }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showNutriDetail, setShowNutriDetail] = useState(false);
@@ -5630,6 +5702,7 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
           <MacroRing label="Glucides" val={totals.gluc} obj={Math.round(objectifs.gluc) || 0} color="#F5C542" />
           <MacroRing label="Lipides" val={totals.lip} obj={Math.round(objectifs.lip) || 0} color="#F28C38" />
         </div>
+        <CaloriesSemaine profilId={profilId} totalsAujourdhui={totals} objectifs={objectifs} />
       </Card>
 
       <div>
