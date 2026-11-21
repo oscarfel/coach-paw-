@@ -5543,15 +5543,13 @@ function MacroRing({ label, val, obj, color }) {
   );
 }
 
-// Calories de la semaine (lundi → dimanche) sous les macros de la page Nutrition
-function CaloriesSemaine({ profilId, totalsAujourdhui, objectifs }) {
-  const [parJour, setParJour] = useState({}); // dateIso -> { kcal, prot, gluc, lip }
+// Données nutrition de la semaine en cours (lundi → dimanche) : totaux par jour + objectifs du jour
+function useNutritionSemaine(profilId, totalsAujourdhui, objectifs) {
+  const [parJour, setParJour] = useState({});
   const [profil, setProfil] = useState(null);
-  const [choix, setChoix] = useState(null);
   const lundi = lundiIso();
   const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(`${lundi}T12:00:00`); d.setDate(d.getDate() + i); return d.toISOString().slice(0, 10); }), [lundi]);
   const aujourdhui = todayIso();
-
   useEffect(() => {
     if (!profilId) return;
     supabase.from("repas").select("date, kcal, prot, gluc, lip").eq("profil_id", profilId).gte("date", dates[0]).lte("date", dates[6]).limit(2000).then(({ data }) => {
@@ -5565,14 +5563,15 @@ function CaloriesSemaine({ profilId, totalsAujourdhui, objectifs }) {
     });
     supabase.from("profils").select("*").eq("id", profilId).maybeSingle().then(({ data }) => setProfil(data || null));
   }, [profilId, dates[0]]);
+  const objectifDu = (d) => (d === aujourdhui || !profil ? objectifs : objectifsNutritionClientPourDate(profil, d));
+  const valeurDu = (d) => (d === aujourdhui ? totalsAujourdhui : parJour[d] || { kcal: 0, prot: 0, gluc: 0, lip: 0 });
+  return { dates, aujourdhui, objectifDu, valeurDu };
+}
 
-  const objectifDu = (d) => (d === aujourdhui ? objectifs : profil ? objectifsNutritionClientPourDate(profil, d) : objectifs);
-  const valeurDu = (d) => (d === aujourdhui ? { kcal: totalsAujourdhui.kcal, prot: totalsAujourdhui.prot, gluc: totalsAujourdhui.gluc, lip: totalsAujourdhui.lip } : parJour[d] || { kcal: 0, prot: 0, gluc: 0, lip: 0 });
+// Barres des calories de la semaine (L → D) ; toucher un jour l'affiche dans la carte au-dessus
+function CaloriesSemaine({ semaine, sel, onSelect }) {
+  const { dates, aujourdhui, objectifDu, valeurDu } = semaine;
   const LETTRES = ["L", "M", "M", "J", "V", "S", "D"];
-  const sel = choix || aujourdhui;
-  const vSel = valeurDu(sel), oSel = objectifDu(sel) || {};
-  const nomJour = (d) => new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
-
   return (
     <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", cursor: "default" }}>
       <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 12 }}>Calories cette semaine</div>
@@ -5584,7 +5583,7 @@ function CaloriesSemaine({ profilId, totalsAujourdhui, objectifs }) {
           const estAuj = d === aujourdhui, estSel = d === sel;
           const col = ratio > 1.1 ? C.red : estAuj ? C.amber : ratio >= 0.9 ? C.green : "#7FA0FF";
           return (
-            <button key={d} type="button" onClick={() => setChoix(d === choix ? null : d)} disabled={futur}
+            <button key={d} type="button" onClick={() => onSelect(estSel ? aujourdhui : d)} disabled={futur}
               style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, cursor: futur ? "default" : "pointer" }}>
               <div style={{ flex: 1, width: "100%", maxWidth: 34, borderRadius: 9, background: futur ? "transparent" : "rgba(255,255,255,0.06)", position: "relative", overflow: "hidden",
                 outline: estSel && !futur ? `1.5px solid ${col}` : "none", outlineOffset: 2 }}>
@@ -5595,21 +5594,10 @@ function CaloriesSemaine({ profilId, totalsAujourdhui, objectifs }) {
                     boxShadow: estAuj ? `0 0 12px ${col}88` : "none", transition: "height .5s ease" }} />
                 )}
               </div>
-              <span style={{ fontSize: 12, fontWeight: estAuj || estSel ? 900 : 700, color: estAuj ? C.amber : estSel ? C.text : C.textDim }}>{LETTRES[i]}</span>
+              <span style={{ fontSize: 12, fontWeight: estAuj || estSel ? 900 : 700, color: estSel ? C.text : estAuj ? C.amber : C.textDim }}>{LETTRES[i]}</span>
             </button>
           );
         })}
-      </div>
-      <div style={{ marginTop: 12, borderRadius: 12, padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 800, color: C.textMuted, textTransform: "capitalize" }}>{sel === aujourdhui ? "Aujourd'hui" : nomJour(sel)}</span>
-          <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{Math.round(vSel.kcal)} <span style={{ color: C.textDim, fontWeight: 600 }}>/ {Math.round(oSel.kcal || 0)} kcal</span></span>
-        </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 5, fontSize: 12, fontWeight: 700 }}>
-          <span style={{ color: "#7FA0FF" }}>P {Math.round(vSel.prot)}<span style={{ color: C.textDim }}>/{Math.round(oSel.prot || 0)}g</span></span>
-          <span style={{ color: "#F5C542" }}>G {Math.round(vSel.gluc)}<span style={{ color: C.textDim }}>/{Math.round(oSel.gluc || 0)}g</span></span>
-          <span style={{ color: "#F28C38" }}>L {Math.round(vSel.lip)}<span style={{ color: C.textDim }}>/{Math.round(oSel.lip || 0)}g</span></span>
-        </div>
       </div>
     </div>
   );
@@ -5639,6 +5627,12 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
     );
   }, [meals]);
 
+  const semaine = useNutritionSemaine(profilId, totals, objectifs);
+  const [jourVu, setJourVu] = useState(semaine.aujourdhui);
+  const estAujourdhui = jourVu === semaine.aujourdhui;
+  const tAff = estAujourdhui ? totals : semaine.valeurDu(jourVu);
+  const oAff = semaine.objectifDu(jourVu) || objectifs;
+
   const macroStatusColor = (val, obj, baseColor) => {
     if (obj && val > obj) return C.red;
     return baseColor;
@@ -5664,45 +5658,49 @@ function Nutrition({ meals, onAdd, onRemove, onUpdate, objectifs, profilId, fire
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ width: 38, flexShrink: 0 }} />
         <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: C.textOnBgMuted, fontWeight: 700 }}>Aujourd'hui</div>
+          <div style={{ fontFamily: FONT_BODY, fontSize: 13, color: estAujourdhui ? C.textOnBgMuted : C.amber, fontWeight: 700, textTransform: estAujourdhui ? "none" : "capitalize" }}>
+            {estAujourdhui ? "Aujourd'hui" : new Date(`${jourVu}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })}
+          </div>
           <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 24, color: C.textOnBg }}>Nutrition</div>
         </div>
         <CoursesEtSupplements profilId={profilId} fireToast={fireToast} coachIdListes={coachIdAliments} />
       </div>
 
-      <Card style={{ cursor: "pointer", padding: 18 }} onClick={() => setShowNutriDetail(true)}>
+      <Card style={{ cursor: "pointer", padding: 18 }} onClick={() => estAujourdhui && setShowNutriDetail(true)}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 46, fontWeight: 800, color: totals.kcal > objectifs.kcal ? C.red : C.text, lineHeight: 1 }}>{Math.round(totals.kcal)}</span>
+          <span style={{ fontSize: 46, fontWeight: 800, color: tAff.kcal > oAff.kcal ? C.red : C.text, lineHeight: 1 }}>{Math.round(tAff.kcal)}</span>
           <span
             onClick={(e) => { e.stopPropagation(); setShowGoalEditor(true); }}
             style={{ fontSize: 16, color: C.textMuted, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            / {Math.round(objectifs.kcal).toLocaleString("fr-FR")} kcal <Edit3 size={13} color={C.textDim} />
+            / {Math.round(oAff.kcal).toLocaleString("fr-FR")} kcal <Edit3 size={13} color={C.textDim} />
           </span>
         </div>
         <div style={{ height: 9, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginTop: 14 }}>
           <div style={{
-            height: "100%", width: `${Math.min(100, (totals.kcal / (objectifs.kcal || 1)) * 100)}%`, borderRadius: 999,
-            background: totals.kcal > objectifs.kcal ? C.red : `linear-gradient(90deg, ${C.amber}, #F28C38)`,
+            height: "100%", width: `${Math.min(100, (tAff.kcal / (oAff.kcal || 1)) * 100)}%`, borderRadius: 999,
+            background: tAff.kcal > oAff.kcal ? C.red : `linear-gradient(90deg, ${C.amber}, #F28C38)`,
             transition: "width .4s ease",
           }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
           <span style={{ fontSize: 13, color: C.textMuted }}>
-            {totals.kcal <= objectifs.kcal
-              ? `${Math.round(objectifs.kcal - totals.kcal)} kcal restantes`
-              : `${Math.round(totals.kcal - objectifs.kcal)} kcal dépassées`}
+            {tAff.kcal <= oAff.kcal
+              ? `${Math.round(oAff.kcal - tAff.kcal)} kcal restantes`
+              : `${Math.round(tAff.kcal - oAff.kcal)} kcal dépassées`}
           </span>
-          <span style={{ fontSize: 13, color: "#7FA0FF", fontWeight: 600 }}>Voir détails →</span>
+          {estAujourdhui
+            ? <span style={{ fontSize: 13, color: "#7FA0FF", fontWeight: 600 }}>Voir détails →</span>
+            : <span onClick={(e) => { e.stopPropagation(); setJourVu(semaine.aujourdhui); }} style={{ fontSize: 13, color: C.amber, fontWeight: 700, cursor: "pointer" }}>← Aujourd'hui</span>}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-          {/* objectifs.prot/gluc/lip sont déjà calculés correctement en amont (calculerMacros),
+          {/* oAff.prot/gluc/lip sont déjà calculés correctement en amont (calculerMacros),
               quel que soit le mode choisi (% / grammes / poids de corps). */}
-          <MacroRing label="Protéines" val={totals.prot} obj={Math.round(objectifs.prot) || 0} color="#4C7DF0" />
-          <MacroRing label="Glucides" val={totals.gluc} obj={Math.round(objectifs.gluc) || 0} color="#F5C542" />
-          <MacroRing label="Lipides" val={totals.lip} obj={Math.round(objectifs.lip) || 0} color="#F28C38" />
+          <MacroRing label="Protéines" val={tAff.prot} obj={Math.round(oAff.prot) || 0} color="#4C7DF0" />
+          <MacroRing label="Glucides" val={tAff.gluc} obj={Math.round(oAff.gluc) || 0} color="#F5C542" />
+          <MacroRing label="Lipides" val={tAff.lip} obj={Math.round(oAff.lip) || 0} color="#F28C38" />
         </div>
-        <CaloriesSemaine profilId={profilId} totalsAujourdhui={totals} objectifs={objectifs} />
+        <CaloriesSemaine semaine={semaine} sel={jourVu} onSelect={setJourVu} />
       </Card>
 
       <div>
