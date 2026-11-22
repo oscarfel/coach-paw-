@@ -10507,7 +10507,7 @@ function MesAlimentsView({ coachId, fireToast }) {
       vitamine_d: a.vitamine_d ? Math.round(Number(a.vitamine_d) * 1e6 * 10) / 10 : "",
     });
     setEditId(a.id);
-    setPlusValeurs(!!(a.sodium || a.potassium || a.calcium || a.fer || a.magnesium || a.vitamine_d));
+    setPlusValeurs(!!(a.fibres || a.sodium || a.potassium || a.calcium || a.fer || a.magnesium || a.vitamine_d));
     setShowForm(true);
   };
 
@@ -10663,16 +10663,15 @@ function MesAlimentsView({ coachId, fireToast }) {
                 <Field label="Protéines (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.prot} onChange={set("prot")} /></Field>
                 <Field label="Glucides (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.gluc} onChange={set("gluc")} /></Field>
                 <Field label="Lipides (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.lip} onChange={set("lip")} /></Field>
-                <Field label="Fibres (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.fibres} onChange={set("fibres")} placeholder="optionnel" /></Field>
-                <Field label="Sucres (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.sucres} onChange={set("sucres")} placeholder="optionnel" /></Field>
               </div>
               <Field label="Poids d'une portion (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.portion_g} onChange={set("portion_g")} placeholder="optionnel, ex : 30" /></Field>
               <button type="button" onClick={() => setPlusValeurs(!plusValeurs)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "10px 12px", color: C.textMuted, fontSize: 13.5, fontWeight: 700 }}>
-                <span>Minéraux et vitamines <span style={{ color: C.textDim, fontWeight: 600 }}>(optionnel)</span></span>
+                <span>Fibres, minéraux et vitamines <span style={{ color: C.textDim, fontWeight: 600 }}>(optionnel)</span></span>
                 <ChevronDown size={16} style={{ transform: plusValeurs ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
               </button>
               {plusValeurs && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, animation: "carteIn .2s ease" }}>
+                  <Field label="Fibres (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.fibres} onChange={set("fibres")} placeholder="optionnel" /></Field>
                   <Field label="Potassium (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.potassium} onChange={set("potassium")} placeholder="optionnel" /></Field>
                   <Field label="Sodium (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.sodium} onChange={set("sodium")} placeholder="optionnel" /></Field>
                   <Field label="Calcium (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.calcium} onChange={set("calcium")} placeholder="optionnel" /></Field>
