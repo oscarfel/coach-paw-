@@ -4192,6 +4192,16 @@ function ScannerCodeBarres({ onClose, onScan }) {
   );
 }
 
+// Dossiers de recettes selon les calories totales
+const TRANCHES_KCAL = [
+  { key: "tous", label: "Toutes", test: () => true },
+  { key: "500", label: "< 500", test: (k) => k < 500 },
+  { key: "1000", label: "500–1000", test: (k) => k >= 500 && k < 1000 },
+  { key: "1500", label: "1000–1500", test: (k) => k >= 1000 && k < 1500 },
+  { key: "plus", label: "1500 +", test: (k) => k >= 1500 },
+];
+const kcalRecette = (r) => (r.items || []).reduce((s, it) => s + (Number(it.kcal) || 0), 0);
+
 // Classement des aliments du coach : Protéines / Glucides / Lipides
 const CATEGORIES_ALIMENT = [
   { key: "proteines", label: "Protéines", emoji: "🥩", color: "#7FA0FF" },
@@ -4246,6 +4256,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   const [mesRecettes, setMesRecettes] = useState([]);
   const [recettesCoach, setRecettesCoach] = useState([]);
   const [loadingRecettes, setLoadingRecettes] = useState(false);
+  const [trancheKcal, setTrancheKcal] = useState("tous");
 
   const enregistrerCommeRecette = async () => {
     if (!nomRecette.trim() || !profilId) return;
@@ -5072,8 +5083,24 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {recettesCoach.length > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: "#8CBEFF" }}>👨‍🍳 Recettes de ton coach</div>}
-                {recettesCoach.map((r) => {
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 5, marginBottom: 4 }}>
+                  {TRANCHES_KCAL.map((t) => {
+                    const n = [...recettesCoach, ...mesRecettes].filter((r) => t.test(kcalRecette(r))).length;
+                    const actif = trancheKcal === t.key;
+                    return (
+                      <button key={t.key} type="button" onClick={() => setTrancheKcal(t.key)} style={{ position: "relative", borderRadius: 12, padding: "8px 2px 7px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                        background: actif ? "rgba(245,184,51,0.16)" : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? C.amber : "rgba(255,255,255,0.1)"}`, transition: "all .15s" }}>
+                        <span style={{ fontSize: 16 }}>{t.key === "tous" ? "📚" : "📁"}</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 800, color: actif ? C.amber : C.text, whiteSpace: "nowrap" }}>{t.label}</span>
+                        <span style={{ position: "absolute", top: -6, right: -4, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, fontSize: 10.5, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center",
+                          background: n ? (actif ? C.amber : "#3B6FE0") : "rgba(255,255,255,0.12)", color: n ? (actif ? "#3D2600" : "#FFF") : C.textDim }}>{n}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {(() => { const t = TRANCHES_KCAL.find((x) => x.key === trancheKcal); const n = [...recettesCoach, ...mesRecettes].filter((r) => t.test(kcalRecette(r))).length; return n === 0 ? <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: 10 }}>Aucune recette dans ce dossier</div> : null; })()}
+                {recettesCoach.some((r) => TRANCHES_KCAL.find((x) => x.key === trancheKcal).test(kcalRecette(r))) && <div style={{ fontSize: 12, fontWeight: 800, color: "#8CBEFF" }}>👨‍🍳 Recettes de ton coach</div>}
+                {recettesCoach.filter((r) => TRANCHES_KCAL.find((x) => x.key === trancheKcal).test(kcalRecette(r))).map((r) => {
                   const t = totauxRecette(r.items);
                   return (
                     <button key={`c${r.id}`} onClick={() => utiliserRecette(r)} style={{ background: "rgba(140,190,255,0.08)", border: "1px solid rgba(140,190,255,0.35)", borderRadius: 10, padding: "10px 12px", textAlign: "left" }}>
@@ -5082,12 +5109,12 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                     </button>
                   );
                 })}
-                {recettesCoach.length > 0 && mesRecettes.length > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted, marginTop: 4 }}>Mes recettes</div>}
-                {mesRecettes.map((r) => (
+                {recettesCoach.some((r) => TRANCHES_KCAL.find((x) => x.key === trancheKcal).test(kcalRecette(r))) && mesRecettes.some((r) => TRANCHES_KCAL.find((x) => x.key === trancheKcal).test(kcalRecette(r))) && <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted, marginTop: 4 }}>Mes recettes</div>}
+                {mesRecettes.filter((r) => TRANCHES_KCAL.find((x) => x.key === trancheKcal).test(kcalRecette(r))).map((r) => (
                   <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <button onClick={() => utiliserRecette(r)} style={{ flex: 1, background: "transparent", border: "none", textAlign: "left" }}>
                       <div style={{ fontSize: 13.5, color: C.text, fontWeight: 700 }}>{r.nom}</div>
-                      <div style={{ fontSize: 11, color: C.textDim }}>{r.items.length} aliment(s) · {r.items.reduce((s, it) => s + it.kcal, 0)} kcal</div>
+                      <div style={{ fontSize: 11, color: C.textDim }}>{r.items.length} aliment(s) · {Math.round(kcalRecette(r))} kcal</div>
                     </button>
                     <button onClick={() => supprimerRecette(r.id)} style={{ background: "transparent", border: "none", color: C.red }}><Trash2 size={15} /></button>
                   </div>
