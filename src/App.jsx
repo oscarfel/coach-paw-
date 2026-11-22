@@ -4197,10 +4197,14 @@ const CATEGORIES_ALIMENT = [
   { key: "proteines", label: "Protéines", emoji: "🥩", color: "#7FA0FF" },
   { key: "glucides", label: "Glucides", emoji: "🍚", color: "#F5C542" },
   { key: "lipides", label: "Lipides", emoji: "🥑", color: "#F28C38" },
+  { key: "legumes", label: "Légumes", emoji: "🥦", color: "#3AD6A0" },
 ];
 function categorieSuggeree(a) {
   const p = (Number(a?.prot) || 0) * 4, g = (Number(a?.gluc) || 0) * 4, l = (Number(a?.lip) || 0) * 9;
   if (!p && !g && !l) return "glucides";
+  // très peu calorique, peu de protéines et de gras : très probablement un légume
+  const kcal = Number(a?.kcal) || p + g + l;
+  if (kcal > 0 && kcal <= 50 && (Number(a?.prot) || 0) < 4 && (Number(a?.lip) || 0) < 1.5) return "legumes";
   return p >= g && p >= l ? "proteines" : g >= l ? "glucides" : "lipides";
 }
 const categorieAliment = (a) => (CATEGORIES_ALIMENT.some((c) => c.key === a?.categorie) ? a.categorie : categorieSuggeree(a));
@@ -10523,7 +10527,7 @@ function MesAlimentsView({ coachId, fireToast }) {
     };
     const complet = {
       ...ligne,
-      categorie: form.categorie || categorieSuggeree({ prot, gluc, lip }),
+      categorie: form.categorie || categorieSuggeree({ kcal, prot, gluc, lip }),
       sodium: mg(form.sodium), potassium: mg(form.potassium), calcium: mg(form.calcium), fer: mg(form.fer), magnesium: mg(form.magnesium),
       vitamine_d: num(form.vitamine_d) ? num(form.vitamine_d) / 1e6 : 0,
     };
@@ -10584,7 +10588,7 @@ function MesAlimentsView({ coachId, fireToast }) {
         <input value={filtre} onChange={(e) => setFiltre(e.target.value)} placeholder="Rechercher dans mes aliments" style={{ ...inputStyle, paddingLeft: 40 }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 14 }}>
         {[{ key: "tous", label: "Tous", emoji: "📁", color: "#8CBEFF" }, ...CATEGORIES_ALIMENT].map((c) => {
           const actif = dossier === c.key;
           const n = c.key === "tous" ? aliments.length : compte(c.key);
@@ -10592,7 +10596,7 @@ function MesAlimentsView({ coachId, fireToast }) {
             <button key={c.key} type="button" onClick={() => setDossier(c.key)} style={{ borderRadius: 16, padding: "10px 4px 9px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               background: actif ? `${c.color}24` : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? c.color : "rgba(255,255,255,0.1)"}`, boxShadow: actif ? `0 0 14px ${c.color}44` : "none", transition: "all .15s" }}>
               <span style={{ fontSize: 22 }}>{c.emoji}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: actif ? c.color : C.text }}>{c.label}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: actif ? c.color : C.text }}>{c.label}</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: C.textDim }}>{n}</span>
             </button>
           );
@@ -10639,9 +10643,9 @@ function MesAlimentsView({ coachId, fireToast }) {
               <Field label="Nom"><input style={inputStyle} value={form.nom} onChange={set("nom")} placeholder="ex : Galette de riz complet" /></Field>
               <div>
                 <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 6 }}>Dossier</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                   {CATEGORIES_ALIMENT.map((c) => {
-                    const choisi = form.categorie || categorieSuggeree({ prot: num(form.prot), gluc: num(form.gluc), lip: num(form.lip) });
+                    const choisi = form.categorie || categorieSuggeree({ kcal: num(form.kcal), prot: num(form.prot), gluc: num(form.gluc), lip: num(form.lip) });
                     const actif = choisi === c.key;
                     return (
                       <button key={c.key} type="button" onClick={() => setForm({ ...form, categorie: c.key })} style={{ padding: "9px 4px", borderRadius: 12, fontSize: 13, fontWeight: 800,
