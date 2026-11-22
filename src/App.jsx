@@ -4244,6 +4244,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   const [ajouterAuxBrouillons, setAjouterAuxBrouillons] = useState(false);
   const [showUseRecette, setShowUseRecette] = useState(false);
   const [mesRecettes, setMesRecettes] = useState([]);
+  const [recettesCoach, setRecettesCoach] = useState([]);
   const [loadingRecettes, setLoadingRecettes] = useState(false);
 
   const enregistrerCommeRecette = async () => {
@@ -4304,6 +4305,8 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
         .order("created_at", { ascending: false });
       if (error) throw error;
       setMesRecettes(data || []);
+      const duCoach = await chargerRecettesCoachPourMoi(profilId, coachIdAliments).catch(() => []);
+      setRecettesCoach(duCoach.filter((r) => Array.isArray(r.items) && r.items.length));
     } catch (err) {
       console.error("Erreur chargement recettes:", err);
     } finally {
@@ -4312,7 +4315,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   };
 
   const utiliserRecette = (recette) => {
-    for (const it of recette.items) onAdd(meal.key, it);
+    for (const { base, ...it } of recette.items) onAdd(meal.key, { ...it, id: Date.now() + Math.random() });
     fireToast(`"${recette.nom}" ajoutée`, "green");
     setShowUseRecette(false);
   };
@@ -5063,12 +5066,23 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
             </div>
             {loadingRecettes ? (
               <div style={{ color: C.textMuted, textAlign: "center", padding: 20 }}>Chargement...</div>
-            ) : mesRecettes.length === 0 ? (
+            ) : mesRecettes.length === 0 && recettesCoach.length === 0 ? (
               <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: 10 }}>
                 Aucune recette enregistrée. Utilise "Enregistrer comme recette" une fois que tu as ajouté des aliments.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {recettesCoach.length > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: "#8CBEFF" }}>👨‍🍳 Recettes de ton coach</div>}
+                {recettesCoach.map((r) => {
+                  const t = totauxRecette(r.items);
+                  return (
+                    <button key={`c${r.id}`} onClick={() => utiliserRecette(r)} style={{ background: "rgba(140,190,255,0.08)", border: "1px solid rgba(140,190,255,0.35)", borderRadius: 10, padding: "10px 12px", textAlign: "left" }}>
+                      <div style={{ fontSize: 13.5, color: C.text, fontWeight: 700 }}>{r.nom}</div>
+                      <div style={{ fontSize: 11, color: C.textDim }}>{r.items.length} aliment(s) · {Math.round(t.kcal)} kcal · P {Math.round(t.prot)} · G {Math.round(t.gluc)} · L {Math.round(t.lip)}</div>
+                    </button>
+                  );
+                })}
+                {recettesCoach.length > 0 && mesRecettes.length > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted, marginTop: 4 }}>Mes recettes</div>}
                 {mesRecettes.map((r) => (
                   <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <button onClick={() => utiliserRecette(r)} style={{ flex: 1, background: "transparent", border: "none", textAlign: "left" }}>
@@ -5499,9 +5513,12 @@ function CoursesEtSupplements({ profilId, fireToast, coachIdListes = null }) {
   const [showChoix, setShowChoix] = useState(false);
   const [showCourses, setShowCourses] = useState(false);
   const [showSupplements, setShowSupplements] = useState(false);
+  const [recettesCoach, setRecettesCoach] = useState([]);
+  const [showRecettes, setShowRecettes] = useState(false);
 
   useEffect(() => {
     if (!profilId) return;
+    chargerRecettesCoachPourMoi(profilId, coachIdListes).then(setRecettesCoach).catch(() => setRecettesCoach([]));
     // Seulement les listes ENVOYÉES qui me sont destinées : à moi directement, ou « à tous »
     // par mon coach (jamais les listes de côté du coach, ni celles d'autres clients).
     supabase.from("listes_courses").select("*").order("updated_at", { ascending: false }).limit(50)
@@ -5548,11 +5565,19 @@ function CoursesEtSupplements({ profilId, fireToast, coachIdListes = null }) {
               <Pill size={15} color={C.blue} /> Suppléments
               {supplements.length > 0 && <span style={{ marginLeft: "auto", color: C.textDim, fontSize: 11 }}>{supplements.length}</span>}
             </button>
+            <button
+              onClick={() => { setShowRecettes(true); setShowChoix(false); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", color: C.text, padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textAlign: "left" }}
+            >
+              <ClipboardList size={15} color={C.blue} /> Recettes
+              {recettesCoach.length > 0 && <span style={{ marginLeft: "auto", color: C.textDim, fontSize: 11 }}>{recettesCoach.length}</span>}
+            </button>
           </div>
         </>
       )}
 
       {showCourses && <ListeCoursesClient liste={listeCourse} profilId={profilId} onClose={() => setShowCourses(false)} />}
+      {showRecettes && <RecettesClient recettes={recettesCoach} onClose={() => setShowRecettes(false)} />}
 
       {showSupplements && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowSupplements(false)}>
@@ -10691,6 +10716,334 @@ function MesAlimentsView({ coachId, fireToast }) {
   );
 }
 
+/* ---------- Recettes structurées (coach) ---------- */
+const totauxRecette = (items) => (items || []).reduce((t, it) => ({
+  kcal: t.kcal + (Number(it.kcal) || 0), prot: t.prot + (Number(it.prot) || 0), gluc: t.gluc + (Number(it.gluc) || 0), lip: t.lip + (Number(it.lip) || 0),
+}), { kcal: 0, prot: 0, gluc: 0, lip: 0 });
+const r1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
+// Un ingrédient de recette = aliment pour 100 g (base) × grammes
+function ingredientDepuisBase(base, grams, nom) {
+  const g = Number(grams) || 0, f = g / 100;
+  const v = (k) => r1((Number(base?.[k]) || 0) * f);
+  return { nom, grams: g, kcal: Math.round((Number(base?.kcal) || 0) * f), prot: v("prot"), gluc: v("gluc"), lip: v("lip"), fibres: v("fibres"),
+    sucres: 0, sodium: (Number(base?.sodium) || 0) * f, potassium: (Number(base?.potassium) || 0) * f, calcium: (Number(base?.calcium) || 0) * f,
+    fer: (Number(base?.fer) || 0) * f, magnesium: (Number(base?.magnesium) || 0) * f, vitamineD: (Number(base?.vitamineD) || 0) * f, base };
+}
+async function rechercherAlimentsRecette(q, coachId) {
+  const [coachRes, persoRes, ciqualRes] = await Promise.all([
+    supabase.from("aliments_coach").select("*").eq("coach_id", coachId).ilike("nom", `%${q}%`).limit(8).then((r) => (r.error ? { data: [] } : r)),
+    supabase.from("aliments_scannes").select("*").eq("profil_id", coachId).ilike("nom", `%${q}%`).limit(6).then((r) => (r.error ? { data: [] } : r)),
+    supabase.from("aliments_ciqual").select("*").ilike("nom", `%${q}%`).limit(10).then((r) => (r.error ? { data: [] } : r)),
+  ]);
+  const parse = (a, source) => ({ nom: a.nom, source, portion: a.portion_g ? Math.round(a.portion_g) : null,
+    base: { kcal: a.kcal || 0, prot: a.prot || 0, gluc: a.gluc || 0, lip: a.lip || 0, fibres: a.fibres || 0, sodium: a.sodium || 0, potassium: a.potassium || 0, calcium: a.calcium || 0, fer: a.fer || 0, magnesium: a.magnesium || 0, vitamineD: a.vitamine_d || 0 } });
+  return [...(coachRes.data || []).map((a) => parse(a, "Mes aliments")), ...(persoRes.data || []).map((a) => parse(a, "Base perso")), ...(ciqualRes.data || []).map((a) => parse(a, "CIQUAL"))];
+}
+
+function RecetteEditeur({ recette, coachId, clients, onClose, onSaved, fireToast }) {
+  const r0 = recette || {};
+  const itemsInit = (Array.isArray(r0.items) ? r0.items : []).map((it) => ({
+    ...it, uid: nouvelIdBloc(),
+    base: it.base || (Number(it.grams) > 0 ? { kcal: (it.kcal * 100) / it.grams, prot: (it.prot * 100) / it.grams, gluc: (it.gluc * 100) / it.grams, lip: (it.lip * 100) / it.grams, fibres: ((it.fibres || 0) * 100) / it.grams } : { kcal: it.kcal, prot: it.prot, gluc: it.gluc, lip: it.lip }),
+  }));
+  const [nom, setNom] = useState(r0.nom || "");
+  const [typeRepas, setTypeRepas] = useState(r0.type_repas || "");
+  const [description, setDescription] = useState(r0.description || "");
+  const [instructions, setInstructions] = useState(r0.instructions || "");
+  const [items, setItems] = useState(itemsInit);
+  const [texteLibre, setTexteLibre] = useState(itemsInit.length ? "" : (r0.ingredients || ""));
+  const [q, setQ] = useState("");
+  const [resultats, setResultats] = useState([]);
+  const [cherche, setCherche] = useState(false);
+  const [choisi, setChoisi] = useState(null); // aliment trouvé, en attente des grammes
+  const [grammes, setGrammes] = useState("");
+  const [envoiOuvert, setEnvoiOuvert] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const minuteur = useRef(null);
+
+  useEffect(() => {
+    if (q.trim().length < 2 || choisi) { setResultats([]); return; }
+    setCherche(true);
+    clearTimeout(minuteur.current);
+    minuteur.current = setTimeout(async () => {
+      try { setResultats(await rechercherAlimentsRecette(q.trim(), coachId)); } catch { setResultats([]); }
+      setCherche(false);
+    }, 300);
+    return () => clearTimeout(minuteur.current);
+  }, [q, choisi]);
+
+  const ajouter = () => {
+    const g = parseFloat(String(grammes).replace(",", "."));
+    if (!choisi || !(g > 0)) { fireToast("Indique la quantité en grammes"); return; }
+    setItems((prev) => [...prev, { ...ingredientDepuisBase(choisi.base, g, choisi.nom), uid: nouvelIdBloc() }]);
+    setChoisi(null); setQ(""); setGrammes("");
+  };
+  const changerGrammes = (uid, g) => setItems((prev) => prev.map((it) => (it.uid === uid ? { ...ingredientDepuisBase(it.base, g, it.nom), uid } : it)));
+  const tot = totauxRecette(items);
+
+  const enregistrer = async (cible) => { // cible : undefined = garder l'état ; "brouillon" ; "tous" | clientId = envoyer
+    if (!nom.trim()) { fireToast("Donne un nom à la recette"); return; }
+    const itemsPropres = items.map(({ uid, ...it }) => it);
+    const texte = itemsPropres.length ? itemsPropres.map((it) => `${it.nom} — ${it.grams} g`).join("\n") : texteLibre;
+    const row = {
+      coach_id: coachId, nom: nom.trim(), description: description || (itemsPropres.length ? `${Math.round(tot.kcal)} kcal · P ${Math.round(tot.prot)} g · G ${Math.round(tot.gluc)} g · L ${Math.round(tot.lip)} g` : ""),
+      ingredients: texte, instructions, items: itemsPropres.length ? itemsPropres : null, type_repas: typeRepas || null,
+    };
+    if (cible === "brouillon") { row.envoyee = false; row.client_id = null; }
+    else if (cible) { row.envoyee = true; row.client_id = cible === "tous" ? null : cible; }
+    else if (!r0.id) { row.envoyee = false; row.client_id = null; }
+    setSaving(true);
+    const ecrire = (l) => (r0.id ? supabase.from("recettes").update(l).eq("id", r0.id) : supabase.from("recettes").insert(l));
+    let { error } = await ecrire(row);
+    if (error && /items|type_repas|column|schema cache/i.test(error.message || "")) {
+      const { items: _i, type_repas: _t, ...simple } = row;
+      ({ error } = await ecrire(simple));
+      if (!error) fireToast("Enregistrée sans le détail des aliments : lance le script SQL « recettes »");
+    }
+    setSaving(false);
+    if (error) { console.error(error); fireToast("Erreur enregistrement recette"); return; }
+    fireToast(cible && cible !== "brouillon" ? "Recette envoyée ✅" : r0.id ? "Recette modifiée" : "Recette enregistrée en brouillon", "green");
+    onSaved && onSaved();
+    onClose();
+  };
+
+  const champ = { ...inputStyle, padding: "10px 12px", fontSize: 15 };
+  const etiquette = { fontSize: 12, color: C.textMuted, fontWeight: 700, marginBottom: 5 };
+  const couleurSource = (s) => (s === "Mes aliments" ? C.amber : s === "CIQUAL" ? C.green : "#8CBEFF");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 160, padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 460, maxHeight: "92vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1 }}><SectionHead icon={ClipboardList} title={r0.id ? "Modifier la recette" : "Nouvelle recette"} /></div>
+          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, padding: 0 }}><X size={16} /></button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Nom"><input style={champ} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex : Porridge spéculos" /></Field>
+            <ChoixDeroulant label="Repas" valeur={typeRepas} onChange={setTypeRepas} couleur="#F5B833" placeholder="Au choix"
+              options={[{ value: "", label: "N'importe quand" }, ...MEAL_DEFS.map((m) => ({ value: m.key, label: `${m.emoji} ${m.nom}` }))]} />
+          </div>
+
+          {/* Totaux */}
+          <div style={{ borderRadius: 16, padding: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, textAlign: "center" }}>
+            {[["kcal", Math.round(tot.kcal), C.text], ["Prot.", `${Math.round(tot.prot)} g`, "#7FA0FF"], ["Gluc.", `${Math.round(tot.gluc)} g`, "#F5C542"], ["Lip.", `${Math.round(tot.lip)} g`, "#F28C38"]].map(([l, v, col]) => (
+              <div key={l}><div style={{ fontSize: 17, fontWeight: 900, color: col }}>{v}</div><div style={{ fontSize: 11, color: C.textDim, fontWeight: 700 }}>{l}</div></div>
+            ))}
+          </div>
+
+          {/* Ingrédients */}
+          <div>
+            <div style={etiquette}>🥗 Ingrédients</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+              {items.map((it) => (
+                <div key={it.uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px 8px 12px", borderRadius: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", animation: "carteIn .2s ease" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.nom}</div>
+                    <div style={{ fontSize: 11.5, color: C.textDim, fontWeight: 700 }}>{it.kcal} kcal · <span style={{ color: "#7FA0FF" }}>P {it.prot}</span> · <span style={{ color: "#F5C542" }}>G {it.gluc}</span> · <span style={{ color: "#F28C38" }}>L {it.lip}</span></div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                    <input type="number" inputMode="decimal" value={it.grams} onChange={(e) => changerGrammes(it.uid, e.target.value)} style={{ ...inputStyle, width: 64, padding: "7px 6px", textAlign: "center", fontWeight: 800, fontSize: 14 }} />
+                    <span style={{ fontSize: 12, color: C.textDim, fontWeight: 700 }}>g</span>
+                  </div>
+                  <button type="button" onClick={() => setItems((p) => p.filter((x) => x.uid !== it.uid))} aria-label="Retirer" style={{ background: "transparent", border: "none", color: C.textDim, padding: 4, display: "flex" }}><X size={16} /></button>
+                </div>
+              ))}
+            </div>
+            {choisi ? (
+              <div style={{ borderRadius: 14, padding: 10, background: "rgba(245,184,51,0.08)", border: "1.5px solid rgba(245,184,51,0.5)", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{choisi.nom} <span style={{ fontSize: 12, color: C.textDim, fontWeight: 600 }}>· {Math.round(choisi.base.kcal)} kcal / 100 g</span></div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input autoFocus type="number" inputMode="decimal" value={grammes} onChange={(e) => setGrammes(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ajouter()} placeholder="Quantité (g)" style={{ ...champ, flex: 1 }} />
+                  {choisi.portion && <button type="button" onClick={() => setGrammes(String(choisi.portion))} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, borderRadius: 12, padding: "0 10px", fontSize: 12.5, fontWeight: 700 }}>1 portion</button>}
+                  <button type="button" onClick={ajouter} style={{ background: C.amber, border: "none", color: "#3D2600", borderRadius: 12, padding: "0 16px", fontWeight: 900 }}><Plus size={16} /></button>
+                </div>
+                <button type="button" onClick={() => { setChoisi(null); setGrammes(""); }} style={{ alignSelf: "flex-start", background: "transparent", border: "none", color: C.textDim, fontSize: 12.5, padding: 0 }}>Changer d'aliment</button>
+              </div>
+            ) : (
+              <div style={{ position: "relative" }}>
+                <Search size={16} color={C.textDim} style={{ position: "absolute", left: 13, top: 14 }} />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ajouter un aliment (ex : flocons d'avoine)" style={{ ...champ, paddingLeft: 38 }} />
+                {cherche && <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 4 }}>Recherche...</div>}
+                {resultats.length > 0 && (
+                  <div style={{ marginTop: 6, maxHeight: 220, overflowY: "auto", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}>
+                    {resultats.map((r, i) => (
+                      <button key={i} type="button" onClick={() => { setChoisi(r); setResultats([]); setGrammes(r.portion ? String(r.portion) : ""); }}
+                        style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderBottom: i < resultats.length - 1 ? `1px solid ${C.cardBorderLight}` : "none", padding: "10px 12px" }}>
+                        <div style={{ fontSize: 14, color: C.text, fontWeight: 700 }}>{r.nom}</div>
+                        <div style={{ fontSize: 12, color: C.textDim }}>{Math.round(r.base.kcal)} kcal / 100 g · <span style={{ color: couleurSource(r.source) }}>{r.source}</span></div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {!items.length && texteLibre && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ ...etiquette, color: C.textDim }}>Anciens ingrédients (texte)</div>
+                <textarea value={texteLibre} onChange={(e) => setTexteLibre(e.target.value)} rows={3} style={{ ...champ, fontSize: 14, resize: "vertical" }} />
+              </div>
+            )}
+          </div>
+
+          <Field label="👨‍🍳 Préparation"><textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={4} placeholder={"1. Faire chauffer le lait\n2. Ajouter les flocons…"} style={{ ...champ, fontSize: 14, resize: "vertical" }} /></Field>
+          <Field label="Note (optionnel)"><input style={champ} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ex : idéal avant l'entraînement" /></Field>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => enregistrer(r0.id ? undefined : "brouillon")} disabled={saving} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: C.text, borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              {r0.id ? "Enregistrer" : <><Folder size={15} /> Brouillon</>}
+            </button>
+            <button onClick={() => setEnvoiOuvert(true)} disabled={saving} style={{ flex: 1.3, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: saving ? 0.6 : 1 }}>
+              <Send size={15} /> {saving ? "..." : r0.envoyee !== false && r0.id ? "Renvoyer à…" : "Envoyer à…"}
+            </button>
+          </div>
+        </div>
+      </Card>
+      {envoiOuvert && (
+        <FeuilleBas titre="Envoyer la recette à…" couleur="#8CBEFF" onClose={() => setEnvoiOuvert(false)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            <OptionFeuille actif={false} couleur="#8CBEFF" onClick={() => { setEnvoiOuvert(false); enregistrer("tous"); }} gauche={<span style={{ fontSize: 22, width: 34, textAlign: "center" }}>👥</span>} titre="Tous mes clients" />
+            {clients.map((c) => (
+              <OptionFeuille key={c.id} actif={r0.client_id === c.id} couleur="#8CBEFF" onClick={() => { setEnvoiOuvert(false); enregistrer(c.id); }}
+                gauche={<span style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(140,190,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#8CBEFF" }}>{(c.prenom || "?").charAt(0)}</span>}
+                titre={`${c.prenom || ""} ${c.nom || ""}`} />
+            ))}
+          </div>
+        </FeuilleBas>
+      )}
+    </div>
+  );
+}
+
+function RecettesCoachView({ coachId, clients, fireToast }) {
+  const [recettes, setRecettes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [onglet, setOnglet] = useState("toutes");
+  const [edition, setEdition] = useState(null); // {} = nouvelle
+  const [filtre, setFiltre] = useState("");
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("recettes").select("*").eq("coach_id", coachId).order("created_at", { ascending: false });
+    if (error) console.error(error);
+    setRecettes(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, [coachId]);
+  const supprimer = async (r) => {
+    if (!confirm(`Supprimer la recette « ${r.nom} » ?${r.envoyee !== false ? " Le client ne la verra plus." : ""}`)) return;
+    const res = await supprimerLignes("recettes", r.id);
+    if (!res.ok) { fireToast(res.message); return; }
+    setRecettes((p) => p.filter((x) => x.id !== r.id));
+  };
+  const nomCible = (r) => (r.envoyee === false ? "Brouillon" : !r.client_id ? "Tous les clients" : (() => { const c = clients.find((x) => x.id === r.client_id); return c ? `${c.prenom} ${c.nom}` : "Client"; })());
+  const brouillons = recettes.filter((r) => r.envoyee === false).length;
+  const liste = recettes.filter((r) => (onglet === "toutes" || (onglet === "brouillons" ? r.envoyee === false : r.envoyee !== false)) && (!filtre.trim() || r.nom.toLowerCase().includes(filtre.trim().toLowerCase())));
+  return (
+    <div style={{ textAlign: "left" }}>
+      {edition && <RecetteEditeur recette={edition.id ? edition : null} coachId={coachId} clients={clients} onClose={() => setEdition(null)} onSaved={load} fireToast={fireToast} />}
+      <button onClick={() => setEdition({})} style={{ width: "100%", background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFF", borderRadius: 16, padding: 14, fontWeight: 800, fontSize: 15.5, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12 }}>
+        <Plus size={18} /> Nouvelle recette
+      </button>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        {[["toutes", `Toutes (${recettes.length})`], ["envoyees", "Envoyées"], ["brouillons", `Brouillons${brouillons ? ` (${brouillons})` : ""}`]].map(([k, l]) => (
+          <PillButton key={k} active={onglet === k} onClick={() => setOnglet(k)} onBg style={{ flex: 1, justifyContent: "center", fontSize: 13 }}>{l}</PillButton>
+        ))}
+      </div>
+      <div style={{ position: "relative", marginBottom: 12 }}>
+        <Search size={16} color={C.textDim} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+        <input value={filtre} onChange={(e) => setFiltre(e.target.value)} placeholder="Rechercher une recette" style={{ ...inputStyle, paddingLeft: 40 }} />
+      </div>
+      {loading ? (
+        <div style={{ color: C.textOnBgMuted, textAlign: "center", padding: 24 }}>Chargement...</div>
+      ) : liste.length === 0 ? (
+        <Card><div style={{ color: C.textMuted, fontSize: 14.5, textAlign: "center" }}>{recettes.length ? "Aucune recette ici" : "Aucune recette pour le moment 🍳"}</div></Card>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {liste.map((r) => {
+            const items = Array.isArray(r.items) ? r.items : [];
+            const t = totauxRecette(items);
+            const repas = MEAL_DEFS.find((m) => m.key === r.type_repas);
+            const brouillon = r.envoyee === false;
+            return (
+              <Card key={r.id} style={{ padding: 14, cursor: "pointer", border: `1px solid ${brouillon ? "rgba(245,184,51,0.35)" : "rgba(140,190,255,0.3)"}` }} onClick={() => setEdition(r)}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>{repas?.emoji || "🍳"}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.nom}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: brouillon ? C.amber : "#8CBEFF", marginTop: 1 }}>{brouillon ? "📁 Brouillon" : `✅ ${nomCible(r)}`}{repas ? <span style={{ color: C.textDim }}> · {repas.nom}</span> : null}</div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); supprimer(r); }} aria-label="Supprimer" style={{ background: "transparent", border: "none", color: C.textDim, padding: 4, display: "flex" }}><Trash2 size={16} /></button>
+                </div>
+                {items.length > 0 ? (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 900, color: C.text, background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "3px 8px" }}>{Math.round(t.kcal)} kcal</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#7FA0FF", background: "rgba(127,160,255,0.12)", borderRadius: 8, padding: "3px 8px" }}>P {Math.round(t.prot)} g</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#F5C542", background: "rgba(245,197,66,0.12)", borderRadius: 8, padding: "3px 8px" }}>G {Math.round(t.gluc)} g</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#F28C38", background: "rgba(242,140,56,0.12)", borderRadius: 8, padding: "3px 8px" }}>L {Math.round(t.lip)} g</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.textDim, padding: "3px 2px" }}>{items.length} ingrédient{items.length > 1 ? "s" : ""}</span>
+                  </div>
+                ) : r.description ? <div style={{ fontSize: 13, color: C.textMuted, marginTop: 8 }}>{r.description}</div> : null}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Client : recettes envoyées par le coach ---------- */
+function RecettesClient({ recettes, onClose }) {
+  const [ouverte, setOuverte] = useState(null);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <SectionHead icon={ClipboardList} title="Recettes de ton coach" />
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.textMuted }}><X size={18} /></button>
+        </div>
+        {recettes.length === 0 ? (
+          <div style={{ color: C.textMuted, fontSize: 13.5, textAlign: "center", padding: 10 }}>Ton coach ne t'a pas encore envoyé de recette</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {recettes.map((r) => {
+              const items = Array.isArray(r.items) ? r.items : [];
+              const t = totauxRecette(items);
+              const ouvert = ouverte === r.id;
+              const repas = MEAL_DEFS.find((m) => m.key === r.type_repas);
+              return (
+                <div key={r.id} style={{ borderRadius: 14, background: "rgba(255,255,255,0.04)", border: `1px solid ${ouvert ? "rgba(140,190,255,0.5)" : "rgba(255,255,255,0.08)"}` }}>
+                  <button type="button" onClick={() => setOuverte(ouvert ? null : r.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", textAlign: "left", padding: "11px 12px" }}>
+                    <span style={{ fontSize: 20 }}>{repas?.emoji || "🍳"}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{r.nom}</div>
+                      {items.length > 0 && <div style={{ fontSize: 12, color: C.textDim, fontWeight: 700 }}>{Math.round(t.kcal)} kcal · <span style={{ color: "#7FA0FF" }}>P {Math.round(t.prot)}</span> · <span style={{ color: "#F5C542" }}>G {Math.round(t.gluc)}</span> · <span style={{ color: "#F28C38" }}>L {Math.round(t.lip)}</span></div>}
+                    </div>
+                    <ChevronDown size={16} color={C.textMuted} style={{ transform: ouvert ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  </button>
+                  {ouvert && (
+                    <div style={{ padding: "0 12px 12px", fontSize: 13.5, color: C.textMuted, animation: "carteIn .2s ease" }}>
+                      {r.description && <div style={{ marginBottom: 8 }}>{r.description}</div>}
+                      <div style={{ fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 4 }}>🥗 Ingrédients</div>
+                      {items.length ? items.map((it, i) => <div key={i}>• {it.nom} — <b style={{ color: C.text }}>{it.grams} g</b></div>) : <div style={{ whiteSpace: "pre-line" }}>{r.ingredients}</div>}
+                      {r.instructions && (<><div style={{ fontSize: 12, fontWeight: 800, color: C.text, margin: "10px 0 4px" }}>👨‍🍳 Préparation</div><div style={{ whiteSpace: "pre-line" }}>{r.instructions}</div></>)}
+                      {items.length > 0 && <div style={{ fontSize: 12, color: C.textDim, marginTop: 10 }}>Pour l'ajouter à ta journée : dans un repas, ⋮ › « Ajouter une recette ».</div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+async function chargerRecettesCoachPourMoi(profilId, coachId) {
+  if (!profilId) return [];
+  const { data } = await supabase.from("recettes").select("*").order("created_at", { ascending: false }).limit(100);
+  return (data || []).filter((r) => r.envoyee !== false && (r.client_id === profilId || (!r.client_id && coachId && r.coach_id === coachId)));
+}
+
 function AlimentationView({ coachId, clients, fireToast, section }) {
   const [targetClientId, setTargetClientId] = useState("tous");
   const [loading, setLoading] = useState(true);
@@ -14244,7 +14597,7 @@ function CoachDashboard({ coachProfil, onLogout, fireToast, viewMode, setViewMod
           <ProgrammesCourseView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
         ) : coachTab === "alimentation-aliments" ? (
           <MesAlimentsView coachId={coachProfil.id} fireToast={fireToast} />        ) : coachTab === "alimentation-recettes" ? (
-          <AlimentationView coachId={coachProfil.id} clients={clients} fireToast={fireToast} section="recettes" />
+          <RecettesCoachView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
         ) : coachTab === "alimentation-courses" ? (
           <CoursesCoachView coachId={coachProfil.id} clients={clients} fireToast={fireToast} />
         ) : coachTab === "alimentation-supplements" ? (
