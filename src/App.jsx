@@ -4192,8 +4192,43 @@ function ScannerCodeBarres({ onClose, onScan }) {
   );
 }
 
+// Classement des aliments du coach : Protéines / Glucides / Lipides
+const CATEGORIES_ALIMENT = [
+  { key: "proteines", label: "Protéines", emoji: "🥩", color: "#7FA0FF" },
+  { key: "glucides", label: "Glucides", emoji: "🍚", color: "#F5C542" },
+  { key: "lipides", label: "Lipides", emoji: "🥑", color: "#F28C38" },
+];
+function categorieSuggeree(a) {
+  const p = (Number(a?.prot) || 0) * 4, g = (Number(a?.gluc) || 0) * 4, l = (Number(a?.lip) || 0) * 9;
+  if (!p && !g && !l) return "glucides";
+  return p >= g && p >= l ? "proteines" : g >= l ? "glucides" : "lipides";
+}
+const categorieAliment = (a) => (CATEGORIES_ALIMENT.some((c) => c.key === a?.categorie) ? a.categorie : categorieSuggeree(a));
+
+// Ajoute un aliment (valeurs pour 100 g) à la base du coach, visible par tous ses clients
+async function ajouterAlimentAuCoach(coachId, a, categorie) {
+  const { data: deja } = await supabase.from("aliments_coach").select("id").eq("coach_id", coachId).ilike("nom", a.nom).limit(1);
+  if (deja && deja.length) return { ok: false, message: `« ${a.nom} » est déjà dans tes aliments` };
+  const base = { coach_id: coachId, nom: a.nom, kcal: Math.round(Number(a.kcal) || 0), prot: Number(a.prot) || 0, gluc: Number(a.gluc) || 0, lip: Number(a.lip) || 0, fibres: Number(a.fibres) || 0, sucres: Number(a.sucres) || 0 };
+  const complet = { ...base, categorie, sodium: Number(a.sodium) || 0, potassium: Number(a.potassium) || 0, calcium: Number(a.calcium) || 0, fer: Number(a.fer) || 0, magnesium: Number(a.magnesium) || 0, vitamine_d: Number(a.vitamineD ?? a.vitamine_d) || 0 };
+  let { error } = await supabase.from("aliments_coach").insert(complet);
+  if (error && /column|schema cache/i.test(error.message || "")) ({ error } = await supabase.from("aliments_coach").insert(base)); // script SQL pas encore lancé
+  if (error) { console.error(error); return { ok: false, message: "Erreur ajout à tes aliments" }; }
+  return { ok: true };
+}
+
 function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId, isCoach = false, coachIdAliments = null }) {
   const [showScanner, setShowScanner] = useState(false);
+  const [aPartager, setAPartager] = useState(null); // aliment perso à ajouter aux aliments du coach
+  const [ajoutesCoach, setAjoutesCoach] = useState([]);
+  const partager = async (categorie) => {
+    const a = aPartager;
+    setAPartager(null);
+    const res = await ajouterAlimentAuCoach(coachIdAliments, a, categorie);
+    if (!res.ok) { fireToast(res.message); if (/déjà/.test(res.message)) setAjoutesCoach((p) => [...p, a.nom.toLowerCase()]); return; }
+    setAjoutesCoach((p) => [...p, a.nom.toLowerCase()]);
+    fireToast(`« ${a.nom} » ajouté à tes aliments · visible par tes clients`, "green");
+  };
   const [editingNomAliment, setEditingNomAliment] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editGrams, setEditGrams] = useState("");
@@ -4433,6 +4468,9 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
   const [manualProt, setManualProt] = useState("");
   const [manualGluc, setManualGluc] = useState("");
   const [manualLip, setManualLip] = useState("");
+  const [manualFibres, setManualFibres] = useState("");
+  const [manualPotassium, setManualPotassium] = useState("");
+  const [manualPlus, setManualPlus] = useState(false);
   const searchTimeoutRef = useRef(null);
 
   const totalKcal = items.reduce((a, i) => a + i.kcal, 0);
@@ -4487,7 +4525,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
           lip: a.lip || 0,
           fibres: a.fibres || 0,
           sucres: a.sucres || 0,
-          sodium: 0, potassium: 0, calcium: 0, fer: 0, magnesium: 0, vitamineD: 0,
+          sodium: a.sodium || 0, potassium: a.potassium || 0, calcium: a.calcium || 0, fer: a.fer || 0, magnesium: a.magnesium || 0, vitamineD: a.vitamine_d || 0,
           poidsPortionSuggere: a.portion_g ? Math.round(a.portion_g) : null,
         }));
 
@@ -4581,6 +4619,8 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
     }
     if (!nom || (!kcal && !prot && !gluc && !lip)) return;
     const grams = parseFloat(manualGrams) || 0;
+    const fibres = parseFloat(String(manualFibres).replace(",", ".")) || 0;
+    const potassium = (parseFloat(String(manualPotassium).replace(",", ".")) || 0) / 1000; // mg -> g
     onAdd(meal.key, {
       id: Date.now(),
       nom,
@@ -4589,7 +4629,7 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
       prot: +prot.toFixed(1),
       gluc: +gluc.toFixed(1),
       lip: +lip.toFixed(1),
-      fibres: 0, sucres: 0, sodium: 0, potassium: 0, calcium: 0, fer: 0, magnesium: 0, vitamineD: 0,
+      fibres: +fibres.toFixed(1), sucres: 0, sodium: 0, potassium, calcium: 0, fer: 0, magnesium: 0, vitamineD: 0,
     });
 
     // Enregistre cet aliment dans la base personnelle pour le retrouver facilement la prochaine fois
@@ -4603,12 +4643,14 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
         prot: +(prot * ratio).toFixed(1),
         gluc: +(gluc * ratio).toFixed(1),
         lip: +(lip * ratio).toFixed(1),
+        ...(fibres ? { fibres: +(fibres * ratio).toFixed(1) } : {}),
+        ...(potassium ? { potassium: +(potassium * ratio).toFixed(4) } : {}),
       }).then(({ error }) => {
         if (error) console.error("Erreur sauvegarde aliment manuel:", error);
       });
     }
 
-    setManualNom(""); setManualGrams(""); setManualKcal(""); setManualProt(""); setManualGluc(""); setManualLip("");
+    setManualNom(""); setManualGrams(""); setManualKcal(""); setManualProt(""); setManualGluc(""); setManualLip(""); setManualFibres(""); setManualPotassium(""); setManualPlus(false);
     setCodeBarreEnAttente(null);
     setManualMode(false);
     setShowAddForm(false);
@@ -4812,16 +4854,27 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                 {searchResults.length > 0 && !selectedFood && (
                   <div style={{ marginTop: 6, maxHeight: 200, overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, background: "rgba(255,255,255,0.04)" }}>
                     {searchResults.map((r, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", borderBottom: i < searchResults.length - 1 ? `1px solid ${C.cardBorderLight}` : "none" }}>
                       <button
-                        key={i}
                         onClick={() => { setSelectedFood(r); setSearchResults([]); setSearchQuery(r.nom); if (r.poidsPortionSuggere) setPoidsPortion(String(r.poidsPortionSuggere)); }}
-                        style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", borderBottom: i < searchResults.length - 1 ? `1px solid ${C.cardBorderLight}` : "none", padding: "11px 14px" }}
+                        style={{ flex: 1, minWidth: 0, display: "block", textAlign: "left", background: "transparent", border: "none", padding: "11px 12px" }}
                       >
                         <div style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>{r.nom}</div>
                         <div style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>
                           {Math.round(r.kcal)} kcal / 100g · <span style={{ color: r.source === "Mes aliments" ? C.amber : (r.source === "CIQUAL" ? C.green : C.blue) }}>{r.source}</span>
                         </div>
                       </button>
+                      {isCoach && coachIdAliments && r.source === "Mes aliments" && (
+                        ajoutesCoach.includes(r.nom.toLowerCase()) ? (
+                          <span style={{ width: 34, height: 34, marginRight: 8, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(58,214,160,0.15)", flexShrink: 0 }}><Check size={16} color={C.green} strokeWidth={3} /></span>
+                        ) : (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setAPartager(r); }} aria-label="Ajouter à mes aliments pour mes clients"
+                            style={{ width: 34, height: 34, marginRight: 8, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(245,184,51,0.14)", border: "1.5px solid rgba(245,184,51,0.6)", color: C.amber, padding: 0 }}>
+                            <Plus size={16} strokeWidth={3} />
+                          </button>
+                        )
+                      )}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -4902,6 +4955,15 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                 <input type="number" placeholder="Glucides (g)" value={manualGluc} onChange={(e) => setManualGluc(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 12.5, fontFamily: FONT_MONO }} />
                 <input type="number" placeholder="Lipides (g)" value={manualLip} onChange={(e) => setManualLip(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 8px", color: C.text, fontSize: 12.5, fontFamily: FONT_MONO }} />
               </div>
+              <button type="button" onClick={() => setManualPlus(!manualPlus)} style={{ background: "transparent", border: "none", color: C.textMuted, fontSize: 12, fontWeight: 700, textAlign: "left", padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                <ChevronDown size={14} style={{ transform: manualPlus ? "rotate(180deg)" : "none", transition: "transform .2s" }} /> Fibres, potassium (optionnel)
+              </button>
+              {manualPlus && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input type="number" inputMode="decimal" placeholder="Fibres (g)" value={manualFibres} onChange={(e) => setManualFibres(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
+                  <input type="number" inputMode="decimal" placeholder="Potassium (mg)" value={manualPotassium} onChange={(e) => setManualPotassium(e.target.value)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 10px", color: C.text, fontSize: 13 }} />
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setManualMode(false)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.cardBorderLight}`, borderRadius: 10, padding: "9px 0", color: C.textMuted, fontSize: 13, fontWeight: 600 }}>
                   Annuler
@@ -4915,6 +4977,17 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
             </div>
           </Card>
         </div>
+      )}
+      {aPartager && (
+        <FeuilleBas titre="Ajouter à mes aliments" sousTitre={`« ${aPartager.nom} » sera visible par tous tes clients. Dans quel dossier ?`} couleur="#F5B833" onClose={() => setAPartager(null)} zIndex={260}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {CATEGORIES_ALIMENT.map((c) => (
+              <OptionFeuille key={c.key} actif={categorieSuggeree(aPartager) === c.key} couleur={c.color} onClick={() => partager(c.key)}
+                gauche={<span style={{ fontSize: 22, width: 34, textAlign: "center" }}>{c.emoji}</span>}
+                titre={c.label} desc={categorieSuggeree(aPartager) === c.key ? "Suggéré d'après ses macros" : null} />
+            ))}
+          </div>
+        </FeuilleBas>
       )}
       {showCopieModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 170, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setShowCopieModal(false)}>
@@ -10385,7 +10458,9 @@ function ProgrammesModelesView({ coachId, clients, fireToast }) {
 // dans la recherche d'aliments du coach ET de tous ses clients (MealCard, source
 // « Aliments du coach »), en plus de CIQUAL et Open Food Facts.
 function MesAlimentsView({ coachId, fireToast }) {
-  const vide = { nom: "", kcal: "", prot: "", gluc: "", lip: "", fibres: "", sucres: "", portion_g: "" };
+  const vide = { nom: "", kcal: "", prot: "", gluc: "", lip: "", fibres: "", sucres: "", portion_g: "", categorie: "", sodium: "", potassium: "", calcium: "", fer: "", magnesium: "", vitamine_d: "" };
+  const [dossier, setDossier] = useState("tous");
+  const [plusValeurs, setPlusValeurs] = useState(false);
   const [aliments, setAliments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erreurTable, setErreurTable] = useState(false);
@@ -10416,13 +10491,19 @@ function MesAlimentsView({ coachId, fireToast }) {
   };
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const ouvrirNouveau = () => { setForm(vide); setEditId(null); setShowForm(true); };
+  // micro-nutriments : stockés en grammes (comme le reste de l'appli), saisis en mg / µg
+  const mg = (v) => { const n = num(v); return n == null ? 0 : n / 1000; };
+  const versMg = (g) => (g ? Math.round(Number(g) * 1000 * 10) / 10 : "");
+  const ouvrirNouveau = () => { setForm({ ...vide, categorie: dossier !== "tous" ? dossier : "" }); setEditId(null); setPlusValeurs(false); setShowForm(true); };
   const ouvrirEdition = (a) => {
     setForm({
       nom: a.nom || "", kcal: a.kcal ?? "", prot: a.prot ?? "", gluc: a.gluc ?? "", lip: a.lip ?? "",
-      fibres: a.fibres ?? "", sucres: a.sucres ?? "", portion_g: a.portion_g ?? "",
+      fibres: a.fibres || "", sucres: a.sucres || "", portion_g: a.portion_g ?? "", categorie: categorieAliment(a),
+      sodium: versMg(a.sodium), potassium: versMg(a.potassium), calcium: versMg(a.calcium), fer: versMg(a.fer), magnesium: versMg(a.magnesium),
+      vitamine_d: a.vitamine_d ? Math.round(Number(a.vitamine_d) * 1e6 * 10) / 10 : "",
     });
     setEditId(a.id);
+    setPlusValeurs(!!(a.sodium || a.potassium || a.calcium || a.fer || a.magnesium || a.vitamine_d));
     setShowForm(true);
   };
 
@@ -10440,11 +10521,20 @@ function MesAlimentsView({ coachId, fireToast }) {
       sucres: num(form.sucres) || 0,
       portion_g: num(form.portion_g),
     };
+    const complet = {
+      ...ligne,
+      categorie: form.categorie || categorieSuggeree({ prot, gluc, lip }),
+      sodium: mg(form.sodium), potassium: mg(form.potassium), calcium: mg(form.calcium), fer: mg(form.fer), magnesium: mg(form.magnesium),
+      vitamine_d: num(form.vitamine_d) ? num(form.vitamine_d) / 1e6 : 0,
+    };
     setSaving(true);
     try {
-      const { error } = editId
-        ? await supabase.from("aliments_coach").update(ligne).eq("id", editId)
-        : await supabase.from("aliments_coach").insert(ligne);
+      const ecrire = (l) => (editId ? supabase.from("aliments_coach").update(l).eq("id", editId) : supabase.from("aliments_coach").insert(l));
+      let { error } = await ecrire(complet);
+      if (error && /column|schema cache/i.test(error.message || "")) {
+        ({ error } = await ecrire(ligne)); // colonnes pas encore créées : on enregistre l'essentiel
+        if (!error) fireToast("Enregistré sans dossier ni minéraux : lance le script SQL « aliments dossiers »");
+      }
       if (error) throw error;
       fireToast(editId ? "Aliment modifié" : "Aliment ajouté", "green");
       setShowForm(false);
@@ -10467,7 +10557,9 @@ function MesAlimentsView({ coachId, fireToast }) {
   };
 
   const fmt = (n) => (Math.round((Number(n) || 0) * 10) / 10).toString().replace(".", ",");
-  const liste = aliments.filter((a) => !filtre.trim() || a.nom.toLowerCase().includes(filtre.trim().toLowerCase()));
+  const liste = aliments.filter((a) => (!filtre.trim() || a.nom.toLowerCase().includes(filtre.trim().toLowerCase())) && (dossier === "tous" || categorieAliment(a) === dossier));
+  const compte = (k) => aliments.filter((a) => categorieAliment(a) === k).length;
+  const dossierActif = CATEGORIES_ALIMENT.find((c) => c.key === dossier);
   const btnPrimaire = { background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFFFFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 14.5 };
 
   return (
@@ -10492,8 +10584,23 @@ function MesAlimentsView({ coachId, fireToast }) {
         <input value={filtre} onChange={(e) => setFiltre(e.target.value)} placeholder="Rechercher dans mes aliments" style={{ ...inputStyle, paddingLeft: 40 }} />
       </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+        {[{ key: "tous", label: "Tous", emoji: "📁", color: "#8CBEFF" }, ...CATEGORIES_ALIMENT].map((c) => {
+          const actif = dossier === c.key;
+          const n = c.key === "tous" ? aliments.length : compte(c.key);
+          return (
+            <button key={c.key} type="button" onClick={() => setDossier(c.key)} style={{ borderRadius: 16, padding: "10px 4px 9px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              background: actif ? `${c.color}24` : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? c.color : "rgba(255,255,255,0.1)"}`, boxShadow: actif ? `0 0 14px ${c.color}44` : "none", transition: "all .15s" }}>
+              <span style={{ fontSize: 22 }}>{c.emoji}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: actif ? c.color : C.text }}>{c.label}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.textDim }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <Card>
-        <SectionHead icon={Apple} title="Mes aliments" count={aliments.length} />
+        <SectionHead icon={Apple} title={dossierActif ? `${dossierActif.emoji} ${dossierActif.label}` : "Mes aliments"} count={liste.length} />
         {loading ? (
           <div style={{ fontSize: 13.5, color: C.textMuted }}>Chargement...</div>
         ) : liste.length === 0 ? (
@@ -10530,6 +10637,22 @@ function MesAlimentsView({ coachId, fireToast }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <Field label="Nom"><input style={inputStyle} value={form.nom} onChange={set("nom")} placeholder="ex : Galette de riz complet" /></Field>
+              <div>
+                <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700, marginBottom: 6 }}>Dossier</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                  {CATEGORIES_ALIMENT.map((c) => {
+                    const choisi = form.categorie || categorieSuggeree({ prot: num(form.prot), gluc: num(form.gluc), lip: num(form.lip) });
+                    const actif = choisi === c.key;
+                    return (
+                      <button key={c.key} type="button" onClick={() => setForm({ ...form, categorie: c.key })} style={{ padding: "9px 4px", borderRadius: 12, fontSize: 13, fontWeight: 800,
+                        background: actif ? `${c.color}26` : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? c.color : "rgba(255,255,255,0.1)"}`, color: actif ? c.color : C.textMuted }}>
+                        {c.emoji} {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {!form.categorie && <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 4 }}>Choisi automatiquement d'après les macros, touche pour changer.</div>}
+              </div>
               <div style={{ fontSize: 12.5, color: C.textMuted, fontWeight: 700 }}>Valeurs pour 100 g</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <Field label="Calories (kcal)"><input type="number" inputMode="decimal" style={inputStyle} value={form.kcal} onChange={set("kcal")} placeholder="auto si vide" /></Field>
@@ -10540,6 +10663,20 @@ function MesAlimentsView({ coachId, fireToast }) {
                 <Field label="Sucres (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.sucres} onChange={set("sucres")} placeholder="optionnel" /></Field>
               </div>
               <Field label="Poids d'une portion (g)"><input type="number" inputMode="decimal" style={inputStyle} value={form.portion_g} onChange={set("portion_g")} placeholder="optionnel, ex : 30" /></Field>
+              <button type="button" onClick={() => setPlusValeurs(!plusValeurs)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "10px 12px", color: C.textMuted, fontSize: 13.5, fontWeight: 700 }}>
+                <span>Minéraux et vitamines <span style={{ color: C.textDim, fontWeight: 600 }}>(optionnel)</span></span>
+                <ChevronDown size={16} style={{ transform: plusValeurs ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+              </button>
+              {plusValeurs && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, animation: "carteIn .2s ease" }}>
+                  <Field label="Potassium (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.potassium} onChange={set("potassium")} placeholder="optionnel" /></Field>
+                  <Field label="Sodium (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.sodium} onChange={set("sodium")} placeholder="optionnel" /></Field>
+                  <Field label="Calcium (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.calcium} onChange={set("calcium")} placeholder="optionnel" /></Field>
+                  <Field label="Magnésium (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.magnesium} onChange={set("magnesium")} placeholder="optionnel" /></Field>
+                  <Field label="Fer (mg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.fer} onChange={set("fer")} placeholder="optionnel" /></Field>
+                  <Field label="Vitamine D (µg)"><input type="number" inputMode="decimal" style={inputStyle} value={form.vitamine_d} onChange={set("vitamine_d")} placeholder="optionnel" /></Field>
+                </div>
+              )}
               <button onClick={enregistrer} disabled={saving} style={{ ...btnPrimaire, opacity: saving ? 0.6 : 1, marginTop: 4 }}>
                 {saving ? "Enregistrement..." : editId ? "Enregistrer les modifications" : "Ajouter l'aliment"}
               </button>
