@@ -4194,11 +4194,11 @@ function ScannerCodeBarres({ onClose, onScan }) {
 
 // Dossiers de recettes selon les calories totales
 const TRANCHES_KCAL = [
-  { key: "tous", label: "Toutes", test: () => true },
-  { key: "500", label: "< 500", test: (k) => k < 500 },
-  { key: "1000", label: "500–1000", test: (k) => k >= 500 && k < 1000 },
-  { key: "1500", label: "1000–1500", test: (k) => k >= 1000 && k < 1500 },
-  { key: "plus", label: "1500 +", test: (k) => k >= 1500 },
+  { key: "tous", label: "Toutes", test: () => true, color: "#8CBEFF", flammes: 0 },
+  { key: "500", label: "< 500", test: (k) => k < 500, color: "#3AD6A0", flammes: 1 },
+  { key: "1000", label: "500–1000", test: (k) => k >= 500 && k < 1000, color: "#8CBEFF", flammes: 2 },
+  { key: "1500", label: "1000–1500", test: (k) => k >= 1000 && k < 1500, color: "#F5B833", flammes: 3 },
+  { key: "plus", label: "1500 +", test: (k) => k >= 1500, color: "#FF5D6C", flammes: 4 },
 ];
 const kcalRecette = (r) => (r.items || []).reduce((s, it) => s + (Number(it.kcal) || 0), 0);
 
@@ -5089,11 +5089,15 @@ function MealCard({ meal, items, onAdd, onRemove, onUpdate, fireToast, profilId,
                     const actif = trancheKcal === t.key;
                     return (
                       <button key={t.key} type="button" onClick={() => setTrancheKcal(t.key)} style={{ position: "relative", borderRadius: 12, padding: "8px 2px 7px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-                        background: actif ? "rgba(245,184,51,0.16)" : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? C.amber : "rgba(255,255,255,0.1)"}`, transition: "all .15s" }}>
-                        <span style={{ fontSize: 16 }}>{t.key === "tous" ? "📚" : "📁"}</span>
-                        <span style={{ fontSize: 10.5, fontWeight: 800, color: actif ? C.amber : C.text, whiteSpace: "nowrap" }}>{t.label}</span>
+                        background: actif ? `${t.color}22` : "rgba(255,255,255,0.04)", border: `1.5px solid ${actif ? t.color : "rgba(255,255,255,0.1)"}`, transition: "all .15s" }}>
+                        <span style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
+                          {t.flammes === 0
+                            ? <LayoutDashboard size={16} color={t.color} />
+                            : Array.from({ length: Math.min(t.flammes, 3) }).map((_, i) => <Flame key={i} size={t.flammes >= 3 ? 12 : 15} color={t.color} fill={t.flammes === 4 ? t.color : "none"} style={{ marginLeft: i ? -3 : 0 }} />)}
+                        </span>
+                        <span style={{ fontSize: 10.5, fontWeight: 800, color: actif ? t.color : C.text, whiteSpace: "nowrap" }}>{t.label}</span>
                         <span style={{ position: "absolute", top: -6, right: -4, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, fontSize: 10.5, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center",
-                          background: n ? (actif ? C.amber : "#3B6FE0") : "rgba(255,255,255,0.12)", color: n ? (actif ? "#3D2600" : "#FFF") : C.textDim }}>{n}</span>
+                          background: n ? (actif ? t.color : "#3B6FE0") : "rgba(255,255,255,0.12)", color: n ? (actif ? "#06171F" : "#FFF") : C.textDim }}>{n}</span>
                       </button>
                     );
                   })}
