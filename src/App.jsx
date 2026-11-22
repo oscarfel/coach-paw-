@@ -8443,6 +8443,7 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
   const [initial, setInitial] = useState({});
   const [deplacer, setDeplacer] = useState(null); // séance en cours de déplacement
   const [anime, setAnime] = useState(null);
+  const [aSupprimer, setASupprimer] = useState([]); // ids marqués pour suppression (appliqué à l'enregistrement)
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -8454,7 +8455,9 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
     });
   }, [clientId]);
 
-  const changes = (seances || []).filter((s) => (initial[s.id] ?? "") !== s.jour_fixe);
+  const visibles = (seances || []).filter((s) => !aSupprimer.includes(s.id));
+  const changes = visibles.filter((s) => (initial[s.id] ?? "") !== s.jour_fixe);
+  const nbModifs = changes.length + aSupprimer.length;
   const deplacerVers = (id, jour) => {
     setSeances((prev) => prev.map((s) => (s.id === id ? { ...s, jour_fixe: jour } : s)));
     setAnime(id);
@@ -8500,16 +8503,20 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
   };
 
   const enregistrer = async () => {
-    if (changes.length === 0) { onClose(); return; }
+    if (nbModifs === 0) { onClose(); return; }
     setSaving(true);
     let erreurs = 0;
+    if (aSupprimer.length) {
+      const res = await supprimerLignes("programmes", aSupprimer);
+      if (!res.ok) { setSaving(false); fireToast(res.message); return; }
+    }
     for (const s of changes) {
       const { data, error } = await supabase.from("programmes").update({ jour_fixe: s.jour_fixe || null, updated_at: new Date().toISOString() }).eq("id", s.id).select("id");
       if (error || !data || data.length === 0) { erreurs++; console.error(error); }
     }
     setSaving(false);
     if (erreurs) { fireToast(`${erreurs} séance(s) n'ont pas pu être déplacées`); return; }
-    fireToast(`Semaine réorganisée (${changes.length} séance${changes.length > 1 ? "s" : ""} déplacée${changes.length > 1 ? "s" : ""})`, "green");
+    fireToast([changes.length ? `${changes.length} déplacée${changes.length > 1 ? "s" : ""}` : null, aSupprimer.length ? `${aSupprimer.length} supprimée${aSupprimer.length > 1 ? "s" : ""}` : null].filter(Boolean).join(" · ") || "Semaine enregistrée", "green");
     onCreated && onCreated();
     onClose();
   };
@@ -8560,7 +8567,7 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {jours.map((j) => {
-              const duJour = seances.filter((s) => s.jour_fixe === j);
+              const duJour = visibles.filter((s) => s.jour_fixe === j);
               if (j === "" && duJour.length === 0 && !drag) return null;
               const survol = drag && drag.cible === j && drag.depart !== j;
               return (
@@ -8577,10 +8584,17 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
             })}
           </div>
         )}
+        {aSupprimer.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, padding: "9px 12px", borderRadius: 12, background: "rgba(255,93,108,0.08)", border: "1px solid rgba(255,93,108,0.4)", animation: "carteIn .2s ease" }}>
+            <Trash2 size={15} color={C.red} />
+            <span style={{ flex: 1, fontSize: 13, color: C.text, fontWeight: 700 }}>{aSupprimer.length} séance{aSupprimer.length > 1 ? "s" : ""} à supprimer</span>
+            <button type="button" onClick={() => setASupprimer([])} style={{ background: "transparent", border: "none", color: C.red, fontSize: 13, fontWeight: 800, padding: 0 }}>Annuler</button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
           <button onClick={onClose} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: C.text, borderRadius: 14, padding: "13px", fontWeight: 700, fontSize: 15 }}>Annuler</button>
           <button onClick={enregistrer} disabled={saving} style={{ flex: 1.6, background: C.blue, backgroundImage: "linear-gradient(135deg,#5B8CFF,#2F5BD0)", boxShadow: "0 4px 18px rgba(59,111,224,0.45)", border: "none", color: "#FFF", borderRadius: 14, padding: "13px", fontWeight: 800, fontSize: 15, opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Enregistrement..." : changes.length ? `Enregistrer (${changes.length})` : "Fermer"}
+            {saving ? "Enregistrement..." : nbModifs ? `Enregistrer (${nbModifs})` : "Fermer"}
           </button>
         </div>
       </Card>
@@ -8589,7 +8603,7 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
         <FeuilleBas titre={`Déplacer « ${deplacer.nom} »`} couleur="#F5B833" onClose={() => setDeplacer(null)}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
             {jours.map((j) => {
-              const nb = seances.filter((s) => s.jour_fixe === j && s.id !== deplacer.id).length;
+              const nb = visibles.filter((s) => s.jour_fixe === j && s.id !== deplacer.id).length;
               return (
                 <TuileChoix key={j || "aucun"} actif={deplacer.jour_fixe === j} couleur="#F5B833" onClick={() => choisirJour(j)}>
                   <span style={{ fontSize: 15, fontWeight: 900, color: deplacer.jour_fixe === j ? "#F5B833" : C.text }}>{j ? JOURS_SEMAINE_LABEL[j] : "Libre"}</span>
@@ -8598,6 +8612,10 @@ function OrganiserSemaine({ clientId, onClose, onCreated, fireToast }) {
               );
             })}
           </div>
+          <button type="button" onClick={() => { const id = deplacer.id; setDeplacer(null); setASupprimer((p) => [...p, id]); if (navigator.vibrate) navigator.vibrate(12); }}
+            style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", borderRadius: 14, background: "rgba(255,93,108,0.08)", border: "1.5px solid rgba(255,93,108,0.55)", color: C.red, fontWeight: 800, fontSize: 14.5 }}>
+            <Trash2 size={16} /> Supprimer cette séance
+          </button>
         </FeuilleBas>
       )}
     </div>
