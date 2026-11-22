@@ -10778,7 +10778,6 @@ function RecetteEditeur({ recette, coachId, clients, onClose, onSaved, fireToast
     base: it.base || (Number(it.grams) > 0 ? { kcal: (it.kcal * 100) / it.grams, prot: (it.prot * 100) / it.grams, gluc: (it.gluc * 100) / it.grams, lip: (it.lip * 100) / it.grams, fibres: ((it.fibres || 0) * 100) / it.grams } : { kcal: it.kcal, prot: it.prot, gluc: it.gluc, lip: it.lip }),
   }));
   const [nom, setNom] = useState(r0.nom || "");
-  const [typeRepas, setTypeRepas] = useState(r0.type_repas || "");
   const [description, setDescription] = useState(r0.description || "");
   const [instructions, setInstructions] = useState(r0.instructions || "");
   const [items, setItems] = useState(itemsInit);
@@ -10818,7 +10817,7 @@ function RecetteEditeur({ recette, coachId, clients, onClose, onSaved, fireToast
     const texte = itemsPropres.length ? itemsPropres.map((it) => `${it.nom} — ${it.grams} g`).join("\n") : texteLibre;
     const row = {
       coach_id: coachId, nom: nom.trim(), description: description || (itemsPropres.length ? `${Math.round(tot.kcal)} kcal · P ${Math.round(tot.prot)} g · G ${Math.round(tot.gluc)} g · L ${Math.round(tot.lip)} g` : ""),
-      ingredients: texte, instructions, items: itemsPropres.length ? itemsPropres : null, type_repas: typeRepas || null,
+      ingredients: texte, instructions, items: itemsPropres.length ? itemsPropres : null, type_repas: null, // la recette peut aller dans n'importe quel repas
     };
     if (cible === "brouillon") { row.envoyee = false; row.client_id = null; }
     else if (cible) { row.envoyee = true; row.client_id = cible === "tous" ? null : cible; }
@@ -10849,11 +10848,7 @@ function RecetteEditeur({ recette, coachId, clients, onClose, onSaved, fireToast
           <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textMuted, padding: 0 }}><X size={16} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Field label="Nom"><input style={champ} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex : Porridge spéculos" /></Field>
-            <ChoixDeroulant label="Repas" valeur={typeRepas} onChange={setTypeRepas} couleur="#F5B833" placeholder="Au choix"
-              options={[{ value: "", label: "N'importe quand" }, ...MEAL_DEFS.map((m) => ({ value: m.key, label: `${m.emoji} ${m.nom}` }))]} />
-          </div>
+          <Field label="Nom"><input style={champ} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex : Porridge spéculos" /></Field>
 
           {/* Totaux */}
           <div style={{ borderRadius: 16, padding: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, textAlign: "center" }}>
@@ -10992,15 +10987,14 @@ function RecettesCoachView({ coachId, clients, fireToast }) {
           {liste.map((r) => {
             const items = Array.isArray(r.items) ? r.items : [];
             const t = totauxRecette(items);
-            const repas = MEAL_DEFS.find((m) => m.key === r.type_repas);
             const brouillon = r.envoyee === false;
             return (
               <Card key={r.id} style={{ padding: 14, cursor: "pointer", border: `1px solid ${brouillon ? "rgba(245,184,51,0.35)" : "rgba(140,190,255,0.3)"}` }} onClick={() => setEdition(r)}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <span style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>{repas?.emoji || "🍳"}</span>
+                  <span style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>🍳</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 16, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.nom}</div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: brouillon ? C.amber : "#8CBEFF", marginTop: 1 }}>{brouillon ? "📁 Brouillon" : `✅ ${nomCible(r)}`}{repas ? <span style={{ color: C.textDim }}> · {repas.nom}</span> : null}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: brouillon ? C.amber : "#8CBEFF", marginTop: 1 }}>{brouillon ? "📁 Brouillon" : `✅ ${nomCible(r)}`}</div>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); supprimer(r); }} aria-label="Supprimer" style={{ background: "transparent", border: "none", color: C.textDim, padding: 4, display: "flex" }}><Trash2 size={16} /></button>
                 </div>
@@ -11040,11 +11034,10 @@ function RecettesClient({ recettes, onClose }) {
               const items = Array.isArray(r.items) ? r.items : [];
               const t = totauxRecette(items);
               const ouvert = ouverte === r.id;
-              const repas = MEAL_DEFS.find((m) => m.key === r.type_repas);
               return (
                 <div key={r.id} style={{ borderRadius: 14, background: "rgba(255,255,255,0.04)", border: `1px solid ${ouvert ? "rgba(140,190,255,0.5)" : "rgba(255,255,255,0.08)"}` }}>
                   <button type="button" onClick={() => setOuverte(ouvert ? null : r.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", textAlign: "left", padding: "11px 12px" }}>
-                    <span style={{ fontSize: 20 }}>{repas?.emoji || "🍳"}</span>
+                    <span style={{ fontSize: 20 }}>🍳</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{r.nom}</div>
                       {items.length > 0 && <div style={{ fontSize: 12, color: C.textDim, fontWeight: 700 }}>{Math.round(t.kcal)} kcal · <span style={{ color: "#7FA0FF" }}>P {Math.round(t.prot)}</span> · <span style={{ color: "#F5C542" }}>G {Math.round(t.gluc)}</span> · <span style={{ color: "#F28C38" }}>L {Math.round(t.lip)}</span></div>}
